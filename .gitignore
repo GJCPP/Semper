@@ -1,0 +1,11 @@
+test.cpp
+test
+*.py
+goldilocks
+src_debug
+merkle-tree
+bench
+*.png
+*.log
+*.d
+build
