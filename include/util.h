@@ -59,9 +59,13 @@ MultilinearPolynomial eq(const size_t& num_var, const std::vector<Goldilocks2::E
 // calculate the inverse of all elements in arr with calculating only one inverse
 void batch_inverse(std::vector<Goldilocks2::Element>& inv, const std::vector<Goldilocks2::Element>& arr);
 
+Goldilocks::Element random_base();
+
 std::vector<Goldilocks::Element> random_vec_base(const size_t& n);
 
 std::vector<uint64_t> random_vec_uint(const size_t& n);
+
+Goldilocks2::Element random_ext();
 
 std::vector<Goldilocks2::Element> random_vec_ext(const size_t& n);
 
@@ -93,3 +97,12 @@ std::vector<Goldilocks::Element> eval_with_ntt_base(std::vector<Goldilocks2::Ele
 
 // returns vec on ext field
 std::vector<Goldilocks2::Element> eval_with_ntt_ext(std::vector<Goldilocks2::Element> f, const size_t& N);
+
+/*
+  B[bin(i)] = i < u ? \beta^i : 0
+  Compute MLE_B(r)
+  See Page 7 of CNN-Verf
+*/
+Goldilocks2::Element eval_power_mle(const Goldilocks2::Element& beta, 
+    const std::vector<Goldilocks2::Element>& r, const size_t& u, int l);
+

@@ -33,6 +33,7 @@ Goldilocks2::Element MultilinearPolynomial::eval_hypercube(uint64_t mask) const{
     return evaluations[mask];
 }
 
+// point[0]: Most Significant Bit
 Goldilocks2::Element MultilinearPolynomial::evaluate(const std::vector<Goldilocks2::Element>& point) const{
     // for denote purpose
     const std::vector<Goldilocks2::Element>& r = point;

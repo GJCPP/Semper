@@ -33,5 +33,17 @@ file(GLOB SOURCES
 # target bench
 add_executable(bench bench.cpp)
 target_sources(bench PRIVATE ${SOURCES})
-target_compile_options(bench PRIVATE -Wall -O3 -mavx2 -fopenmp)
+
+# target_compile_options(bench PRIVATE -Wall -O3 -mavx2 -fopenmp)
+target_compile_options(bench PRIVATE -Wall -mavx2 -fopenmp) # Debugging
+set(CMAKE_C_FLAGS_DEBUG "-g -DDEBUG")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -DDEBUG")
+
 target_link_libraries(bench PRIVATE pthread gmp ssl crypto goldilocks)
+
+
+add_custom_target(run
+    COMMAND bench
+    DEPENDS bench
+    COMMENT "Running benchmark"
+)

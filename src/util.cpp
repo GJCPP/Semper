@@ -89,6 +89,10 @@ void batch_inverse(std::vector<Goldilocks2::Element>& inv, const std::vector<Gol
     inv[0] = invp;
 }
 
+Goldilocks::Element random_base() {
+    return Goldilocks::fromU64(rand());
+}
+
 std::vector<Goldilocks::Element> random_vec_base(const size_t& n) {
     srand(time(nullptr));
     std::vector<Goldilocks::Element> vec;
@@ -107,6 +111,10 @@ std::vector<uint64_t> random_vec_uint(const size_t& n) {
         vec.push_back(rand() % RAND_MAX);
     }
     return vec;
+}
+
+Goldilocks2::Element random_ext() {
+    return { Goldilocks::fromU64(rand()), Goldilocks::fromU64(rand()) };
 }
 
 std::vector<Goldilocks2::Element> random_vec_ext(const size_t& n) {
@@ -326,4 +334,43 @@ std::vector<Goldilocks2::Element> eval_with_ntt_ext(std::vector<Goldilocks2::Ele
         ext[i][1] = Goldilocks::zero();
     }
     return ext;
+}
+
+// r[0]: MSB
+Goldilocks2::Element eval_power_mle(const Goldilocks2::Element& beta,
+    const std::vector<Goldilocks2::Element>& r, const size_t& u, int l) {
+
+    assert(r.size() == static_cast<size_t>(l));
+    assert(u < (1ull << l));
+
+    // beta_2n[i] = beta^(2^i)
+    std::vector<Goldilocks2::Element> one_minus_r(l), beta_2n(l);
+    Goldilocks2::Element one = Goldilocks2::one();
+    Goldilocks2::Element base = one, res = Goldilocks2::zero();
+
+    for (int i = 0; i < l; ++i) {
+        one_minus_r[i] = one - r[i];
+        beta_2n[i] = i ? beta_2n[i - 1] * beta_2n[i - 1] : beta;
+    }
+
+    for (int i(l - 1); i >= 0; --i) {
+        int ind = l - i - 1;
+        if ((u >> i) & 1) {
+            // Deal with left part: (1, \beta) x (1, \beta^2) x (1, \beta^4) x ...
+            Goldilocks2::Element tmp = base;
+            for (int j(0); j < i; ++j) {
+                tmp = tmp * (one_minus_r[l - j - 1] + r[l - j - 1] * beta_2n[j]); // (1, \beta^(2^j))
+            }
+            tmp = tmp * one_minus_r[ind]; // (1, 0)
+            res = res + tmp;
+
+            // Deal with right part, which ends with (0, \beta^(2^i))
+            base = base * (r[ind] * beta_2n[i]);
+        }
+        else { // End with (1, 0)
+            base = base * one_minus_r[ind];
+        }
+    }
+    res = res + base;
+    return res;
 }

@@ -193,7 +193,7 @@ public:
     }
 
     // ======== NEG ========
-    static inline void neg(Element &result, Element &a)
+    static inline void neg(Element &result, const Element &a)
     {
         sub(result, (Element &)zero(), a);
     }
@@ -274,10 +274,35 @@ public:
 // /*
 //     Operator Overloading
 // */
-// inline Goldilocks2::Element operator+(const Goldilocks2::Element &in1, const Goldilocks2::Element &in2) { return Goldilocks2::add(in1, in2); }
-// inline Goldilocks2::Element operator*(const Goldilocks2::Element &in1, const Goldilocks2::Element &in2) { return Goldilocks2::mul(in1, in2); }
-// inline Goldilocks2::Element operator-(const Goldilocks2::Element &in1, const Goldilocks2::Element &in2) { return Goldilocks2::sub(in1, in2); }
-// inline Goldilocks2::Element operator/(const Goldilocks2::Element &in1, const Goldilocks2::Element &in2) { return Goldilocks2::div(in1, in2); }
-// inline bool operator==(const Goldilocks2::Element &in1, const Goldilocks2::Element &in2) { return in1[0] == in2[0] && in1[1] == in2[1]; }
-// inline Goldilocks2::Element operator-(const Goldilocks2::Element &in1) { return Goldilocks2::neg(in1); }
-// inline Goldilocks2::Element operator+(const Goldilocks2::Element &in1) { return in1; }
+inline Goldilocks2::Element operator+(const Goldilocks2::Element &in1,
+     const Goldilocks2::Element &in2) { 
+    Goldilocks2::Element result;
+    Goldilocks2::add(result, in1, in2);
+    return result;
+}
+inline Goldilocks2::Element operator*(const Goldilocks2::Element &in1, const Goldilocks2::Element &in2) { 
+    Goldilocks2::Element result;
+    Goldilocks2::mul(result, in1, in2);
+    return result;
+}
+inline Goldilocks2::Element operator-(const Goldilocks2::Element &in1, const Goldilocks2::Element &in2) { 
+    Goldilocks2::Element result;
+    Goldilocks2::sub(result, in1, in2);
+    return result;
+}
+inline Goldilocks2::Element operator/(const Goldilocks2::Element &in1, const Goldilocks2::Element &in2) { 
+    Goldilocks2::Element result;
+    Goldilocks2::div(result, in1, in2);
+    return result;
+}
+inline bool operator==(const Goldilocks2::Element &in1, const Goldilocks2::Element &in2) { return in1[0] == in2[0] && in1[1] == in2[1]; }
+inline Goldilocks2::Element operator-(const Goldilocks2::Element &in1) { 
+    Goldilocks2::Element result;
+    Goldilocks2::neg(result, in1);
+    return result;
+}
+inline Goldilocks2::Element operator+(const Goldilocks2::Element &in1) { 
+    Goldilocks2::Element result;
+    Goldilocks2::copy(result, in1);
+    return result;
+}

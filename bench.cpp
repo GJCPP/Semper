@@ -9,7 +9,10 @@ g++ -std=c++17 -O3 -o  bench bench.cpp ./src/* -lssl -lcrypto -lpthread -lgoldil
 #include <cstdint>
 #include <iomanip>
 #include <chrono>
+
 #include "timer.h"
+#include "test.h"
+
 
 #define iterations 1'000'000'000
 
@@ -76,8 +79,10 @@ int main() {
     // for(auto fsize: fsizes){
     //     bench_logup(fsize);
     // }
-    bench_logup(1ull << 10);
-    bench_logup(1ull << 28);
+
+    //bench_logup(1ull << 10);
+    //bench_logup(1ull << 28);
+    run_test();
 
     return 0;
 }
