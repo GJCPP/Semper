@@ -1,7 +1,7 @@
 #include "logup.h"
 #include "goldilocks_quadratic_ext.h"
 #include "mle_sumcheck.h"
-#include "product_sumcheck.h"
+#include "product3_sumcheck.h"
 #include "util.h"
 #include "timer.h"
 #include <cassert>
@@ -117,7 +117,7 @@ std::array<sProver, 2> LogupProver::firstProvers() {
     return { sprg, sprh };
 }
 
-std::array<pProver, 2> LogupProver::secondProvers(const std::vector<Goldilocks2::Element>& rg, const std::vector<Goldilocks2::Element>& rh) {
+std::array<p3Prover, 2> LogupProver::secondProvers(const std::vector<Goldilocks2::Element>& rg, const std::vector<Goldilocks2::Element>& rh) {
     assert((1ull << rg.size()) == g.size());
     assert((1ull << rh.size()) == h.size());
     set_timer("initialize sumcheck provers for the product sumcheck");
@@ -125,9 +125,9 @@ std::array<pProver, 2> LogupProver::secondProvers(const std::vector<Goldilocks2:
     MultilinearPolynomial polydenomh(denomh);
     MultilinearPolynomial eqg = eq((*polyg).get_num_vars(), rg);
     MultilinearPolynomial eqh = eq((*polyh).get_num_vars(), rh);
-    pProver prg(eqg, *polyg, polydenomg);
-    pProver prh(eqh, *polyh, polydenomh);
-    std::array<pProver, 2> provers = { prg, prh };
+    p3Prover prg(eqg, *polyg, polydenomg);
+    p3Prover prh(eqh, *polyh, polydenomh);
+    std::array<p3Prover, 2> provers = { prg, prh };
     end_timer("initialize sumcheck provers for the product sumcheck");
     return provers;
 }
@@ -191,7 +191,7 @@ bool LogupVerifier::execute_logup(LogupProver& lpr, const uint64_t& rho_inv, con
     std::vector<Goldilocks2::Element> rh = randvec(numvar_h);
     end_timer("generate rg and rh");
 
-    std::array<pProver, 2> secondProvers = lpr.secondProvers(rg, rh);
+    std::array<p3Prover, 2> secondProvers = lpr.secondProvers(rg, rh);
     assert(secondProvers[0].get_sum() == Goldilocks2::one());
     assert(secondProvers[1].get_sum() == ligeroVerifier::open(c, rh, sec_param));
 
@@ -202,7 +202,7 @@ bool LogupVerifier::execute_logup(LogupProver& lpr, const uint64_t& rho_inv, con
     auto pcsf1 = ft[0], pcsf2 = ft[1], pcst1 = ft[2], pcst2 = ft[3];
 
     set_timer("sumcheck 3 / 4");
-    if (!pVerifier::execute_logup_sumcheck(secondProvers[0], eqg, pcsg, pcsf1, pcsf2, gamma, lambda, sec_param)) {
+    if (!p3Verifier::execute_logup_sumcheck(secondProvers[0], eqg, pcsg, pcsf1, pcsf2, gamma, lambda, sec_param)) {
         std::cout << "logup failed 2 \n";
         return false;
     }
@@ -210,7 +210,7 @@ bool LogupVerifier::execute_logup(LogupProver& lpr, const uint64_t& rho_inv, con
     // alert("sumcheck 3 / 4 finished");
 
     set_timer("sumcheck 4 / 4");
-    if (!pVerifier::execute_logup_sumcheck(secondProvers[1], eqh, pcsh, pcst1, pcst2, gamma, lambda, sec_param)) {
+    if (!p3Verifier::execute_logup_sumcheck(secondProvers[1], eqh, pcsh, pcst1, pcst2, gamma, lambda, sec_param)) {
         std::cout << "logup failed 3 \n";
         return false;
     }
