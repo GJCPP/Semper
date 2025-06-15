@@ -4,6 +4,7 @@
 #include "mle_sumcheck.h"
 #include "product3_sumcheck.h"
 #include "mle.h"
+#include "mle_eq.h"
 #include "ligero.h"
 #include <vector>
 #include <array>

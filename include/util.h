@@ -54,7 +54,7 @@ void pad(std::vector<Goldilocks::Element>& table, const Goldilocks::Element dumm
 void pad(std::vector<uint64_t>& table, const uint64_t dummy = 0ull);
 
 // evaluate \tilde{eq}(r, x) = \prod_{i=0}^{n-1} (1 - r_i x_i) in O(2^l) linear time
-MultilinearPolynomial eq(const size_t& num_var, const std::vector<Goldilocks2::Element>& r);
+std::vector<Goldilocks2::Element> eq_table(const size_t& num_var, const std::vector<Goldilocks2::Element>& r);
 
 // calculate the inverse of all elements in arr with calculating only one inverse
 void batch_inverse(std::vector<Goldilocks2::Element>& inv, const std::vector<Goldilocks2::Element>& arr);

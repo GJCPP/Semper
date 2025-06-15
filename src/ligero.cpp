@@ -370,8 +370,8 @@ std::array<std::vector<Goldilocks2::Element>, 2> ligeroVerifier::calculate_lr(co
     // low bits of z
     std::vector<Goldilocks2::Element> zl(z.begin() + a, z.end());
 
-    std::vector<Goldilocks2::Element> L = eq(b, zl).get_eval_table();
-    std::vector<Goldilocks2::Element> R = eq(a, zh).get_eval_table();
+    std::vector<Goldilocks2::Element> L = eq_table(b, zl);
+    std::vector<Goldilocks2::Element> R = eq_table(a, zh);
 
     return { L, R };
 }

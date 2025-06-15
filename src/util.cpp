@@ -54,7 +54,7 @@ void pad(std::vector<uint64_t>& table, const uint64_t dummy) {
 }
 
 // The famous multi-linear eq.
-MultilinearPolynomial eq(const size_t& num_var, const std::vector<Goldilocks2::Element>& r) {
+std::vector<Goldilocks2::Element> eq_table(const size_t& num_var, const std::vector<Goldilocks2::Element>& r) {
     std::vector<Goldilocks2::Element> evaluations;
     evaluations.resize(1ull << num_var, Goldilocks2::one());
     std::vector<Goldilocks2::Element> one_minus_r(r.size());
@@ -69,7 +69,7 @@ MultilinearPolynomial eq(const size_t& num_var, const std::vector<Goldilocks2::E
             Goldilocks2::mul(evaluations[j], evaluations[j], one_minus_r[num_var - i - 1]);
         }
     }
-    return MultilinearPolynomial(std::move(evaluations));
+    return evaluations;
 }
 
 void batch_inverse(std::vector<Goldilocks2::Element>& inv, const std::vector<Goldilocks2::Element>& arr) {
