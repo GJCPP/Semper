@@ -59,12 +59,12 @@ bool test_product3_sumcheck() {
         MultilinearPolynomial poly1(poly1_vec);
         MultilinearPolynomial poly2(poly2_vec);
         MultilinearPolynomial poly3(poly3_vec);
-        ligeroProver_ext pcs1(poly1, inv_rho);
-        ligeroProver_ext pcs2(poly2, inv_rho);
-        ligeroProver_ext pcs3(poly3, inv_rho);
+        ligeroProver_ext pcs1(&poly1, inv_rho);
+        ligeroProver_ext pcs2(&poly2, inv_rho);
+        ligeroProver_ext pcs3(&poly3, inv_rho);
 
         // Run product3 sumcheck
-        p3Prover prover(poly1, poly2, poly3);
+        p3Prover prover(&poly1, &poly2, &poly3);
         p3Verifier verifier;
         std::array<ligeropcs_ext, 3> oracle = { pcs1.commit(), pcs2.commit(), pcs3.commit() };
         if (!verifier.execute_sumcheck(prover, oracle, sec_param)) {
@@ -84,11 +84,11 @@ bool test_product2_sumcheck() {
         std::vector<Element> poly2_vec = random_vec_ext(1 << l);
         MultilinearPolynomial poly1(poly1_vec);
         MultilinearPolynomial poly2(poly2_vec);
-        ligeroProver_ext pcs1(poly1, inv_rho);
-        ligeroProver_ext pcs2(poly2, inv_rho);
+        ligeroProver_ext pcs1(&poly1, inv_rho);
+        ligeroProver_ext pcs2(&poly2, inv_rho);
 
         // Run product3 sumcheck
-        p2Prover prover(poly1, poly2);
+        p2Prover prover(&poly1, &poly2);
         p2Verifier verifier;
         std::array<std::shared_ptr<oracle_ext>, 2> oracle = { std::make_shared<ligeropcs_ext>(pcs1.commit()), std::make_shared<ligeropcs_ext>(pcs2.commit()) };
         if (!verifier.execute_sumcheck(prover, oracle, sec_param)) {
@@ -103,10 +103,10 @@ bool test_product2_sumcheck() {
         std::vector<Element> poly2_vec = random_vec_ext(1 << l);
         MultilinearPolynomial poly1(poly1_vec);
         MLE_Pow poly2(random_ext(), l, u);
-        ligeroProver_ext pcs1(poly1, inv_rho);
+        ligeroProver_ext pcs1(&poly1, inv_rho);
 
         // Run product3 sumcheck
-        p2Prover prover(poly1, poly2);
+        p2Prover prover(&poly1, &poly2);
         p2Verifier verifier;
         std::array<std::shared_ptr<oracle_ext>, 2> oracle = { std::make_shared<ligeropcs_ext>(pcs1.commit()), std::make_shared<MLE_Pow>(poly2) };
         if (!verifier.execute_sumcheck(prover, oracle, sec_param)) {

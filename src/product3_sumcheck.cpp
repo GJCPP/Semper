@@ -6,8 +6,8 @@
 #include <random>
 #include <cassert>
 
-p3Prover::p3Prover(const MultilinearPolynomial& p1, const MultilinearPolynomial& p2, const MultilinearPolynomial& p3) :p1(p1), p2(p2), p3(p3), nrnd(p1.get_num_vars()), sum(Goldilocks2::zero()) {
-    assert(p1.get_num_vars() == p2.get_num_vars() && p1.get_num_vars() == p3.get_num_vars());
+p3Prover::p3Prover(const MultilinearPolynomial* p1, const MultilinearPolynomial* p2, const MultilinearPolynomial* p3) :p1(p1), p2(p2), p3(p3), nrnd(p1->get_num_vars()), sum(Goldilocks2::zero()) {
+    assert(p1->get_num_vars() == p2->get_num_vars() && p1->get_num_vars() == p3->get_num_vars());
     initialize();
 }
 /*
@@ -15,11 +15,11 @@ p3Prover::p3Prover(const MultilinearPolynomial& p1, const MultilinearPolynomial&
 2. calculate sum
 */
 void p3Prover::initialize() {
-    uint64_t tsize = 1ull << p1.get_num_vars();
+    uint64_t tsize = 1ull << p1->get_num_vars();
 
-    keepTablep1 = p1.get_eval_table();
-    keepTablep2 = p2.get_eval_table();
-    keepTablep3 = p3.get_eval_table();
+    keepTablep1 = p1->get_eval_table();
+    keepTablep2 = p2->get_eval_table();
+    keepTablep3 = p3->get_eval_table();
     for (uint64_t mask = 0; mask < tsize; ++mask) {
         Goldilocks2::Element p;
         Goldilocks2::mul(p, keepTablep1[mask], keepTablep2[mask]);

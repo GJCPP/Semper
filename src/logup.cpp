@@ -123,10 +123,10 @@ std::array<p3Prover, 2> LogupProver::secondProvers(const std::vector<Goldilocks2
     set_timer("initialize sumcheck provers for the product sumcheck");
     MultilinearPolynomial polydenomg(denomg);
     MultilinearPolynomial polydenomh(denomh);
-    MLE_Eq eqg((*polyg).get_num_vars(), rg);
-    MLE_Eq eqh((*polyh).get_num_vars(), rh);
-    p3Prover prg(eqg, *polyg, polydenomg);
-    p3Prover prh(eqh, *polyh, polydenomh);
+    MLE_Eq eqg(polyg->get_num_vars(), rg);
+    MLE_Eq eqh(polyh->get_num_vars(), rh);
+    p3Prover prg(&eqg, &polyg.value(), &polydenomg);
+    p3Prover prh(&eqh, &polyh.value(), &polydenomh);
     std::array<p3Prover, 2> provers = { prg, prh };
     end_timer("initialize sumcheck provers for the product sumcheck");
     return provers;

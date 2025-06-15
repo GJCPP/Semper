@@ -6,9 +6,9 @@
 #include <random>
 #include <cassert>
 
-p2Prover::p2Prover(const MultilinearPolynomial& p1, const MultilinearPolynomial& p2) 
-    : p1(p1), p2(p2), nrnd(p1.get_num_vars()), sum(Goldilocks2::zero()) {
-    assert(p1.get_num_vars() == p2.get_num_vars());
+p2Prover::p2Prover(const MultilinearPolynomial* p1, const MultilinearPolynomial* p2) 
+    : p1(p1), p2(p2), nrnd(p1->get_num_vars()), sum(Goldilocks2::zero()) {
+    assert(p1->get_num_vars() == p2->get_num_vars());
     initialize();
 }
 
@@ -17,10 +17,10 @@ p2Prover::p2Prover(const MultilinearPolynomial& p1, const MultilinearPolynomial&
 2. calculate sum
 */
 void p2Prover::initialize() {
-    uint64_t tsize = 1ull << p1.get_num_vars();
+    uint64_t tsize = 1ull << p1->get_num_vars();
 
-    keepTablep1 = p1.get_eval_table();
-    keepTablep2 = p2.get_eval_table();
+    keepTablep1 = p1->get_eval_table();
+    keepTablep2 = p2->get_eval_table();
     for (uint64_t mask = 0; mask < tsize; ++mask) {
         sum = sum + keepTablep1[mask] * keepTablep2[mask];
     }

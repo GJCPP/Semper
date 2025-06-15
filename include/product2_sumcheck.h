@@ -11,14 +11,14 @@ prover for sumcheck of product of two multilinear polynomials in O(2 * 2^l) time
 */
 class p2Prover{
 public:
-    p2Prover(const MultilinearPolynomial& p1, const MultilinearPolynomial& p2);
+    p2Prover(const MultilinearPolynomial* p1, const MultilinearPolynomial* p2);
     void initialize();
     std::array<Goldilocks2::Element, 3> send_message(const size_t& round,const std::vector<Goldilocks2::Element>& rands);
     Goldilocks2::Element get_sum() const { return sum; }
     size_t get_rounds() const { return nrnd; }
 private:
-    MultilinearPolynomial p1;
-    MultilinearPolynomial p2;
+    const MultilinearPolynomial *p1;
+    const MultilinearPolynomial *p2;
     
     std::vector<Goldilocks2::Element> keepTablep1;
     std::vector<Goldilocks2::Element> keepTablep2;
