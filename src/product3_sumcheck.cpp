@@ -227,7 +227,7 @@ bool p3Verifier::execute_sumcheck(p3Prover& pr, const std::array<ligeropcs_ext, 
 
 bool p3Verifier::execute_logup_sumcheck(
     p3Prover& pr,
-    const MultilinearPolynomial& eqr,
+    const MLE_Eq& eqr,
     const ligeropcs_ext& frac,
     const ligeropcs_base& p1,
     const ligeropcs_base& p2,

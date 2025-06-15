@@ -2,6 +2,7 @@
 
 #include "goldilocks_quadratic_ext.h"
 #include "mle.h"
+#include "mle_eq.h"
 #include "ligero.h"
 #include <array>
 #include <vector>
@@ -40,7 +41,7 @@ public:
     // customized sumcheck for \Sigma eq * frac * (gamma - p1 - lambda * p2)
     static bool execute_logup_sumcheck(
         p3Prover& pr,
-        const MultilinearPolynomial& eqr,
+        const MLE_Eq& eqr,
         const ligeropcs_ext& frac,
         const ligeropcs_base& p1,
         const ligeropcs_base& p2,
