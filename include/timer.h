@@ -57,6 +57,8 @@
 #include <string>
 #include <stdexcept>
 
+#define PRINT_INFO false
+
 class Timer {
 public:
     static Timer& getInstance() {
@@ -111,7 +113,9 @@ public:
         if (!it->second.paused) {
             duration += std::chrono::duration_cast<std::chrono::milliseconds>(now - it->second.startTime).count();
         }
-        std::cout << label << " cost: " << duration << " ms" << std::endl;
+        if (PRINT_INFO) {
+            std::cout << label << " cost: " << duration << " ms" << std::endl;
+        }
         if (add_to_total) {
             totalTime += duration;
         }
@@ -119,7 +123,9 @@ public:
     }
 
     void printAll() {
-        std::cout << "total cost: " << totalTime << " ms" << std::endl;
+        if (PRINT_INFO) {
+            std::cout << "total cost: " << totalTime << " ms" << std::endl;
+        }
         totalTime = 0;
     }
 

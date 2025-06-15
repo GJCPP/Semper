@@ -81,7 +81,7 @@ ligeroProver_base::ligeroProver_base(const std::vector<uint64_t>& w, const uint6
     }
     set_timer("ntt");
     pause_timer("ntt");
-    alert("log-size of vector to be ntt-ed: " + std::to_string(b));
+    // alert("log-size of vector to be ntt-ed: " + std::to_string(b));
     for (size_t i = 0; i < a; ++i) {
         std::vector<Goldilocks::Element> dataline(b);
         for (size_t j = 0; j < b; ++j) {
