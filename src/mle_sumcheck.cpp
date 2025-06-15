@@ -13,10 +13,10 @@ sProver::sProver(const MultilinearPolynomial& g) :g(g), nrnd(g.get_num_vars()), 
 2. calculate sum
 */
 void sProver::initialize() {
-    uint64_t tsize = 1ull << g.get_num_vars();
     keepTable = g.get_eval_table();
-    for (uint64_t mask = 0; mask < tsize; ++mask) {
-        Goldilocks2::add(sum, sum, keepTable[mask]);
+    sum = Goldilocks2::zero();
+    for (size_t i = 0; i < keepTable.size(); ++i) {
+        sum = sum + keepTable[i];
     }
 }
 

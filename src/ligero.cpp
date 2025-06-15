@@ -127,17 +127,17 @@ ligeropcs_base ligeroProver_base::commit() const {
 
 
 
-ligeroProver_ext::ligeroProver_ext(const MultilinearPolynomial* w, const uint64_t& rho_inv) :rho_inv(rho_inv) {
+ligeroProver_ext::ligeroProver_ext(const MultilinearPolynomial& w, const uint64_t& rho_inv) :rho_inv(rho_inv) {
     // evals = w.get_eval_table();
     // std::vector<Goldilocks2::Element> evals = w.get_eval_table();
-    size_t l = w->get_num_vars();
+    size_t l = w.get_num_vars();
     M.resize(1ull << l, Goldilocks2::zero());
     // 2^l = a * b
     a = 1ull << (l >> 1);       //floor(l/2)
     b = a << (l & 1);           //ceil(l/2)
     codelen = b * rho_inv;
-    for (size_t i = 0; i < w->get_eval_table().size(); ++i) {
-        M[i] = w->eval_hypercube(i);
+    for (size_t i = 0; i < w.get_eval_table().size(); ++i) {
+        M[i] = w.eval_hypercube(i);
     }
     for (size_t i = 0; i < a; ++i) {
         std::vector<Goldilocks2::Element> dataline(b);

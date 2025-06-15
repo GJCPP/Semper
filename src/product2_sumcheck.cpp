@@ -6,7 +6,7 @@
 #include <random>
 #include <cassert>
 
-p2Prover::p2Prover(const MultilinearPolynomial* p1, const MultilinearPolynomial* p2) 
+p2Prover::p2Prover(std::shared_ptr<const MultilinearPolynomial> p1, std::shared_ptr<const MultilinearPolynomial> p2) 
     : p1(p1), p2(p2), nrnd(p1->get_num_vars()), sum(Goldilocks2::zero()) {
     assert(p1->get_num_vars() == p2->get_num_vars());
     initialize();
@@ -82,7 +82,7 @@ inline void p2Verifier::interpolate_2(Goldilocks2::Element& fr, const Goldilocks
     fr = a * r * r + b * r + c;
 }
 
-bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<std::shared_ptr<oracle_base>, 2>& oracle, const size_t& sec_param) {
+bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<std::shared_ptr<const oracle_base>, 2>& oracle, const size_t& sec_param) {
 
     Goldilocks2::Element sum = pr.get_sum();
     size_t nrnd = pr.get_rounds();
@@ -124,7 +124,7 @@ bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<std::shared_ptr
     return true;
 }
 
-bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<std::shared_ptr<oracle_ext>, 2>& oracle, const size_t& sec_param) {
+bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<std::shared_ptr<const oracle_ext>, 2>& oracle, const size_t& sec_param) {
 
     Goldilocks2::Element sum = pr.get_sum();
     size_t nrnd = pr.get_rounds();

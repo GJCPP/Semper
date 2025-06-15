@@ -78,8 +78,8 @@ void LogupProver::calculate_gh(const Goldilocks2::Element& gamma, const Goldiloc
     }
 
 
-    polyg.emplace(g);
-    polyh.emplace(h);
+    polyg = std::make_shared<MultilinearPolynomial>(g);
+    polyh = std::make_shared<MultilinearPolynomial>(h);
     end_timer("calculate g and h");
 }
 
@@ -121,12 +121,12 @@ std::array<p3Prover, 2> LogupProver::secondProvers(const std::vector<Goldilocks2
     assert((1ull << rg.size()) == g.size());
     assert((1ull << rh.size()) == h.size());
     set_timer("initialize sumcheck provers for the product sumcheck");
-    MultilinearPolynomial polydenomg(denomg);
-    MultilinearPolynomial polydenomh(denomh);
-    MLE_Eq eqg(polyg->get_num_vars(), rg);
-    MLE_Eq eqh(polyh->get_num_vars(), rh);
-    p3Prover prg(&eqg, &polyg.value(), &polydenomg);
-    p3Prover prh(&eqh, &polyh.value(), &polydenomh);
+    std::shared_ptr<MultilinearPolynomial> polydenomg = std::make_shared<MultilinearPolynomial>(denomg);
+    std::shared_ptr<MultilinearPolynomial> polydenomh = std::make_shared<MultilinearPolynomial>(denomh);
+    std::shared_ptr<MultilinearPolynomial> eqg = std::make_shared<MLE_Eq>(polyg->get_num_vars(), rg);
+    std::shared_ptr<MultilinearPolynomial> eqh = std::make_shared<MLE_Eq>(polyh->get_num_vars(), rh);
+    p3Prover prg(eqg, polyg, polydenomg);
+    p3Prover prh(eqh, polyh, polydenomh);
     std::array<p3Prover, 2> provers = { prg, prh };
     end_timer("initialize sumcheck provers for the product sumcheck");
     return provers;

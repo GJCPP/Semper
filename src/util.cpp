@@ -374,3 +374,15 @@ Goldilocks2::Element eval_power_mle(const Goldilocks2::Element& beta,
     res = res + base;
     return res;
 }
+
+Goldilocks2::Element pow(Goldilocks2::Element beta, size_t u) {
+    Goldilocks2::Element res = Goldilocks2::one();
+    while (u) {
+        if (u & 1) {
+            res = res * beta;
+        }
+        beta = beta * beta;
+        u >>= 1;
+    }
+    return res;
+}

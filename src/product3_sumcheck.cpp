@@ -6,7 +6,7 @@
 #include <random>
 #include <cassert>
 
-p3Prover::p3Prover(const MultilinearPolynomial* p1, const MultilinearPolynomial* p2, const MultilinearPolynomial* p3) :p1(p1), p2(p2), p3(p3), nrnd(p1->get_num_vars()), sum(Goldilocks2::zero()) {
+p3Prover::p3Prover(std::shared_ptr<const MultilinearPolynomial> p1, std::shared_ptr<const MultilinearPolynomial> p2, std::shared_ptr<const MultilinearPolynomial> p3) :p1(p1), p2(p2), p3(p3), nrnd(p1->get_num_vars()), sum(Goldilocks2::zero()) {
     assert(p1->get_num_vars() == p2->get_num_vars() && p1->get_num_vars() == p3->get_num_vars());
     initialize();
 }
@@ -139,7 +139,7 @@ inline void p3Verifier::interpolate_3(Goldilocks2::Element& fr, const Goldilocks
         mul(x0, x1, x2, inv6, f3));
 }
 
-bool p3Verifier::execute_sumcheck(p3Prover& pr, const std::array<ligeropcs_base, 3>& oracle, const size_t& sec_param) {
+bool p3Verifier::execute_sumcheck(p3Prover& pr, const std::array<std::shared_ptr<const oracle_base>, 3>& oracle, const size_t& sec_param) {
 
     Goldilocks2::Element sum = pr.get_sum();
     size_t nrnd = pr.get_rounds();
@@ -167,7 +167,7 @@ bool p3Verifier::execute_sumcheck(p3Prover& pr, const std::array<ligeropcs_base,
             if (round == nrnd) {
                 challenges.push_back(challenge());
 
-                Goldilocks2::Element f_r = mul(oracle[0].open(challenges, sec_param), oracle[1].open(challenges, sec_param), oracle[2].open(challenges, sec_param));
+                Goldilocks2::Element f_r = mul(oracle[0]->open(challenges, sec_param), oracle[1]->open(challenges, sec_param), oracle[2]->open(challenges, sec_param));
                 Goldilocks2::Element slrl;
                 Goldilocks2::Element rl = challenges[round - 1];
                 interpolate_3(slrl, rl, si[0], si[1], si[2], si[3]);
@@ -182,7 +182,7 @@ bool p3Verifier::execute_sumcheck(p3Prover& pr, const std::array<ligeropcs_base,
     return true;
 }
 
-bool p3Verifier::execute_sumcheck(p3Prover& pr, const std::array<ligeropcs_ext, 3>& oracle, const size_t& sec_param) {
+bool p3Verifier::execute_sumcheck(p3Prover& pr, const std::array<std::shared_ptr<const oracle_ext>, 3>& oracle, const size_t& sec_param) {
 
     Goldilocks2::Element sum = pr.get_sum();
     size_t nrnd = pr.get_rounds();
@@ -210,7 +210,7 @@ bool p3Verifier::execute_sumcheck(p3Prover& pr, const std::array<ligeropcs_ext, 
             if (round == nrnd) {
                 challenges.push_back(challenge());
 
-                Goldilocks2::Element f_r = mul(oracle[0].open(challenges, sec_param), oracle[1].open(challenges, sec_param), oracle[2].open(challenges, sec_param));
+                Goldilocks2::Element f_r = mul(oracle[0]->open(challenges, sec_param), oracle[1]->open(challenges, sec_param), oracle[2]->open(challenges, sec_param));
                 Goldilocks2::Element slrl;
                 Goldilocks2::Element rl = challenges[round - 1];
                 interpolate_3(slrl, rl, si[0], si[1], si[2], si[3]);

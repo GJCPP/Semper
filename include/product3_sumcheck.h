@@ -11,15 +11,15 @@ prover for sumcheck of product of three multilinear polynomials in O(3 * 2^l) ti
 */
 class p3Prover{
 public:
-    p3Prover(const MultilinearPolynomial* p1, const MultilinearPolynomial* p2, const MultilinearPolynomial* p3);
+    p3Prover(std::shared_ptr<const MultilinearPolynomial> p1, std::shared_ptr<const MultilinearPolynomial> p2, std::shared_ptr<const MultilinearPolynomial> p3);
     void initialize();
     std::array<Goldilocks2::Element, 4> send_message(const size_t& round,const std::vector<Goldilocks2::Element>& rands);
     Goldilocks2::Element get_sum() const { return sum; }
     size_t get_rounds() const { return nrnd; }
 private:
-    const MultilinearPolynomial* p1;
-    const MultilinearPolynomial* p2;
-    const MultilinearPolynomial* p3;
+    std::shared_ptr<const MultilinearPolynomial> p1;
+    std::shared_ptr<const MultilinearPolynomial> p2;
+    std::shared_ptr<const MultilinearPolynomial> p3;
     
     std::vector<Goldilocks2::Element> keepTablep1;
     std::vector<Goldilocks2::Element> keepTablep2;
@@ -35,8 +35,8 @@ class p3Verifier{
 public:
     // should be replaced with a pcs
     // typedef std::array<ligeropcs, 3> Oracle;
-    static bool execute_sumcheck(p3Prover& pr, const std::array<ligeropcs_base, 3>& oracle, const size_t& sec_param);
-    static bool execute_sumcheck(p3Prover& pr, const std::array<ligeropcs_ext, 3>& oracle, const size_t& sec_param);
+    static bool execute_sumcheck(p3Prover& pr, const std::array<std::shared_ptr<const oracle_base>, 3>& oracle, const size_t& sec_param);
+    static bool execute_sumcheck(p3Prover& pr, const std::array<std::shared_ptr<const oracle_ext>, 3>& oracle, const size_t& sec_param);
 
     // customized sumcheck for \Sigma eq * frac * (gamma - p1 - lambda * p2)
     static bool execute_logup_sumcheck(

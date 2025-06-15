@@ -24,7 +24,7 @@ public:
 
     Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const override;
     
-    std::vector<Goldilocks2::Element> get_eval_table() const { return evaluations; }
+    virtual std::vector<Goldilocks2::Element> get_eval_table() const { return evaluations; }
     virtual MultilinearPolynomial operator+(const MultilinearPolynomial& g) const;
     virtual MultilinearPolynomial operator-(const MultilinearPolynomial& g) const;
 

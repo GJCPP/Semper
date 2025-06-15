@@ -56,17 +56,17 @@ bool test_product3_sumcheck() {
         std::vector<Element> poly1_vec = random_vec_ext(1 << l);
         std::vector<Element> poly2_vec = random_vec_ext(1 << l);
         std::vector<Element> poly3_vec = random_vec_ext(1 << l);
-        MultilinearPolynomial poly1(poly1_vec);
-        MultilinearPolynomial poly2(poly2_vec);
-        MultilinearPolynomial poly3(poly3_vec);
-        ligeroProver_ext pcs1(&poly1, inv_rho);
-        ligeroProver_ext pcs2(&poly2, inv_rho);
-        ligeroProver_ext pcs3(&poly3, inv_rho);
+        std::shared_ptr<MultilinearPolynomial> poly1 = std::make_shared<MultilinearPolynomial>(poly1_vec);
+        std::shared_ptr<MultilinearPolynomial> poly2 = std::make_shared<MultilinearPolynomial>(poly2_vec);
+        std::shared_ptr<MultilinearPolynomial> poly3 = std::make_shared<MultilinearPolynomial>(poly3_vec);
+        ligeropcs_ext pcs1 = ligeroProver_ext(*poly1, inv_rho).commit();
+        ligeropcs_ext pcs2 = ligeroProver_ext(*poly2, inv_rho).commit();
+        ligeropcs_ext pcs3 = ligeroProver_ext(*poly3, inv_rho).commit();
 
         // Run product3 sumcheck
-        p3Prover prover(&poly1, &poly2, &poly3);
+        p3Prover prover(poly1, poly2, poly3);
         p3Verifier verifier;
-        std::array<ligeropcs_ext, 3> oracle = { pcs1.commit(), pcs2.commit(), pcs3.commit() };
+        std::array<std::shared_ptr<const oracle_ext>, 3> oracle = { std::make_shared<ligeropcs_ext>(pcs1), std::make_shared<ligeropcs_ext>(pcs2), std::make_shared<ligeropcs_ext>(pcs3) };
         if (!verifier.execute_sumcheck(prover, oracle, sec_param)) {
             return false;
         }
@@ -82,15 +82,15 @@ bool test_product2_sumcheck() {
         // Generate random polynomials and their commitments
         std::vector<Element> poly1_vec = random_vec_ext(1 << l);
         std::vector<Element> poly2_vec = random_vec_ext(1 << l);
-        MultilinearPolynomial poly1(poly1_vec);
-        MultilinearPolynomial poly2(poly2_vec);
-        ligeroProver_ext pcs1(&poly1, inv_rho);
-        ligeroProver_ext pcs2(&poly2, inv_rho);
+        std::shared_ptr<MultilinearPolynomial> poly1 = std::make_shared<MultilinearPolynomial>(poly1_vec);
+        std::shared_ptr<MultilinearPolynomial> poly2 = std::make_shared<MultilinearPolynomial>(poly2_vec);
+        ligeropcs_ext pcs1 = ligeroProver_ext(*poly1, inv_rho).commit();
+        ligeropcs_ext pcs2 = ligeroProver_ext(*poly2, inv_rho).commit();
 
         // Run product3 sumcheck
-        p2Prover prover(&poly1, &poly2);
+        p2Prover prover(poly1, poly2);
         p2Verifier verifier;
-        std::array<std::shared_ptr<oracle_ext>, 2> oracle = { std::make_shared<ligeropcs_ext>(pcs1.commit()), std::make_shared<ligeropcs_ext>(pcs2.commit()) };
+        std::array<std::shared_ptr<const oracle_ext>, 2> oracle = { std::make_shared<ligeropcs_ext>(pcs1), std::make_shared<ligeropcs_ext>(pcs2) };
         if (!verifier.execute_sumcheck(prover, oracle, sec_param)) {
             return false;
         }
@@ -101,14 +101,14 @@ bool test_product2_sumcheck() {
         // Generate random polynomials and their commitments
         std::vector<Element> poly1_vec = random_vec_ext(1 << l);
         std::vector<Element> poly2_vec = random_vec_ext(1 << l);
-        MultilinearPolynomial poly1(poly1_vec);
-        MLE_Pow poly2(random_ext(), l, u);
-        ligeroProver_ext pcs1(&poly1, inv_rho);
+        std::shared_ptr<MultilinearPolynomial> poly1 = std::make_shared<MultilinearPolynomial>(poly1_vec);
+        std::shared_ptr<MultilinearPolynomial> poly2 = std::make_shared<MLE_Pow>(random_ext(), l, u);
+        std::shared_ptr<const oracle_ext> pcs1 = std::make_shared<ligeropcs_ext>(ligeroProver_ext(*poly1, inv_rho).commit());
 
         // Run product3 sumcheck
-        p2Prover prover(&poly1, &poly2);
+        p2Prover prover(poly1, poly2);
         p2Verifier verifier;
-        std::array<std::shared_ptr<oracle_ext>, 2> oracle = { std::make_shared<ligeropcs_ext>(pcs1.commit()), std::make_shared<MLE_Pow>(poly2) };
+        std::array<std::shared_ptr<const oracle_ext>, 2> oracle = { pcs1, poly2 };
         if (!verifier.execute_sumcheck(prover, oracle, sec_param)) {
             return false;
         }

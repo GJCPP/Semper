@@ -73,7 +73,7 @@ public:
     size_t codelen;
 
 public:
-    ligeroProver_ext(const MultilinearPolynomial* w, const uint64_t& rho_inv);
+    ligeroProver_ext(const MultilinearPolynomial& w, const uint64_t& rho_inv);
     ligeroProver_ext(const std::vector<Goldilocks2::Element>& w, const uint64_t& rho_inv);
     ligeropcs_ext commit() const;
     std::vector<Goldilocks2::Element> lincomb(const std::vector<Goldilocks2::Element>& r) const;
