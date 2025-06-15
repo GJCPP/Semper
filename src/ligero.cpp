@@ -394,3 +394,19 @@ size_t ligeroVerifier::calculate_t(
     size_t t = static_cast<size_t>(std::ceil(numerator / denominator));
     return std::min(t, codeword_len);
 }
+
+ligeropcs_base::ligeropcs_base(const MerkleDef::Digest& mthash, const std::shared_ptr<ligeroProver_base>& prover, const size_t& num_rows, const size_t& num_cols)
+    : mthash(mthash), prover(prover), num_rows(num_rows), num_cols(num_cols) {
+}
+
+Goldilocks2::Element ligeropcs_base::open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const {
+    return ligeroVerifier::open(*this, z, sec_param);
+}
+
+ligeropcs_ext::ligeropcs_ext(const MerkleDef::Digest& mthash, const std::shared_ptr<ligeroProver_ext>& prover, const size_t& num_rows, const size_t& num_cols)
+    : mthash(mthash), prover(prover), num_rows(num_rows), num_cols(num_cols) {
+}
+
+Goldilocks2::Element ligeropcs_ext::open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const {
+    return ligeroVerifier::open(*this, z, sec_param);
+}

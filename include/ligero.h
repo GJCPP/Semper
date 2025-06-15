@@ -1,31 +1,42 @@
 #pragma once
 
-#include "mle.h"
 #include <cstdint>
 #include <vector>
-#include "merkle.h"
 #include <memory>
 #include <random>
+#include "mle.h"
+#include "merkle.h"
+#include "oracle.h"
 
 #define FIELD_BITS 2 * 64
 class ligeroProver_base;
 class ligeroProver_ext;
 
-typedef struct {
+class ligeropcs_base : public oracle_base {
+public:
+    ligeropcs_base(const MerkleDef::Digest& mthash, const std::shared_ptr<ligeroProver_base>& prover, const size_t& num_rows, const size_t& num_cols);
+
     MerkleDef::Digest mthash;
     // const ligeroProver& prover;
     std::shared_ptr<ligeroProver_base> prover;
     size_t num_rows;
     size_t num_cols;
-}ligeropcs_base;
 
-typedef struct {
+    Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const override;
+};
+
+class ligeropcs_ext : public oracle_ext {
+public:
+    ligeropcs_ext(const MerkleDef::Digest& mthash, const std::shared_ptr<ligeroProver_ext>& prover, const size_t& num_rows, const size_t& num_cols);
+    
     MerkleDef::Digest mthash;
     // const ligeroProver& prover;
     std::shared_ptr<ligeroProver_ext> prover;
     size_t num_rows;
     size_t num_cols;
-}ligeropcs_ext;
+
+    Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const override;
+};
 
 class ligeroProver_base {
 public:

@@ -82,7 +82,7 @@ inline void p2Verifier::interpolate_2(Goldilocks2::Element& fr, const Goldilocks
     fr = a * r * r + b * r + c;
 }
 
-bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<ligeropcs_base, 2>& oracle, const size_t& sec_param) {
+bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<std::shared_ptr<oracle_base>, 2>& oracle, const size_t& sec_param) {
 
     Goldilocks2::Element sum = pr.get_sum();
     size_t nrnd = pr.get_rounds();
@@ -109,7 +109,7 @@ bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<ligeropcs_base,
             if (round == nrnd) {
                 challenges.push_back(challenge());
 
-                Goldilocks2::Element f_r = ligeroVerifier::open(oracle[0], challenges, sec_param) * ligeroVerifier::open(oracle[1], challenges, sec_param);
+                Goldilocks2::Element f_r = oracle[0]->open(challenges, sec_param) * oracle[1]->open(challenges, sec_param);
                 Goldilocks2::Element slrl;
                 Goldilocks2::Element rl = challenges[round - 1];
                 interpolate_2(slrl, rl, si[0], si[1], si[2]);
@@ -124,7 +124,7 @@ bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<ligeropcs_base,
     return true;
 }
 
-bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<ligeropcs_ext, 2>& oracle, const size_t& sec_param) {
+bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<std::shared_ptr<oracle_ext>, 2>& oracle, const size_t& sec_param) {
 
     Goldilocks2::Element sum = pr.get_sum();
     size_t nrnd = pr.get_rounds();
@@ -151,7 +151,7 @@ bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<ligeropcs_ext, 
             if (round == nrnd) {
                 challenges.push_back(challenge());
 
-                Goldilocks2::Element f_r = ligeroVerifier::open(oracle[0], challenges, sec_param) * ligeroVerifier::open(oracle[1], challenges, sec_param);
+                Goldilocks2::Element f_r = oracle[0]->open(challenges, sec_param) * oracle[1]->open(challenges, sec_param);
                 Goldilocks2::Element slrl;
                 Goldilocks2::Element rl = challenges[round - 1];
                 interpolate_2(slrl, rl, si[0], si[1], si[2]);

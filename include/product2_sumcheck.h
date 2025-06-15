@@ -30,8 +30,8 @@ private:
 
 class p2Verifier{
 public:
-    static bool execute_sumcheck(p2Prover& pr, const std::array<ligeropcs_base, 2>& oracle, const size_t& sec_param);
-    static bool execute_sumcheck(p2Prover& pr, const std::array<ligeropcs_ext, 2>& oracle, const size_t& sec_param);
+    static bool execute_sumcheck(p2Prover& pr, const std::array<std::shared_ptr<oracle_base>, 2>& oracle, const size_t& sec_param);
+    static bool execute_sumcheck(p2Prover& pr, const std::array<std::shared_ptr<oracle_ext>, 2>& oracle, const size_t& sec_param);
 
 private:
     static Goldilocks2::Element challenge();

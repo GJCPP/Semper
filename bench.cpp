@@ -80,7 +80,7 @@ int main() {
     //     bench_logup(fsize);
     // }
 
-    //bench_logup(1ull << 10);
+    // bench_logup(1ull << 10);
     //bench_logup(1ull << 28);
     run_test();
 

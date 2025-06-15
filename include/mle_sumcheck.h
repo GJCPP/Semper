@@ -22,8 +22,8 @@ private:
 
 class sVerifier{
 public:
-    static bool execute_sumcheck(sProver& pr, const ligeropcs_base& oracle, const size_t& sec_param);
-    static bool execute_sumcheck(sProver& pr, const ligeropcs_ext& oracle, const size_t& sec_param);
+    static bool execute_sumcheck(sProver& pr, const oracle_base& oracle, const size_t& sec_param);
+    static bool execute_sumcheck(sProver& pr, const oracle_ext& oracle, const size_t& sec_param);
 private:
     static Goldilocks2::Element challenge();
 };

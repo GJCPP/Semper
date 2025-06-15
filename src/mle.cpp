@@ -63,6 +63,10 @@ Goldilocks2::Element MultilinearPolynomial::evaluate(const std::vector<Goldilock
     return result;
 }
 
+Goldilocks2::Element MultilinearPolynomial::open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const {
+    return evaluate(z);
+}
+
 MultilinearPolynomial MultilinearPolynomial::operator+(const MultilinearPolynomial& g) const{
     assert(num_vars == g.get_num_vars());
     std::vector<Goldilocks2::Element> evs(evaluations.size()), evalg = g.get_eval_table();

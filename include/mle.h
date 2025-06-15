@@ -1,28 +1,34 @@
 #pragma once
 
-#include "goldilocks_quadratic_ext.h"
 #include <string>
 #include <cstdint>
-
+#include "goldilocks_quadratic_ext.h"
+#include "oracle.h"
 
 // store a multilinear polynomial in a vector of evaluations
-class MultilinearPolynomial{
+class MultilinearPolynomial : public oracle_ext {
 public:
     MultilinearPolynomial(size_t num_vars);
     MultilinearPolynomial(const std::vector<Goldilocks2::Element>& evaluations);
     MultilinearPolynomial(const std::vector<uint64_t>& val_table);
-    size_t get_num_vars() const{return num_vars;}
+    size_t get_num_vars() const { return num_vars; }
 
     // only for debug use
     void set_value(const std::string& mask, const Goldilocks2::Element& c);
     void set_value(const std::string& mask, const uint64_t& c);
+
+    virtual Goldilocks2::Element eval_hypercube(uint64_t mask) const;
+
+    // Cost O(2^num_vars)
+    virtual Goldilocks2::Element evaluate(const std::vector<Goldilocks2::Element>& point) const;
+
+    Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const override;
     
-    Goldilocks2::Element eval_hypercube(uint64_t mask) const;
-    Goldilocks2::Element evaluate(const std::vector<Goldilocks2::Element>& point) const;
-    std::vector<Goldilocks2::Element> get_eval_table() const{return evaluations;}
-    MultilinearPolynomial operator+(const MultilinearPolynomial& g) const;
-    MultilinearPolynomial operator-(const MultilinearPolynomial& g) const;
-private:
+    std::vector<Goldilocks2::Element> get_eval_table() const { return evaluations; }
+    virtual MultilinearPolynomial operator+(const MultilinearPolynomial& g) const;
+    virtual MultilinearPolynomial operator-(const MultilinearPolynomial& g) const;
+
+protected:
     // evaliations over the hypercube
     std::vector<Goldilocks2::Element> evaluations;
     size_t num_vars;

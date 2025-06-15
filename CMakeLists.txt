@@ -34,10 +34,18 @@ file(GLOB SOURCES
 add_executable(bench bench.cpp)
 target_sources(bench PRIVATE ${SOURCES})
 
+
+
 # target_compile_options(bench PRIVATE -Wall -O3 -mavx2 -fopenmp)
-target_compile_options(bench PRIVATE -Wall -mavx2 -fopenmp) # Debugging
-set(CMAKE_C_FLAGS_DEBUG "-g -DDEBUG")
-set(CMAKE_CXX_FLAGS_DEBUG "-g -DDEBUG")
+# target_compile_options(bench PRIVATE -Wall -mavx2 -fopenmp) # Debugging
+# set(CMAKE_C_FLAGS_DEBUG "-g -DDEBUG")
+# set(CMAKE_CXX_FLAGS_DEBUG "-g -DDEBUG")
+
+target_compile_options(bench PRIVATE
+    $<$<CONFIG:Release>:-Wall -O3 -mavx2 -fopenmp>
+    $<$<CONFIG:Debug>:-Wall -g -DDEBUG -mavx2 -fopenmp>)
+
+# Use "cmake -D CMAKE_BUILD_TYPE=Debug .." to build in debug mode
 
 target_link_libraries(bench PRIVATE pthread gmp ssl crypto goldilocks)
 
