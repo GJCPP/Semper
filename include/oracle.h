@@ -20,3 +20,9 @@ class oracle_ext {
 public:
     virtual Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const = 0;
 };
+
+class challenge_claim {
+public:
+    std::vector<Goldilocks2::Element> challenges;
+    Goldilocks2::Element claim;
+};

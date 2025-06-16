@@ -1,10 +1,12 @@
 #pragma once
 
+#include <vector>
+#include <array>
+#include <optional>
+
 #include "mle.h"
 #include "goldilocks_quadratic_ext.h"
 #include "ligero.h"
-#include <vector>
-#include <array>
 
 class sProver{
 public:
@@ -24,6 +26,8 @@ class sVerifier{
 public:
     static bool execute_sumcheck(sProver& pr, const oracle_base& oracle, const size_t& sec_param);
     static bool execute_sumcheck(sProver& pr, const oracle_ext& oracle, const size_t& sec_param);
+
+    static std::optional<challenge_claim> execute_sumcheck(sProver& pr, Goldilocks2::Element claim, const size_t& sec_param);
 private:
     static Goldilocks2::Element challenge();
 };
