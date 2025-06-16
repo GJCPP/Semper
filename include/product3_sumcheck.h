@@ -12,11 +12,13 @@ prover for sumcheck of product of three multilinear polynomials in O(3 * 2^l) ti
 class p3Prover{
 public:
     p3Prover(std::shared_ptr<const MultilinearPolynomial> p1, std::shared_ptr<const MultilinearPolynomial> p2, std::shared_ptr<const MultilinearPolynomial> p3);
-    void initialize();
     std::array<Goldilocks2::Element, 4> send_message(const size_t& round,const std::vector<Goldilocks2::Element>& rands);
     Goldilocks2::Element get_sum() const { return sum; }
     size_t get_rounds() const { return nrnd; }
+    
 private:
+    void initialize();
+
     std::shared_ptr<const MultilinearPolynomial> p1;
     std::shared_ptr<const MultilinearPolynomial> p2;
     std::shared_ptr<const MultilinearPolynomial> p3;

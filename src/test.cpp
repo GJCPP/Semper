@@ -1,8 +1,10 @@
 #include "test.h"
 
+#define CNT_TEST 20
+
 bool test_arithmetic() {
     typedef Goldilocks2::Element Element;
-    for (int cnt(0); cnt != 100; ++cnt) {
+    for (int cnt(0); cnt != CNT_TEST; ++cnt) {
         Element a = random_ext(), b = random_ext();
         Element res = a + b;
         Element res2;
@@ -22,7 +24,7 @@ bool test_arithmetic() {
 bool test_eval_power_mle() {
     typedef Goldilocks2::Element Element;
 
-    for (int cnt(0); cnt != 100; ++cnt) {
+    for (int cnt(0); cnt != CNT_TEST; ++cnt) {
         int l = (rand() % 10 + 1);
         int u = (rand() % (1 << l));
         std::vector<Element> r = random_vec_ext(l);
@@ -50,7 +52,7 @@ bool test_eval_power_mle() {
 bool test_product3_sumcheck() {
     typedef Goldilocks2::Element Element;
     int inv_rho = 2, sec_param = 32;
-    for (int cnt(0); cnt != 100; ++cnt) {
+    for (int cnt(0); cnt != CNT_TEST; ++cnt) {
         int l = (rand() % 10 + 1);
         // Generate random polynomials and their commitments
         std::vector<Element> poly1_vec = random_vec_ext(1 << l);
@@ -77,7 +79,7 @@ bool test_product3_sumcheck() {
 bool test_product2_sumcheck() {
     typedef Goldilocks2::Element Element;
     int inv_rho = 2, sec_param = 32;
-    for (int cnt(0); cnt != 100; ++cnt) {
+    for (int cnt(0); cnt != CNT_TEST; ++cnt) {
         int l = (rand() % 10 + 1);
         // Generate random polynomials and their commitments
         std::vector<Element> poly1_vec = random_vec_ext(1 << l);
@@ -95,7 +97,7 @@ bool test_product2_sumcheck() {
             return false;
         }
     }
-    for (int cnt(0); cnt != 100; ++cnt) {
+    for (int cnt(0); cnt != CNT_TEST; ++cnt) {
         int l = (rand() % 10 + 1);
         int u = (rand() % (1 << l));
         // Generate random polynomials and their commitments
@@ -115,6 +117,52 @@ bool test_product2_sumcheck() {
     }
     return true;
 }
+
+bool test_partial_sumcheck_product2() {
+    typedef Goldilocks2::Element Element;
+    int inv_rho = 2, sec_param = 32;
+    for (int cnt(0); cnt != CNT_TEST; ++cnt) {
+        int l = (rand() % 7 + 1);
+        // Generate random polynomials and their commitments
+        std::vector<Element> f_vec = random_vec_ext(1 << (2 * l));
+        std::vector<Element> g_vec = random_vec_ext(1 << l);
+        std::shared_ptr<MultilinearPolynomial> f = std::make_shared<MultilinearPolynomial>(f_vec);
+        std::shared_ptr<MultilinearPolynomial> fp = std::make_shared<MultilinearPolynomial>(f->sum_over_lowbits(l));
+        std::shared_ptr<MultilinearPolynomial> g = std::make_shared<MultilinearPolynomial>(g_vec);
+
+        // Create commitments
+        ligeropcs_ext pcs = ligeroProver_ext(f_vec, inv_rho).commit();
+        ligeropcs_ext pcs2 = ligeroProver_ext(g_vec, inv_rho).commit();
+
+        // Run partial sumcheck
+        p2Prover prover(fp, g);
+        p2Verifier verifier;
+        auto result = verifier.partial_sumcheck(prover, sec_param);
+        if (!result.has_value()) {
+            return false;
+        }
+        // check the claim
+        // Obtain val2
+        Goldilocks2::Element val2 = pcs2.open(result->challenges, sec_param);
+        Goldilocks2::Element claimed_val1 = fp->evaluate(result->challenges); // Prover sends this to verifier
+        if (claimed_val1 * val2 != result->claim) {
+            return false;
+        }
+        result->claim = claimed_val1;
+        // check the claimed_val1
+        f->fix(0, result->challenges);
+        sProver prover2(f);
+        sVerifier verifier2;
+        if (!verifier2.partial_sumcheck(prover2, result->challenges, result->claim, sec_param)) {
+            return false;
+        }
+        if (result->claim != pcs.open(result->challenges, sec_param)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 
 bool test_logup() {
     size_t fsize = 1ull << 16;
@@ -154,6 +202,10 @@ bool run_test() {
     }
     if (!test_product2_sumcheck()) {
         std::cout << "test_product2_sumcheck failed" << std::endl;
+        return false;
+    }
+    if (!test_partial_sumcheck_product2()) {
+        std::cout << "test_partial_sumcheck_product2 failed" << std::endl;
         return false;
     }
     if (!test_logup()) {

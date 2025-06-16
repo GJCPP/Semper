@@ -28,6 +28,13 @@ public:
     virtual MultilinearPolynomial operator+(const MultilinearPolynomial& g) const;
     virtual MultilinearPolynomial operator-(const MultilinearPolynomial& g) const;
 
+    // Fix the pos-th variable to val, and compute new evaluation table
+    void fix(size_t pos, const Goldilocks2::Element& val);
+    void fix(size_t pos, const std::vector<Goldilocks2::Element>& val);
+
+    // Sum over the last len bits
+    MultilinearPolynomial sum_over_lowbits(size_t len) const;
+
 protected:
     // evaliations over the hypercube
     std::vector<Goldilocks2::Element> evaluations;

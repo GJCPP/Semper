@@ -296,6 +296,7 @@ inline Goldilocks2::Element operator/(const Goldilocks2::Element &in1, const Gol
     return result;
 }
 inline bool operator==(const Goldilocks2::Element &in1, const Goldilocks2::Element &in2) { return in1[0] == in2[0] && in1[1] == in2[1]; }
+inline bool operator!=(const Goldilocks2::Element &in1, const Goldilocks2::Element &in2) { return !(in1 == in2); }
 inline Goldilocks2::Element operator-(const Goldilocks2::Element &in1) { 
     Goldilocks2::Element result;
     Goldilocks2::neg(result, in1);

@@ -5,6 +5,7 @@
 #include "ligero.h"
 #include <array>
 #include <vector>
+#include <optional>
 
 /*
 prover for sumcheck of product of two multilinear polynomials in O(2 * 2^l) time
@@ -12,11 +13,13 @@ prover for sumcheck of product of two multilinear polynomials in O(2 * 2^l) time
 class p2Prover{
 public:
     p2Prover(std::shared_ptr<const MultilinearPolynomial> p1, std::shared_ptr<const MultilinearPolynomial> p2);
-    void initialize();
     std::array<Goldilocks2::Element, 3> send_message(const size_t& round,const std::vector<Goldilocks2::Element>& rands);
     Goldilocks2::Element get_sum() const { return sum; }
     size_t get_rounds() const { return nrnd; }
+    
 private:
+    void initialize();
+
     std::shared_ptr<const MultilinearPolynomial> p1;
     std::shared_ptr<const MultilinearPolynomial> p2;
     
@@ -28,10 +31,13 @@ private:
     size_t nrnd;
 };
 
-class p2Verifier{
+class p2Verifier {
 public:
     static bool execute_sumcheck(p2Prover& pr, const std::array<std::shared_ptr<const oracle_base>, 2>& oracle, const size_t& sec_param);
     static bool execute_sumcheck(p2Prover& pr, const std::array<std::shared_ptr<const oracle_ext>, 2>& oracle, const size_t& sec_param);
+
+    // Return nullopt for failure.
+    static std::optional<challenge_claim> partial_sumcheck(p2Prover& pr, const size_t& sec_param);
 
 private:
     static Goldilocks2::Element challenge();

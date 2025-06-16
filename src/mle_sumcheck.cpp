@@ -4,7 +4,7 @@
 // #include <gmpxx.h>
 #include <random>
 
-sProver::sProver(const MultilinearPolynomial& g) :g(g), nrnd(g.get_num_vars()), sum(Goldilocks2::zero()) {
+sProver::sProver(std::shared_ptr<const MultilinearPolynomial> g) :g(g), nrnd(g->get_num_vars()), sum(Goldilocks2::zero()) {
     initialize();
 }
 
@@ -13,7 +13,7 @@ sProver::sProver(const MultilinearPolynomial& g) :g(g), nrnd(g.get_num_vars()), 
 2. calculate sum
 */
 void sProver::initialize() {
-    keepTable = g.get_eval_table();
+    keepTable = g->get_eval_table();
     sum = Goldilocks2::zero();
     for (size_t i = 0; i < keepTable.size(); ++i) {
         sum = sum + keepTable[i];
@@ -29,7 +29,7 @@ std::array<Goldilocks2::Element, 2> sProver::send_message(const size_t& round, c
     if (round > 1) {
         // namely r_{i-1}
         uint64_t offset_last = (offset << 1);
-        Goldilocks2::Element r = rands[round - 2]; // challenge
+        Goldilocks2::Element r = rands.back(); // challenge
         for (uint64_t b = 0; b < offset_last; ++b) {
             Goldilocks2::Element A, B, oneminusr;
             Goldilocks2::sub(oneminusr, Goldilocks::one(), r);
@@ -162,10 +162,9 @@ bool sVerifier::execute_sumcheck(sProver& pr, const oracle_ext& oracle, const si
     return true;
 }
 
-std::optional<challenge_claim> sVerifier::execute_sumcheck(sProver& pr, Goldilocks2::Element claim, const size_t& sec_param) {
+bool sVerifier::partial_sumcheck(sProver& pr, std::vector<Goldilocks2::Element>& challenges, Goldilocks2::Element& claim, const size_t& sec_param) {
     // if(!ligeroVerifier::check_commit(oracle, sec_param)) return false;
     size_t nrnd = pr.get_rounds();
-    std::vector<Goldilocks2::Element> challenges;
 
     // s_{i - 1}
     std::array<Goldilocks2::Element, 2> si1;
@@ -177,18 +176,18 @@ std::optional<challenge_claim> sVerifier::execute_sumcheck(sProver& pr, Goldiloc
         Goldilocks2::Element ss;
         Goldilocks2::add(ss, si[0], si[1]);
         if (round == 1) {
-            if (!(ss == claim)) return std::nullopt;
+            if (!(ss == claim)) return false;
         }
         else {
             // s_{i - 1}(r) = r * s_{i - 1}(1) + (1-r) * s_{i - 1}(0)
             Goldilocks2::Element sr;
-            Goldilocks2::Element r = challenges[round - 2];
+            Goldilocks2::Element r = challenges.back();
             Goldilocks2::Element A, B, oneminusr;
             Goldilocks2::sub(oneminusr, Goldilocks::one(), r);
             Goldilocks2::mul(A, si1[0], oneminusr);
             Goldilocks2::mul(B, si1[1], r);
             Goldilocks2::add(sr, A, B);
-            if (!(sr == ss)) return std::nullopt;
+            if (!(sr == ss)) return false;
 
             // final check
             if (round == nrnd) {
@@ -197,13 +196,14 @@ std::optional<challenge_claim> sVerifier::execute_sumcheck(sProver& pr, Goldiloc
                 // std::cout << Goldilocks2::toString(f_r) << '\n';
                 // s_l(r_l)
                 Goldilocks2::Element newclaim;
-                Goldilocks2::Element rl = challenges[round - 1];
+                Goldilocks2::Element rl = challenges.back();
                 Goldilocks2::Element C, D, oneminusrl;
                 Goldilocks2::sub(oneminusrl, Goldilocks::one(), rl);
                 Goldilocks2::mul(C, si[0], oneminusrl);
                 Goldilocks2::mul(D, si[1], rl);
                 Goldilocks2::add(newclaim, C, D);
-                return challenge_claim{ challenges, newclaim };
+                claim = newclaim;
+                return true;
             }
         }
 
@@ -214,7 +214,8 @@ std::optional<challenge_claim> sVerifier::execute_sumcheck(sProver& pr, Goldiloc
     // si1[0] = b
     // si1[1] = a + b
     // claim = (1 - r) * b + r * (a + b)
-    return challenge_claim{ challenges, (Goldilocks2::one() - challenges.back()) * si1[0] + challenges.back() * si1[1] };
+    claim = (Goldilocks2::one() - challenges.back()) * si1[0] + challenges.back() * si1[1];
+    return true;
 }
 
 

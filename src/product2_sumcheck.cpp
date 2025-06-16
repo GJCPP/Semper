@@ -166,6 +166,49 @@ bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<std::shared_ptr
     return true;
 }
 
+std::optional<challenge_claim> p2Verifier::partial_sumcheck(p2Prover& pr, const size_t& sec_param) {
+    Goldilocks2::Element claim = pr.get_sum();
+    size_t nrnd = pr.get_rounds();
+    std::vector<Goldilocks2::Element> challenges;
+
+    // s_{i - 1}
+    std::array<Goldilocks2::Element, 3> si1;
+    for (int round = 1; round <= nrnd; ++round) {
+        // s_i
+        std::array<Goldilocks2::Element, 3> si;
+        si = pr.send_message(round, challenges);
+        // s(0) + s(1)
+        Goldilocks2::Element ss = si[0] + si[1];
+        if (round == 1) {
+            if (!(ss == claim)) return std::nullopt;
+        }
+        else {
+            Goldilocks2::Element sr;
+            Goldilocks2::Element r = challenges[round - 2];
+            interpolate_2(sr, r, si1[0], si1[1], si1[2]);
+            if (!(sr == ss)) return std::nullopt;
+
+            // final check
+            if (round == nrnd) {
+                challenges.push_back(challenge());
+
+                Goldilocks2::Element slrl;
+                Goldilocks2::Element rl = challenges[round - 1];
+                interpolate_2(slrl, rl, si[0], si[1], si[2]);
+                return challenge_claim{challenges, slrl};
+            }
+        }
+
+        challenges.push_back(challenge());
+        // goto next round
+        si1 = si;
+    }
+    Goldilocks2::Element slrl;
+    Goldilocks2::Element rl = challenges[nrnd - 1];
+    interpolate_2(slrl, rl, si1[0], si1[1], si1[2]);
+    return challenge_claim{challenges, slrl};
+}
+
 // we use goldilocks 2-extension, so no bother specifying the field
 Goldilocks2::Element p2Verifier::challenge() {
     static std::random_device rd;

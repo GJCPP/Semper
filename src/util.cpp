@@ -386,3 +386,15 @@ Goldilocks2::Element pow(Goldilocks2::Element beta, size_t u) {
     }
     return res;
 }
+
+std::vector<Goldilocks2::Element> combine_challenges(const std::vector<Goldilocks2::Element>& c1, const std::vector<Goldilocks2::Element>& c2) {
+    std::vector<Goldilocks2::Element> res(c1.size() + c2.size());
+    size_t i = 0;
+    for (auto e : c1) {
+        res[i++] = e;
+    }
+    for (auto e : c2) {
+        res[i++] = e;
+    }
+    return res;
+}

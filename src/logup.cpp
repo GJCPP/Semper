@@ -111,8 +111,8 @@ std::array<LogupDef::pcs_ext, 2> LogupProver::commit_gh(const uint64_t& rho_inv)
 
 std::array<sProver, 2> LogupProver::firstProvers() {
     set_timer("initialize sumcheck provers for g and h");
-    sProver sprg(*polyg);
-    sProver sprh(*polyh);
+    sProver sprg(polyg);
+    sProver sprh(polyh);
     end_timer("initialize sumcheck provers for g and h");
     return { sprg, sprh };
 }
