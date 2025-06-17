@@ -168,6 +168,10 @@ bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<std::shared_ptr
 
 std::optional<challenge_claim> p2Verifier::partial_sumcheck(p2Prover& pr, const size_t& sec_param) {
     Goldilocks2::Element claim = pr.get_sum();
+    return partial_sumcheck(pr, claim, sec_param);
+}
+
+std::optional<challenge_claim> p2Verifier::partial_sumcheck(p2Prover& pr, Goldilocks2::Element claim, const size_t& sec_param) {
     size_t nrnd = pr.get_rounds();
     std::vector<Goldilocks2::Element> challenges;
 

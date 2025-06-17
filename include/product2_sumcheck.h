@@ -38,6 +38,7 @@ public:
 
     // Return nullopt for failure.
     static std::optional<challenge_claim> partial_sumcheck(p2Prover& pr, const size_t& sec_param);
+    static std::optional<challenge_claim> partial_sumcheck(p2Prover& pr, Goldilocks2::Element claim, const size_t& sec_param);
 
 private:
     static Goldilocks2::Element challenge();

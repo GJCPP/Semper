@@ -104,7 +104,7 @@ bool test_product2_sumcheck() {
         std::vector<Element> poly1_vec = random_vec_ext(1 << l);
         std::vector<Element> poly2_vec = random_vec_ext(1 << l);
         std::shared_ptr<MultilinearPolynomial> poly1 = std::make_shared<MultilinearPolynomial>(poly1_vec);
-        std::shared_ptr<MultilinearPolynomial> poly2 = std::make_shared<MLE_Pow>(random_ext(), l, u);
+        std::shared_ptr<MultilinearPolynomial> poly2 = std::make_shared<MLE_Pow>(random_ext(), l, u, true);
         std::shared_ptr<const oracle_ext> pcs1 = std::make_shared<ligeropcs_ext>(ligeroProver_ext(*poly1, inv_rho).commit());
 
         // Run product3 sumcheck
@@ -186,8 +186,59 @@ bool test_logup() {
     return LogupVerifier::execute_logup(lpr, 2, 32);
 }
 
+bool test_conv_check() {
+    for (int cnt(0); cnt != CNT_TEST; ++cnt) {
+        size_t C = rand() % 10 + 1, N = rand() % 10 + 1, D = rand() % 10 + 1, K = rand() % 10 + 1;
+        
+        // X: C x N, W: C x D x K, Y: D x (N + K - 1)
+        std::vector<std::vector<Goldilocks2::Element>> X(C, std::vector<Goldilocks2::Element>(N));
+        std::vector<std::vector<std::vector<Goldilocks2::Element>>> W(C, std::vector<std::vector<Goldilocks2::Element>>(D, std::vector<Goldilocks2::Element>(K)));
+        std::vector<std::vector<Goldilocks2::Element>> Y(D, std::vector<Goldilocks2::Element>(N + K - 1));
+
+        for (size_t i = 0; i < C; ++i) {
+            for (size_t j = 0; j < N; ++j) {
+                X[i][j] = random_ext();
+            }
+        }
+        for (size_t i = 0; i < C; ++i) {
+            for (size_t j = 0; j < D; ++j) {
+                for (size_t k = 0; k < K; ++k) {
+                    W[i][j][k] = random_ext();
+                }
+            }
+        }
+        for (size_t d = 0; d < D; ++d) {
+            for (size_t n = 0; n < N; ++n) {
+                for (size_t c = 0; c < C; ++c) {
+                    for (size_t k = 0; k < K; ++k) {
+                        Y[d][n + k] += X[c][n] * W[c][d][k];
+                    }
+                }
+            }
+        }
+
+
+        std::shared_ptr<convTriple> triple = std::make_shared<convTriple>(X, W, Y);
+        convProver prover(triple);
+        std::array<std::shared_ptr<const ligeropcs_ext>, 3> pcs = triple->commit(2);
+        std::array<std::shared_ptr<const oracle_ext>, 3> oracle = {
+            pcs[0],
+            pcs[1],
+            pcs[2] };
+
+        if (!triple->check()) {
+            return false;
+        }
+
+        if (!convVerifier::execute_convcheck(prover, oracle, 32)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool run_test() {
-    srand(time(NULL));
+    // srand(time(NULL));
     if (!test_arithmetic()) {
         std::cout << "test_arithmetic failed" << std::endl;
         return false;
@@ -210,6 +261,10 @@ bool run_test() {
     }
     if (!test_logup()) {
         std::cout << "test_logup failed" << std::endl;
+        return false;
+    }
+    if (!test_conv_check()) {
+        std::cout << "test_conv_check failed" << std::endl;
         return false;
     }
     std::cout << "All tests passed" << std::endl;

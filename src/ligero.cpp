@@ -14,6 +14,16 @@ std::vector<Goldilocks::Element> rsencode(const std::vector<Goldilocks::Element>
     return eval_with_ntt(data, data.size() * rho_inv);
 }
 
+ligeropcs_base ligero_commit_base(const MultilinearPolynomial& w, const uint64_t& rho_inv) {
+    auto prover = std::make_shared<ligeroProver_base>(w, rho_inv);
+    return prover->commit();
+}
+
+ligeropcs_ext ligero_commit_ext(const MultilinearPolynomial& w, const uint64_t& rho_inv) {
+    auto prover = std::make_shared<ligeroProver_ext>(w, rho_inv);
+    return prover->commit();
+}
+
 // reed solomon encode data on quadratic extension field
 // this is simply encode real part and imaginary part respectively and merge the results
 std::vector<Goldilocks2::Element> rsencode(const std::vector<Goldilocks2::Element>& data, const uint64_t& rho_inv) {

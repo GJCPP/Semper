@@ -3,9 +3,11 @@
 #include <string>
 #include <cassert>
 
-MultilinearPolynomial::MultilinearPolynomial(size_t num_vars)
+MultilinearPolynomial::MultilinearPolynomial(size_t num_vars, bool init)
     : num_vars(num_vars) {
-    evaluations.resize(1ull << num_vars, Goldilocks2::zero());
+    if (init) {
+        evaluations.resize(1ull << num_vars, Goldilocks2::zero());
+    }
 }
 
 MultilinearPolynomial::MultilinearPolynomial(const std::vector<Goldilocks2::Element>& evaluations)
@@ -89,6 +91,14 @@ MultilinearPolynomial MultilinearPolynomial::operator-(const MultilinearPolynomi
     return MultilinearPolynomial(evs);
 }
 
+Goldilocks2::Element MultilinearPolynomial::get_sum() const {
+    Goldilocks2::Element sum = Goldilocks2::zero();
+    for (const Goldilocks2::Element& v : evaluations) {
+        Goldilocks2::add(sum, sum, v);
+    }
+    return sum;
+}
+
 void MultilinearPolynomial::fix(size_t pos, const Goldilocks2::Element& val) {
     assert(pos >= 0 && pos < num_vars);
     pos = num_vars - pos - 1; // reverse the pos, 0 -> MSB
@@ -119,6 +129,18 @@ MultilinearPolynomial MultilinearPolynomial::sum_over_lowbits(size_t len) const 
     for (size_t i = 0; i < (1ull << (num_vars - len)); ++i) {
         for (size_t j = 0; j < (1ull << len); ++j) {
             evs[i] = evs[i] + evaluations[(i << len) | j];
+        }
+    }
+    return MultilinearPolynomial(evs);
+}
+
+MultilinearPolynomial MultilinearPolynomial::sum_over_lowbits_with_power(size_t len, Goldilocks2::Element beta) const {
+    std::vector<Goldilocks2::Element> evs(1ull << (num_vars - len));
+    for (size_t i = 0; i < (1ull << (num_vars - len)); ++i) {
+        Goldilocks2::Element power = Goldilocks2::one();
+        for (size_t j = 0; j < (1ull << len); ++j) {
+            evs[i] = evs[i] + evaluations[(i << len) | j] * power;
+            power = power * beta;
         }
     }
     return MultilinearPolynomial(evs);

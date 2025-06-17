@@ -307,3 +307,7 @@ inline Goldilocks2::Element operator+(const Goldilocks2::Element &in1) {
     Goldilocks2::copy(result, in1);
     return result;
 }
+inline Goldilocks2::Element& operator+=(Goldilocks2::Element &in1, const Goldilocks2::Element &in2) { 
+    Goldilocks2::add(in1, in1, in2);
+    return in1;
+}

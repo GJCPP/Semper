@@ -122,3 +122,6 @@ private:
 
 std::vector<Goldilocks2::Element> rsencode(const std::vector<Goldilocks2::Element>& data, const uint64_t& rho_inv);
 std::vector<Goldilocks::Element> rsencode(const std::vector<Goldilocks::Element>& data, const uint64_t& rho_inv);
+
+ligeropcs_base ligero_commit_base(const MultilinearPolynomial& w, const uint64_t& rho_inv);
+ligeropcs_ext ligero_commit_ext(const MultilinearPolynomial& w, const uint64_t& rho_inv);
