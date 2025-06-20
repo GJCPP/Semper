@@ -9,7 +9,12 @@
 */
 class MLE_Eq : public MultilinearPolynomial {
 public:
-    MLE_Eq(const size_t& num_var, const std::vector<Goldilocks2::Element>& r);
+    MLE_Eq(const std::vector<Goldilocks2::Element>& r);
+    MLE_Eq(const std::vector<Goldilocks2::Element>::const_iterator begin, const std::vector<Goldilocks2::Element>::const_iterator end);
+
+    std::unique_ptr<MultilinearPolynomial> clone() const override {
+        return std::make_unique<MLE_Eq>(*this);
+    }
 
     Goldilocks2::Element evaluate(const std::vector<Goldilocks2::Element>& point) const override;
 private:

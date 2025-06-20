@@ -110,3 +110,13 @@ Goldilocks2::Element pow(Goldilocks2::Element beta, size_t u);
 
 std::vector<Goldilocks2::Element> combine_challenges(const std::vector<Goldilocks2::Element>& c1, const std::vector<Goldilocks2::Element>& c2);
 std::vector<Goldilocks2::Element> combine_challenges(const std::vector<Goldilocks2::Element>& c1, const std::vector<Goldilocks2::Element>& c2, const std::vector<Goldilocks2::Element>& c3);
+
+// Return Y = X * W, where |Y| = |X| + |W| - 1
+std::vector<Goldilocks2::Element> conv(const std::vector<Goldilocks2::Element>& X, const std::vector<Goldilocks2::Element>& W);
+
+// Flatten the tensor
+std::vector<Goldilocks2::Element> flatten(const std::vector<std::vector<Goldilocks2::Element>>& vec);
+std::vector<Goldilocks2::Element> flatten(const std::vector<std::vector<std::vector<Goldilocks2::Element>>>& vec);
+std::vector<Goldilocks2::Element> flatten(const std::vector<std::vector<std::vector<std::vector<Goldilocks2::Element>>>>& vec);
+
+

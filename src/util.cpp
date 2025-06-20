@@ -94,7 +94,6 @@ Goldilocks::Element random_base() {
 }
 
 std::vector<Goldilocks::Element> random_vec_base(const size_t& n) {
-    srand(time(nullptr));
     std::vector<Goldilocks::Element> vec;
     vec.reserve(n);
     for (size_t i = 0; i < n; ++i) {
@@ -104,7 +103,6 @@ std::vector<Goldilocks::Element> random_vec_base(const size_t& n) {
 }
 
 std::vector<uint64_t> random_vec_uint(const size_t& n) {
-    srand(time(nullptr));
     std::vector<uint64_t> vec;
     vec.reserve(n);
     for (size_t i = 0; i < n; ++i) {
@@ -118,7 +116,6 @@ Goldilocks2::Element random_ext() {
 }
 
 std::vector<Goldilocks2::Element> random_vec_ext(const size_t& n) {
-    srand(time(nullptr));
     std::vector<Goldilocks2::Element> vec;
     vec.reserve(n);
     for (size_t i = 0; i < n; ++i) {
@@ -410,6 +407,53 @@ std::vector<Goldilocks2::Element> combine_challenges(const std::vector<Goldilock
     }
     for (auto e : c3) {
         res[i++] = e;
+    }
+    return res;
+}
+
+std::vector<Goldilocks2::Element> conv(const std::vector<Goldilocks2::Element>& X, const std::vector<Goldilocks2::Element>& W) {
+    std::vector<Goldilocks2::Element> Y(X.size() + W.size() - 1);
+    for (size_t i = 0; i < X.size(); ++i) {
+        for (size_t j = 0; j < W.size(); ++j) {
+            Y[i + j] += X[i] * W[j];
+        }
+    }
+    return Y;
+}
+
+std::vector<Goldilocks2::Element> flatten(const std::vector<std::vector<Goldilocks2::Element>>& vec) {
+    std::vector<Goldilocks2::Element> res;
+    res.reserve(vec.size() * vec[0].size());
+    for (auto& v : vec) {
+        for (auto& e : v) {
+            res.push_back(e);
+        }
+    }
+    return res;
+}
+
+std::vector<Goldilocks2::Element> flatten(const std::vector<std::vector<std::vector<Goldilocks2::Element>>>& vec) {
+    std::vector<Goldilocks2::Element> res;
+    for (auto& v : vec) {
+        for (auto& u : v) {
+            for (auto& e : u) {
+                res.push_back(e);
+            }
+        }
+    }
+    return res;
+}
+
+std::vector<Goldilocks2::Element> flatten(const std::vector<std::vector<std::vector<std::vector<Goldilocks2::Element>>>>& vec) {
+    std::vector<Goldilocks2::Element> res;
+    for (auto& v : vec) {
+        for (auto& u : v) {
+            for (auto& w : u) {
+                for (auto& e : w) {
+                    res.push_back(e);
+                }
+            }
+        }
     }
     return res;
 }

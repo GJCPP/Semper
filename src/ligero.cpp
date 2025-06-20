@@ -38,8 +38,8 @@ ligeroProver_base::ligeroProver_base(const MultilinearPolynomial& w, const uint6
     b = a << (l & 1);           //ceil(l/2)
     M.resize(1ull << l, Goldilocks::zero());
     codelen = b * rho_inv;
-    for (size_t i = 0; i < w.get_eval_table().size(); ++i) {
-        M[i] = w.eval_hypercube(i)[0];
+    for (size_t i = 0; i < (1 << l); ++i) {
+        M[i] = w[i][0];
     }
 
     for (size_t i = 0; i < a; ++i) {
@@ -146,7 +146,7 @@ ligeroProver_ext::ligeroProver_ext(const MultilinearPolynomial& w, const uint64_
     a = 1ull << (l >> 1);       //floor(l/2)
     b = a << (l & 1);           //ceil(l/2)
     codelen = b * rho_inv;
-    for (size_t i = 0; i < w.get_eval_table().size(); ++i) {
+    for (size_t i = 0; i < (1 << l); ++i) {
         M[i] = w.eval_hypercube(i);
     }
     for (size_t i = 0; i < a; ++i) {

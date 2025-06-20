@@ -6,6 +6,7 @@
 #include "mle_pow.h"
 #include "mle_sumcheck.h"
 #include "product2_sumcheck.h"
+#include "mle_convker.h"
 
 class convProver;
 class convVerifier;
@@ -15,14 +16,17 @@ class convTriple {
     friend class convProver;
     friend class convVerifier;
 public:
+    convTriple(const convTriple& other);
+    convTriple(convTriple&& other) = default;
+
     convTriple(const std::vector<std::vector<Goldilocks2::Element>>& X,
         const std::vector<std::vector<std::vector<Goldilocks2::Element>>>& W,
         const std::vector<std::vector<Goldilocks2::Element>>& Y);
 
     convTriple(size_t C, size_t N, size_t D, size_t K,
-        const MultilinearPolynomial& X,
-        const MultilinearPolynomial& W,
-        const MultilinearPolynomial& Y);
+        std::unique_ptr<MultilinearPolynomial> X,
+        std::unique_ptr<MultilinearPolynomial> W,
+        std::unique_ptr<MultilinearPolynomial> Y);
 
     
 
@@ -31,11 +35,11 @@ public:
 
 
     std::array<ligeropcs_ext, 3> commit(size_t rho_inv) const;
+    std::unique_ptr<MultilinearPolynomial> X, W, Y;
 
 protected:
     size_t C, N, D, K;
     int logC, logN, logD, logK, logNK1;
-    MultilinearPolynomial X, W, Y;
 };
 
 /*
@@ -62,15 +66,15 @@ public:
      */
     std::array<p2Prover, 2> fix_r_C(const std::vector<Goldilocks2::Element>& r_C);
 
-protected:
     convTriple triple;
+protected:
     // std::unique_ptr<MultilinearPolynomial> X_prime, W_prime;
     Goldilocks2::Element beta;
 };
 
 class convVerifier {
 public:
-    static bool execute_convcheck(convProver& prover, const std::array<const ligeropcs_ext, 3>& oracle, const size_t& sec_param);
+    static bool execute_convcheck(convProver& prover, const std::array<const oracle_ext*, 3>& oracle, const size_t& sec_param);
 };
 
 // Flatten the tensor and create a convProver
@@ -78,3 +82,11 @@ convProver make_conv_prover(
     const std::vector<std::vector<Goldilocks2::Element>>& X, // in_channels x N
     const std::vector<std::vector<std::vector<Goldilocks2::Element>>>& W, // in_channels x out_channels x kernel_size
     const std::vector<std::vector<Goldilocks2::Element>>& Y); // out_channels x (N + kernel_size - 1)
+
+// Flatten the tensor and create a conv2Prover
+convProver make_conv2_prover(
+    size_t C, size_t D, size_t n, size_t m,
+    const std::vector<std::vector<std::vector<Goldilocks2::Element>>>& X, // in_channels x n x n
+    const std::vector<std::vector<std::vector<std::vector<Goldilocks2::Element>>>>& W); // in_channels x out_channels x m x m
+
+

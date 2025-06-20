@@ -1,6 +1,7 @@
 #include "mle.h"
 #include "mle_sumcheck.h"
 #include "goldilocks_quadratic_ext.h"
+#include "util.h"
 // #include <gmpxx.h>
 #include <random>
 
@@ -215,8 +216,8 @@ Goldilocks2::Element sVerifier::challenge() {
     static std::random_device rd;
     static std::mt19937_64 gen(rd());
     constexpr uint64_t MODULUS = Goldilocks2::p;
-    std::uniform_int_distribution<uint64_t> dist(0, MODULUS - 1);
+    // std::uniform_int_distribution<uint64_t> dist(0, MODULUS - 1);
 
-    uint64_t randn[] = { dist(gen), dist(gen) };
-    return Goldilocks2::fromU64(randn);
+    // uint64_t randn[] = { dist(gen), dist(gen) };
+    return random_ext();
 }

@@ -17,6 +17,30 @@ MultilinearPolynomial::MultilinearPolynomial(const std::vector<Goldilocks2::Elem
     num_vars = r;
 }
 
+MultilinearPolynomial::MultilinearPolynomial(const std::vector<std::vector<Goldilocks2::Element>>& x) {
+    int log1 = find_ceiling_log2(x.size()), log2 = find_ceiling_log2(x[0].size());
+    num_vars = log1 + log2;
+    evaluations.resize(1ull << num_vars);
+    for (size_t i = 0; i < x.size(); ++i) {
+        for (size_t j = 0; j < x[i].size(); ++j) {
+            evaluations[(i << log2) + j] = x[i][j];
+        }
+    }
+}
+
+MultilinearPolynomial::MultilinearPolynomial(const std::vector<std::vector<std::vector<Goldilocks2::Element>>>& x) {
+    int log1 = find_ceiling_log2(x.size()), log2 = find_ceiling_log2(x[0].size()), log3 = find_ceiling_log2(x[0][0].size());
+    num_vars = log1 + log2 + log3;
+    evaluations.resize(1ull << num_vars);
+    for (size_t i = 0; i < x.size(); ++i) {
+        for (size_t j = 0; j < x[i].size(); ++j) {
+            for (size_t k = 0; k < x[i][j].size(); ++k) {
+                evaluations[(i << (log2 + log3)) + (j << log3) + k] = x[i][j][k];
+            }
+        }
+    }
+}
+
 MultilinearPolynomial::MultilinearPolynomial(const std::vector<uint64_t>& val_table) {
     size_t r = find_ceiling_log2(val_table.size());
     num_vars = r;
@@ -74,9 +98,9 @@ Goldilocks2::Element MultilinearPolynomial::open(const std::vector<Goldilocks2::
 
 MultilinearPolynomial MultilinearPolynomial::operator+(const MultilinearPolynomial& g) const {
     assert(num_vars == g.get_num_vars());
-    std::vector<Goldilocks2::Element> evs(evaluations.size()), evalg = g.get_eval_table();
+    std::vector<Goldilocks2::Element> evs(evaluations.size()), evalg = g.evaluations;
     for (size_t i = 0;i < evaluations.size(); ++i) {
-        Goldilocks2::add(evs[i], evaluations[i], evalg[i]);
+        evs[i] = evaluations[i] + evalg[i];
     }
     return MultilinearPolynomial(evs);
 }
@@ -84,9 +108,9 @@ MultilinearPolynomial MultilinearPolynomial::operator+(const MultilinearPolynomi
 
 MultilinearPolynomial MultilinearPolynomial::operator-(const MultilinearPolynomial& g) const {
     assert(num_vars == g.get_num_vars());
-    std::vector<Goldilocks2::Element> evs(evaluations.size()), evalg = g.get_eval_table();
+    std::vector<Goldilocks2::Element> evs(evaluations.size()), evalg = g.evaluations;
     for (size_t i = 0;i < evaluations.size(); ++i) {
-        Goldilocks2::sub(evs[i], evaluations[i], evalg[i]);
+        evs[i] = evaluations[i] - evalg[i];
     }
     return MultilinearPolynomial(evs);
 }
@@ -97,6 +121,13 @@ Goldilocks2::Element MultilinearPolynomial::get_sum() const {
         Goldilocks2::add(sum, sum, v);
     }
     return sum;
+}
+
+void MultilinearPolynomial::iterate_nonzero(const std::function<void(size_t, Goldilocks2::Element, Goldilocks2::Element)> f) const {
+    size_t offset = 1ull << (num_vars - 1);
+    for (size_t i = 0; i < offset; ++i) {
+        f(i, evaluations[i], evaluations[i + offset]);
+    }
 }
 
 void MultilinearPolynomial::fix(size_t pos, const Goldilocks2::Element& val) {
@@ -121,6 +152,12 @@ void MultilinearPolynomial::fix(size_t pos, const std::vector<Goldilocks2::Eleme
     assert(pos >= 0 && pos + val.size() <= num_vars);
     for (const Goldilocks2::Element& v : val) {
         fix(pos, v);
+    }
+}
+
+void MultilinearPolynomial::fix(size_t pos, const std::vector<Goldilocks2::Element>::const_iterator begin, const std::vector<Goldilocks2::Element>::const_iterator end) {
+    for (auto it = begin; it != end; ++it) {
+        fix(pos, *it);
     }
 }
 

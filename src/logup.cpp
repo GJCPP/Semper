@@ -124,8 +124,8 @@ std::array<p3Prover, 2> LogupProver::secondProvers(const std::vector<Goldilocks2
     set_timer("initialize sumcheck provers for the product sumcheck");
     MultilinearPolynomial polydenomg(denomg);
     MultilinearPolynomial polydenomh(denomh);
-    MLE_Eq eqg(polyg.get_num_vars(), rg);
-    MLE_Eq eqh(polyh.get_num_vars(), rh);
+    MLE_Eq eqg(rg);
+    MLE_Eq eqh(rh);
     p3Prover prg(eqg, polyg, polydenomg);
     p3Prover prh(eqh, polyh, polydenomh);
     std::array<p3Prover, 2> provers = { prg, prh };
@@ -197,8 +197,8 @@ bool LogupVerifier::execute_logup(LogupProver& lpr, const uint64_t& rho_inv, con
     assert(secondProvers[1].get_sum() == ligeroVerifier::open(c, rh, sec_param));
 
     set_timer("calculate eq");
-    MLE_Eq eqg(numvar_g, rg);
-    MLE_Eq eqh(numvar_h, rh);
+    MLE_Eq eqg(rg);
+    MLE_Eq eqh(rh);
     end_timer("calculate eq");
     auto pcsf1 = ft[0], pcsf2 = ft[1], pcst1 = ft[2], pcst2 = ft[3];
 

@@ -10,10 +10,12 @@ class MLE_Pow : public MultilinearPolynomial {
 public:
     MLE_Pow(Goldilocks2::Element beta, size_t num_vars, size_t degree, bool init=false);
     
+    std::unique_ptr<MultilinearPolynomial> clone() const override {
+        return std::make_unique<MLE_Pow>(*this);
+    }
+
     // Cost O(degree^2)
     Goldilocks2::Element evaluate(const std::vector<Goldilocks2::Element>& point) const override;
-
-    std::vector<Goldilocks2::Element> get_eval_table() const override;
     
 protected:
     Goldilocks2::Element beta;

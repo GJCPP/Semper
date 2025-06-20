@@ -90,7 +90,7 @@ bool test_product2_sumcheck() {
         ligeropcs_ext pcs2 = ligeroProver_ext(poly2, inv_rho).commit();
 
         // Run product3 sumcheck
-        p2Prover prover(poly1, poly2);
+        p2Prover prover(std::make_unique<MultilinearPolynomial>(poly1), std::make_unique<MultilinearPolynomial>(poly2));
         p2Verifier verifier;
         std::array<const oracle_ext*, 2> oracle = { &pcs1, &pcs2 };
         if (!verifier.execute_sumcheck(prover, oracle, sec_param)) {
@@ -108,7 +108,7 @@ bool test_product2_sumcheck() {
         ligeropcs_ext pcs1 = ligeroProver_ext(poly1, inv_rho).commit();
 
         // Run product3 sumcheck
-        p2Prover prover(poly1, poly2);
+        p2Prover prover(std::make_unique<MultilinearPolynomial>(poly1), std::make_unique<MLE_Pow>(poly2));
         p2Verifier verifier;
         std::array<const oracle_ext*, 2> oracle = { &pcs1, &poly2 };
         if (!verifier.execute_sumcheck(prover, oracle, sec_param)) {
@@ -135,7 +135,7 @@ bool test_partial_sumcheck_product2() {
         ligeropcs_ext pcs2 = ligeroProver_ext(g_vec, inv_rho).commit();
 
         // Run partial sumcheck
-        p2Prover prover(fp, g);
+        p2Prover prover(std::make_unique<MultilinearPolynomial>(fp), std::make_unique<MultilinearPolynomial>(g));
         p2Verifier verifier;
         auto result = verifier.partial_sumcheck(prover, sec_param);
         if (!result.has_value()) {
@@ -221,9 +221,71 @@ bool test_conv_check() {
         convTriple triple(X, W, Y);
         convProver prover(triple);
         std::array<ligeropcs_ext, 3> pcs = triple.commit(2);
-        std::array<const ligeropcs_ext, 3> oracle = { pcs[0], pcs[1], pcs[2] };
+        std::array<const oracle_ext*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
 
         if (!triple.check()) {
+            return false;
+        }
+
+        if (!convVerifier::execute_convcheck(prover, oracle, 32)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void random_conv2(
+    size_t C, size_t D, size_t n, size_t m,
+    std::vector<std::vector<std::vector<Goldilocks2::Element>>>& X, // C x n x n
+    std::vector<std::vector<std::vector<std::vector<Goldilocks2::Element>>>>& W) {
+
+    X.resize(C, std::vector<std::vector<Goldilocks2::Element>>(n, std::vector<Goldilocks2::Element>(n)));
+    W.resize(C, std::vector<std::vector<std::vector<Goldilocks2::Element>>>(D, std::vector<std::vector<Goldilocks2::Element>>(m, std::vector<Goldilocks2::Element>(m))));
+
+    for (size_t c = 0; c < C; ++c) {
+        for (size_t i = 0; i < n; ++i) {
+            for (size_t j = 0; j < n; ++j) {
+                X[c][i][j] = random_ext();
+            }
+        }
+    }
+    for (size_t c = 0; c < C; ++c) {
+        for (size_t d = 0; d < D; ++d) {
+            for (size_t i = 0; i < m; ++i) {
+                for (size_t j = 0; j < m; ++j) {
+                    W[c][d][i][j] = random_ext();
+                }
+            }
+        }
+    }
+}
+
+bool test_conv2_check() {
+    for (int cnt(0); cnt != CNT_TEST; ++cnt) {
+        size_t C = rand() % 10 + 1, D = rand() % 5 + 1, n = rand() % 10 + 3, m = 3;
+        
+        // X: C x n x n, W: C x D x m x m, Y: D x n x n
+        std::vector<std::vector<std::vector<Goldilocks2::Element>>> X;
+        std::vector<std::vector<std::vector<std::vector<Goldilocks2::Element>>>> W;
+        std::vector<std::vector<std::vector<Goldilocks2::Element>>> Y;
+        
+        srand(42);
+        random_conv2(C, D, n, m, X, W);
+
+        convProver prover(make_conv2_prover(C, D, n, m, X, W));
+        // std::array<ligeropcs_ext, 3> pcs = prover.triple.commit(2);
+        // std::array<const oracle_ext*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
+        MultilinearPolynomial p1 = *prover.triple.X;
+#ifndef GJC
+        MLE_Convker p2 = *dynamic_cast<MLE_Convker*>(prover.triple.W.get());
+#else
+        MultilinearPolynomial p2 = *prover.triple.W;
+#endif
+        // MultilinearPolynomial p2 = *prover.triple.W;
+        MultilinearPolynomial p3 = *prover.triple.Y;
+        std::array<const oracle_ext*, 3> oracle = { &p1, &p2, &p3 };
+
+        if (!prover.triple.check()) {
             return false;
         }
 
@@ -262,6 +324,10 @@ bool run_test() {
     }
     if (!test_conv_check()) {
         std::cout << "test_conv_check failed" << std::endl;
+        return false;
+    }
+    if (!test_conv2_check()) {
+        std::cout << "test_conv2_check failed" << std::endl;
         return false;
     }
     std::cout << "All tests passed" << std::endl;

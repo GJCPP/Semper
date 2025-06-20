@@ -20,12 +20,3 @@ Goldilocks2::Element MLE_Pow::evaluate(const std::vector<Goldilocks2::Element>& 
     return eval_power_mle(beta, point, degree, num_vars);
 }
 
-std::vector<Goldilocks2::Element> MLE_Pow::get_eval_table() const {
-    if (evaluations.size() == 0) {
-        throw std::runtime_error("MLE_Pow: evaluation table is not initialized");
-        return {};
-    }
-    return evaluations;
-}
-
-

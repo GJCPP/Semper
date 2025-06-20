@@ -1,20 +1,16 @@
 #include "product2_sumcheck.h"
 #include "goldilocks_quadratic_ext.h"
 #include "mle.h"
+#include "util.h"
 #include <array>
 #include <vector>
 #include <random>
 #include <cassert>
 
-p2Prover::p2Prover(const MultilinearPolynomial& p1, const MultilinearPolynomial& p2) 
-    : p1(p1), p2(p2), nrnd(p1.get_num_vars()), sum(Goldilocks2::zero()) {
-    assert(p1.get_num_vars() == p2.get_num_vars());
-    initialize();
-}
+p2Prover::p2Prover(std::unique_ptr<MultilinearPolynomial> _p1, std::unique_ptr<MultilinearPolynomial> _p2)
+    : p1(std::move(_p1)), p2(std::move(_p2)), nrnd(p1->get_num_vars()), sum(Goldilocks2::zero()) {
 
-p2Prover::p2Prover(MultilinearPolynomial&& p1, MultilinearPolynomial&& p2)
-    : p1(std::move(p1)), p2(std::move(p2)), nrnd(p1.get_num_vars()), sum(Goldilocks2::zero()) {
-    assert(p1.get_num_vars() == p2.get_num_vars());
+    assert(p1->get_num_vars() == p2->get_num_vars());
     initialize();
 }
 
@@ -23,18 +19,18 @@ p2Prover::p2Prover(MultilinearPolynomial&& p1, MultilinearPolynomial&& p2)
 2. calculate sum
 */
 void p2Prover::initialize() {
-    uint64_t tsize = 1ull << p1.get_num_vars();
+    uint64_t tsize = 1ull << p1->get_num_vars();
 
     sum = Goldilocks2::zero();
     for (uint64_t mask = 0; mask < tsize; ++mask) {
-        sum += p1[mask] * p2[mask];
+        sum += p1->eval_hypercube(mask) * p2->eval_hypercube(mask);
     }
     // std::cout << Goldilocks2::toString(sum) << '\n';
 }
 
 inline void p2Prover::shrinkTable(const Goldilocks2::Element& r) {
-    p1.fix(0, r);
-    p2.fix(0, r);
+    p1->fix(0, r);
+    p2->fix(0, r);
 }
 
 
@@ -59,9 +55,9 @@ std::array<Goldilocks2::Element, 3> p2Prover::send_message(const size_t& round, 
     }
 
     for (uint64_t b = 0; b < offset; ++b) {
-        s[0] += p1[b] * p2[b]; // f(0) = g_1(0) * g_2(0)
-        s[1] += p1[b + offset] * p2[b + offset]; // f(1) = g_1(1) * g_2(1)
-        s[2] += lincomb(p1[b + offset], p1[b], 2) * lincomb(p2[b + offset], p2[b], 2); // f(2) = (2 g_1(1) - g_1(0)) * (2 g_2(1) - g_2(0))
+        s[0] += p1->eval_hypercube(b) * p2->eval_hypercube(b);
+        s[1] += p1->eval_hypercube(b + offset) * p2->eval_hypercube(b + offset);
+        s[2] += lincomb(p1->eval_hypercube(b + offset), p1->eval_hypercube(b), 2) * lincomb(p2->eval_hypercube(b + offset), p2->eval_hypercube(b), 2);
     }
     return s;
 }
@@ -188,7 +184,9 @@ std::optional<challenge_claim> p2Verifier::partial_sumcheck(p2Prover& pr, Goldil
             Goldilocks2::Element sr;
             Goldilocks2::Element r = challenges[round - 2];
             interpolate_2(sr, r, si1[0], si1[1], si1[2]);
-            if (!(sr == ss)) return std::nullopt;
+            if (!(sr == ss)) {
+                return std::nullopt;
+            }
 
             // final check
             if (round == nrnd) {
@@ -217,8 +215,8 @@ Goldilocks2::Element p2Verifier::challenge() {
     static std::mt19937_64 gen(rd());
 
     constexpr uint64_t MODULUS = Goldilocks2::p;
-    std::uniform_int_distribution<uint64_t> dist(0, MODULUS - 1);
+    // std::uniform_int_distribution<uint64_t> dist(0, MODULUS - 1);
 
-    uint64_t randn[] = { dist(gen), dist(gen) };
-    return Goldilocks2::fromU64(randn);
+    //uint64_t randn[] = { dist(gen), dist(gen) };
+    return random_ext();
 }

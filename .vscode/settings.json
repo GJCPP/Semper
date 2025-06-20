@@ -72,7 +72,8 @@
         "concepts": "cpp",
         "numbers": "cpp",
         "variant": "cpp",
-        "goldilocks_quadratic_ext.h": "c"
+        "goldilocks_quadratic_ext.h": "c",
+        "oracle.h": "c"
     },
     "C_Cpp.default.compilerPath": "/usr/bin/g++"
 }
