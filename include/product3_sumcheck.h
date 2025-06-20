@@ -11,7 +11,8 @@ prover for sumcheck of product of three multilinear polynomials in O(3 * 2^l) ti
 */
 class p3Prover{
 public:
-    p3Prover(std::shared_ptr<const MultilinearPolynomial> p1, std::shared_ptr<const MultilinearPolynomial> p2, std::shared_ptr<const MultilinearPolynomial> p3);
+    p3Prover(const MultilinearPolynomial& p1, const MultilinearPolynomial& p2, const MultilinearPolynomial& p3);
+    p3Prover(MultilinearPolynomial&& p1, MultilinearPolynomial&& p2, MultilinearPolynomial&& p3);
     std::array<Goldilocks2::Element, 4> send_message(const size_t& round,const std::vector<Goldilocks2::Element>& rands);
     Goldilocks2::Element get_sum() const { return sum; }
     size_t get_rounds() const { return nrnd; }
@@ -19,14 +20,9 @@ public:
 private:
     void initialize();
 
-    std::shared_ptr<const MultilinearPolynomial> p1;
-    std::shared_ptr<const MultilinearPolynomial> p2;
-    std::shared_ptr<const MultilinearPolynomial> p3;
+    MultilinearPolynomial p1, p2, p3;
     
-    std::vector<Goldilocks2::Element> keepTablep1;
-    std::vector<Goldilocks2::Element> keepTablep2;
-    std::vector<Goldilocks2::Element> keepTablep3;
-    inline void shrinkTable(const Goldilocks2::Element& r, const uint64_t& offset);
+    inline void shrinkTable(const Goldilocks2::Element& r);
     static inline Goldilocks2::Element mul(const Goldilocks2::Element& e1, const  Goldilocks2::Element& e2, const  Goldilocks2::Element& e3);
     static inline Goldilocks2::Element lincomb(const Goldilocks2::Element& e1, const  Goldilocks2::Element& e0, const  uint64_t& r);
     Goldilocks2::Element sum;
@@ -37,8 +33,8 @@ class p3Verifier{
 public:
     // should be replaced with a pcs
     // typedef std::array<ligeropcs, 3> Oracle;
-    static bool execute_sumcheck(p3Prover& pr, const std::array<std::shared_ptr<const oracle_base>, 3>& oracle, const size_t& sec_param);
-    static bool execute_sumcheck(p3Prover& pr, const std::array<std::shared_ptr<const oracle_ext>, 3>& oracle, const size_t& sec_param);
+    static bool execute_sumcheck(p3Prover& pr, const std::array<const oracle_base*, 3>& oracle, const size_t& sec_param);
+    static bool execute_sumcheck(p3Prover& pr, const std::array<const oracle_ext*, 3>& oracle, const size_t& sec_param);
 
     // customized sumcheck for \Sigma eq * frac * (gamma - p1 - lambda * p2)
     static bool execute_logup_sumcheck(
@@ -53,9 +49,6 @@ public:
     );
 private:
     static Goldilocks2::Element challenge();
-    static inline Goldilocks2::Element mul(const Goldilocks2::Element& e1, const  Goldilocks2::Element& e2, const  Goldilocks2::Element& e3, const  Goldilocks2::Element& e4, const  Goldilocks2::Element& e5);
-    static inline Goldilocks2::Element mul(const Goldilocks2::Element& e1, const  Goldilocks2::Element& e2, const  Goldilocks2::Element& e3);
-    static inline Goldilocks2::Element add(const Goldilocks2::Element& e1, const  Goldilocks2::Element& e2, const  Goldilocks2::Element& e3, const  Goldilocks2::Element& e4);
     static inline void interpolate_3(Goldilocks2::Element& fr, const Goldilocks2::Element& r, const Goldilocks2::Element& f1, const Goldilocks2::Element& f2, const Goldilocks2::Element& f3, const Goldilocks2::Element& f4);
 };
 

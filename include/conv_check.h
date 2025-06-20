@@ -20,22 +20,22 @@ public:
         const std::vector<std::vector<Goldilocks2::Element>>& Y);
 
     convTriple(size_t C, size_t N, size_t D, size_t K,
-        std::unique_ptr<MultilinearPolynomial> X,
-        std::unique_ptr<MultilinearPolynomial> W,
-        std::unique_ptr<MultilinearPolynomial> Y);
+        const MultilinearPolynomial& X,
+        const MultilinearPolynomial& W,
+        const MultilinearPolynomial& Y);
+
+    
 
     // For debugging only.
     bool check() const;
 
 
-    std::array<std::shared_ptr<const ligeropcs_ext>, 3> commit(size_t rho_inv) const;
-
-    std::array<std::shared_ptr<const ligeropcs_ext>, 3> get_oracle() const;
+    std::array<ligeropcs_ext, 3> commit(size_t rho_inv) const;
 
 protected:
     size_t C, N, D, K;
     int logC, logN, logD, logK, logNK1;
-    std::shared_ptr<MultilinearPolynomial> X, W, Y;
+    MultilinearPolynomial X, W, Y;
 };
 
 /*
@@ -44,32 +44,33 @@ protected:
 class convProver {
     friend class convVerifier;
 public:
-    convProver(std::shared_ptr<convTriple> triple);
+    convProver(const convTriple& triple);
+    convProver(convTriple&& triple);
 
     // Fix beta and r_D, return the p2_prover for the RHS
-    std::unique_ptr<p2Prover> fix_beta_r_D(const Goldilocks2::Element& beta, const std::vector<Goldilocks2::Element>& r_D);
+    p2Prover fix_beta_r_D(const Goldilocks2::Element& beta, const std::vector<Goldilocks2::Element>& r_D);
 
     /* X'(c) = sum_n X(c, n), W'(c) = sum_k W(c, r_D, k)
      * Note that W is already fixed to r_D.
      * return the p2_prover for sum_c X'(c) * W'(c)
      */
-    std::unique_ptr<p2Prover> shrink_XW();
+    p2Prover shrink_XW();
 
     /*
      * Fix X''(n) = X(r_C, n) and W''(c) = W(r_C, r_D, k)
      * return sumcheck provers for X' = \sum_n X''(n) x beta^n and W' = \sum_c W''(c) x beta^c
      */
-    std::array<std::unique_ptr<p2Prover>, 2> fix_r_C(const std::vector<Goldilocks2::Element>& r_C);
+    std::array<p2Prover, 2> fix_r_C(const std::vector<Goldilocks2::Element>& r_C);
 
 protected:
-    std::shared_ptr<convTriple> triple;
+    convTriple triple;
     // std::unique_ptr<MultilinearPolynomial> X_prime, W_prime;
     Goldilocks2::Element beta;
 };
 
 class convVerifier {
 public:
-    static bool execute_convcheck(convProver& prover, const std::array<std::shared_ptr<const oracle_ext>, 3>& oracle, const size_t& sec_param);
+    static bool execute_convcheck(convProver& prover, const std::array<const ligeropcs_ext, 3>& oracle, const size_t& sec_param);
 };
 
 // Flatten the tensor and create a convProver

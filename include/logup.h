@@ -25,7 +25,7 @@ public:
 private:
     table_base f1, f2, t1, t2, c; // c : multiplicity
     table_ext g, h;
-    std::shared_ptr<const MultilinearPolynomial> polyg, polyh;
+    MultilinearPolynomial polyg, polyh;
     // intermediate tables used for last 2 sumchecks
     table_ext denomg, denomh;
 public:

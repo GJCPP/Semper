@@ -8,6 +8,7 @@
 // store a multilinear polynomial in a vector of evaluations
 class MultilinearPolynomial : public oracle_ext {
 public:
+    MultilinearPolynomial() : num_vars(0) {}
     MultilinearPolynomial(size_t num_vars, bool init=true);
     MultilinearPolynomial(const std::vector<Goldilocks2::Element>& evaluations);
     MultilinearPolynomial(const std::vector<uint64_t>& val_table);

@@ -6,8 +6,14 @@
 #include <random>
 #include <cassert>
 
-p3Prover::p3Prover(std::shared_ptr<const MultilinearPolynomial> p1, std::shared_ptr<const MultilinearPolynomial> p2, std::shared_ptr<const MultilinearPolynomial> p3) :p1(p1), p2(p2), p3(p3), nrnd(p1->get_num_vars()), sum(Goldilocks2::zero()) {
-    assert(p1->get_num_vars() == p2->get_num_vars() && p1->get_num_vars() == p3->get_num_vars());
+p3Prover::p3Prover(const MultilinearPolynomial& p1, const MultilinearPolynomial& p2, const MultilinearPolynomial& p3)
+    : p1(p1), p2(p2), p3(p3), nrnd(p1.get_num_vars()), sum(Goldilocks2::zero()) {
+    assert(p1.get_num_vars() == p2.get_num_vars() && p1.get_num_vars() == p3.get_num_vars());
+    initialize();
+}
+p3Prover::p3Prover(MultilinearPolynomial&& p1, MultilinearPolynomial&& p2, MultilinearPolynomial&& p3)
+    : p1(std::move(p1)), p2(std::move(p2)), p3(std::move(p3)), nrnd(p1.get_num_vars()), sum(Goldilocks2::zero()) {
+    assert(p1.get_num_vars() == p2.get_num_vars() && p1.get_num_vars() == p3.get_num_vars());
     initialize();
 }
 /*
@@ -15,40 +21,18 @@ p3Prover::p3Prover(std::shared_ptr<const MultilinearPolynomial> p1, std::shared_
 2. calculate sum
 */
 void p3Prover::initialize() {
-    uint64_t tsize = 1ull << p1->get_num_vars();
+    uint64_t tsize = 1ull << p1.get_num_vars();
 
-    keepTablep1 = p1->get_eval_table();
-    keepTablep2 = p2->get_eval_table();
-    keepTablep3 = p3->get_eval_table();
+    sum = Goldilocks2::zero();
     for (uint64_t mask = 0; mask < tsize; ++mask) {
-        Goldilocks2::Element p;
-        Goldilocks2::mul(p, keepTablep1[mask], keepTablep2[mask]);
-        Goldilocks2::mul(p, p, keepTablep3[mask]);
-        Goldilocks2::add(sum, sum, p);
+        sum += p1[mask] * p2[mask] * p3[mask];
     }
-    // std::cout << Goldilocks2::toString(sum) << '\n';
 }
 
-inline void p3Prover::shrinkTable(const Goldilocks2::Element& r, const uint64_t& offset) {
-    for (uint64_t b = 0; b < offset; ++b) {
-        Goldilocks2::Element A, B, oneminusr;
-        Goldilocks2::sub(oneminusr, Goldilocks::one(), r);
-
-        Goldilocks2::mul(A, keepTablep1[b], oneminusr);
-        Goldilocks2::mul(B, keepTablep1[b + offset], r);
-        Goldilocks2::add(keepTablep1[b], A, B);
-
-        Goldilocks2::mul(A, keepTablep2[b], oneminusr);
-        Goldilocks2::mul(B, keepTablep2[b + offset], r);
-        Goldilocks2::add(keepTablep2[b], A, B);
-
-        Goldilocks2::mul(A, keepTablep3[b], oneminusr);
-        Goldilocks2::mul(B, keepTablep3[b + offset], r);
-        Goldilocks2::add(keepTablep3[b], A, B);
-    }
-    keepTablep1.resize(offset);
-    keepTablep2.resize(offset);
-    keepTablep3.resize(offset);
+inline void p3Prover::shrinkTable(const Goldilocks2::Element& r) {
+    p1.fix(0, r);
+    p2.fix(0, r);
+    p3.fix(0, r);
 }
 
 inline Goldilocks2::Element p3Prover::mul(const Goldilocks2::Element& e1, const  Goldilocks2::Element& e2, const  Goldilocks2::Element& e3) {
@@ -80,44 +64,20 @@ std::array<Goldilocks2::Element, 4> p3Prover::send_message(const size_t& round, 
 
     if (round > 1) {
         // namely r_{i-1}
-        uint64_t offset_last = (offset << 1);
-        Goldilocks2::Element r = rands[round - 2];
-        shrinkTable(r, offset_last);
+        shrinkTable(rands.back());
     }
 
     /*
      * sending f(0), f(1), f(2), f(3), where f = g_1 x g_2 x g_3
      * Note that g_i is linear, so g(2) = 2 * g(1) - g(0), etc.
-     */
+     */ 
     for (uint64_t b = 0; b < offset; ++b) {
-        Goldilocks2::add(s[0], s[0], mul(keepTablep1[b], keepTablep2[b], keepTablep3[b]));
-        Goldilocks2::add(s[1], s[1], mul(keepTablep1[b + offset], keepTablep2[b + offset], keepTablep3[b + offset]));
-        Goldilocks2::add(s[2], s[2], mul(lincomb(keepTablep1[b + offset], keepTablep1[b], 2), lincomb(keepTablep2[b + offset], keepTablep2[b], 2), lincomb(keepTablep3[b + offset], keepTablep3[b], 2)));
-        Goldilocks2::add(s[3], s[3], mul(lincomb(keepTablep1[b + offset], keepTablep1[b], 3), lincomb(keepTablep2[b + offset], keepTablep2[b], 3), lincomb(keepTablep3[b + offset], keepTablep3[b], 3)));
+        s[0] += p1[b] * p2[b] * p3[b];
+        s[1] += p1[b + offset] * p2[b + offset] * p3[b + offset];
+        s[2] += lincomb(p1[b + offset], p1[b], 2) * lincomb(p2[b + offset], p2[b], 2) * lincomb(p3[b + offset], p3[b], 2);
+        s[3] += lincomb(p1[b + offset], p1[b], 3) * lincomb(p2[b + offset], p2[b], 3) * lincomb(p3[b + offset], p3[b], 3);
     }
     return s;
-}
-
-inline Goldilocks2::Element p3Verifier::mul(const Goldilocks2::Element& e1, const  Goldilocks2::Element& e2, const  Goldilocks2::Element& e3, const  Goldilocks2::Element& e4, const  Goldilocks2::Element& e5) {
-    Goldilocks2::Element res;
-    Goldilocks2::mul(res, e1, e2);
-    Goldilocks2::mul(res, res, e3);
-    Goldilocks2::mul(res, res, e4);
-    Goldilocks2::mul(res, res, e5);
-    return res;
-}
-inline Goldilocks2::Element p3Verifier::mul(const Goldilocks2::Element& e1, const  Goldilocks2::Element& e2, const  Goldilocks2::Element& e3) {
-    Goldilocks2::Element res;
-    Goldilocks2::mul(res, e1, e2);
-    Goldilocks2::mul(res, res, e3);
-    return res;
-}
-inline Goldilocks2::Element p3Verifier::add(const Goldilocks2::Element& e1, const  Goldilocks2::Element& e2, const  Goldilocks2::Element& e3, const  Goldilocks2::Element& e4) {
-    Goldilocks2::Element res;
-    Goldilocks2::add(res, e1, e2);
-    Goldilocks2::add(res, res, e3);
-    Goldilocks2::add(res, res, e4);
-    return res;
 }
 
 /*
@@ -133,13 +93,13 @@ inline void p3Verifier::interpolate_3(Goldilocks2::Element& fr, const Goldilocks
     Goldilocks2::sub(x1, r, 1);
     Goldilocks2::sub(x2, r, 2);
     Goldilocks2::sub(x3, r, 3);
-    fr = add(mul(x1, x2, x3, minv6, f0),
-        mul(x0, x2, x3, inv2, f1),
-        mul(x0, x1, x3, minv2, f2),
-        mul(x0, x1, x2, inv6, f3));
+    fr = (x1 * x2 * x3 * minv6 * f0) +
+         (x0 * x2 * x3 * inv2 * f1) +
+         (x0 * x1 * x3 * minv2 * f2) +
+         (x0 * x1 * x2 * inv6 * f3);
 }
 
-bool p3Verifier::execute_sumcheck(p3Prover& pr, const std::array<std::shared_ptr<const oracle_base>, 3>& oracle, const size_t& sec_param) {
+bool p3Verifier::execute_sumcheck(p3Prover& pr, const std::array<const oracle_base*, 3>& oracle, const size_t& sec_param) {
 
     Goldilocks2::Element sum = pr.get_sum();
     size_t nrnd = pr.get_rounds();
@@ -167,7 +127,7 @@ bool p3Verifier::execute_sumcheck(p3Prover& pr, const std::array<std::shared_ptr
             if (round == nrnd) {
                 challenges.push_back(challenge());
 
-                Goldilocks2::Element f_r = mul(oracle[0]->open(challenges, sec_param), oracle[1]->open(challenges, sec_param), oracle[2]->open(challenges, sec_param));
+                Goldilocks2::Element f_r = oracle[0]->open(challenges, sec_param) * oracle[1]->open(challenges, sec_param) * oracle[2]->open(challenges, sec_param);
                 Goldilocks2::Element slrl;
                 Goldilocks2::Element rl = challenges[round - 1];
                 interpolate_3(slrl, rl, si[0], si[1], si[2], si[3]);
@@ -182,7 +142,7 @@ bool p3Verifier::execute_sumcheck(p3Prover& pr, const std::array<std::shared_ptr
     return true;
 }
 
-bool p3Verifier::execute_sumcheck(p3Prover& pr, const std::array<std::shared_ptr<const oracle_ext>, 3>& oracle, const size_t& sec_param) {
+bool p3Verifier::execute_sumcheck(p3Prover& pr, const std::array<const oracle_ext*, 3>& oracle, const size_t& sec_param) {
 
     Goldilocks2::Element sum = pr.get_sum();
     size_t nrnd = pr.get_rounds();
@@ -210,7 +170,7 @@ bool p3Verifier::execute_sumcheck(p3Prover& pr, const std::array<std::shared_ptr
             if (round == nrnd) {
                 challenges.push_back(challenge());
 
-                Goldilocks2::Element f_r = mul(oracle[0]->open(challenges, sec_param), oracle[1]->open(challenges, sec_param), oracle[2]->open(challenges, sec_param));
+                Goldilocks2::Element f_r = oracle[0]->open(challenges, sec_param) * oracle[1]->open(challenges, sec_param) * oracle[2]->open(challenges, sec_param);
                 Goldilocks2::Element slrl;
                 Goldilocks2::Element rl = challenges[round - 1];
                 interpolate_3(slrl, rl, si[0], si[1], si[2], si[3]);
@@ -267,7 +227,7 @@ bool p3Verifier::execute_logup_sumcheck(
                 Goldilocks2::mul(tmp, labmda, p2.open(challenges, sec_param));
                 Goldilocks2::sub(third_term, gamma, p1.open(challenges, sec_param));
                 Goldilocks2::sub(third_term, third_term, tmp);
-                Goldilocks2::Element f_r = mul(eqr.evaluate(challenges), frac.open(challenges, sec_param), third_term);
+                Goldilocks2::Element f_r = eqr.evaluate(challenges) * frac.open(challenges, sec_param) * third_term;
 
 
                 // f(r) from the previous rounds

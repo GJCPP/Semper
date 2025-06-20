@@ -12,7 +12,8 @@ prover for sumcheck of product of two multilinear polynomials in O(2 * 2^l) time
 */
 class p2Prover{
 public:
-    p2Prover(std::shared_ptr<const MultilinearPolynomial> p1, std::shared_ptr<const MultilinearPolynomial> p2);
+    p2Prover(const MultilinearPolynomial& p1, const MultilinearPolynomial& p2);
+    p2Prover(MultilinearPolynomial&& p1, MultilinearPolynomial&& p2);
     std::array<Goldilocks2::Element, 3> send_message(const size_t& round,const std::vector<Goldilocks2::Element>& rands);
     Goldilocks2::Element get_sum() const { return sum; }
     size_t get_rounds() const { return nrnd; }
@@ -20,12 +21,10 @@ public:
 private:
     void initialize();
 
-    std::shared_ptr<const MultilinearPolynomial> p1;
-    std::shared_ptr<const MultilinearPolynomial> p2;
+    MultilinearPolynomial p1;
+    MultilinearPolynomial p2;
     
-    std::vector<Goldilocks2::Element> keepTablep1;
-    std::vector<Goldilocks2::Element> keepTablep2;
-    inline void shrinkTable(const Goldilocks2::Element& r, const uint64_t& offset);
+    inline void shrinkTable(const Goldilocks2::Element& r);
     static inline Goldilocks2::Element lincomb(const Goldilocks2::Element& e1, const  Goldilocks2::Element& e0, const  uint64_t& r);
     Goldilocks2::Element sum;
     size_t nrnd;
@@ -33,8 +32,8 @@ private:
 
 class p2Verifier {
 public:
-    static bool execute_sumcheck(p2Prover& pr, const std::array<std::shared_ptr<const oracle_base>, 2>& oracle, const size_t& sec_param);
-    static bool execute_sumcheck(p2Prover& pr, const std::array<std::shared_ptr<const oracle_ext>, 2>& oracle, const size_t& sec_param);
+    static bool execute_sumcheck(p2Prover& pr, const std::array<const oracle_base*, 2>& oracle, const size_t& sec_param);
+    static bool execute_sumcheck(p2Prover& pr, const std::array<const oracle_ext*, 2>& oracle, const size_t& sec_param);
 
     // Return nullopt for failure.
     static std::optional<challenge_claim> partial_sumcheck(p2Prover& pr, const size_t& sec_param);

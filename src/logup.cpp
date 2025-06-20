@@ -10,7 +10,8 @@
 #include <vector>
 #include <random>
 
-LogupProver::LogupProver(const table_base& f_1, const table_base& f_2, const table_base& t_1, const table_base& t_2) : f1(f_1), f2(f_2), t1(t_1), t2(t_2) {
+LogupProver::LogupProver(const table_base& f_1, const table_base& f_2, const table_base& t_1, const table_base& t_2)
+    : f1(f_1), f2(f_2), t1(t_1), t2(t_2), polyg(f_1.size()), polyh(f_2.size()) {
     pad(f1, t1[0]);
     pad(f2, t2[0]);
     calculate_multiplicities();
@@ -78,8 +79,8 @@ void LogupProver::calculate_gh(const Goldilocks2::Element& gamma, const Goldiloc
     }
 
 
-    polyg = std::make_shared<MultilinearPolynomial>(g);
-    polyh = std::make_shared<MultilinearPolynomial>(h);
+    polyg = MultilinearPolynomial(g);
+    polyh = MultilinearPolynomial(h);
     end_timer("calculate g and h");
 }
 
@@ -121,10 +122,10 @@ std::array<p3Prover, 2> LogupProver::secondProvers(const std::vector<Goldilocks2
     assert((1ull << rg.size()) == g.size());
     assert((1ull << rh.size()) == h.size());
     set_timer("initialize sumcheck provers for the product sumcheck");
-    std::shared_ptr<MultilinearPolynomial> polydenomg = std::make_shared<MultilinearPolynomial>(denomg);
-    std::shared_ptr<MultilinearPolynomial> polydenomh = std::make_shared<MultilinearPolynomial>(denomh);
-    std::shared_ptr<MultilinearPolynomial> eqg = std::make_shared<MLE_Eq>(polyg->get_num_vars(), rg);
-    std::shared_ptr<MultilinearPolynomial> eqh = std::make_shared<MLE_Eq>(polyh->get_num_vars(), rh);
+    MultilinearPolynomial polydenomg(denomg);
+    MultilinearPolynomial polydenomh(denomh);
+    MLE_Eq eqg(polyg.get_num_vars(), rg);
+    MLE_Eq eqh(polyh.get_num_vars(), rh);
     p3Prover prg(eqg, polyg, polydenomg);
     p3Prover prh(eqh, polyh, polydenomh);
     std::array<p3Prover, 2> provers = { prg, prh };

@@ -4,7 +4,11 @@
 // #include <gmpxx.h>
 #include <random>
 
-sProver::sProver(std::shared_ptr<const MultilinearPolynomial> g) :g(g), nrnd(g->get_num_vars()), sum(Goldilocks2::zero()) {
+sProver::sProver(const MultilinearPolynomial& g) : g(g), nrnd(g.get_num_vars()), sum(Goldilocks2::zero()) {
+    initialize();
+}
+
+sProver::sProver(MultilinearPolynomial&& g) : g(std::move(g)), nrnd(g.get_num_vars()), sum(Goldilocks2::zero()) {
     initialize();
 }
 
@@ -13,11 +17,7 @@ sProver::sProver(std::shared_ptr<const MultilinearPolynomial> g) :g(g), nrnd(g->
 2. calculate sum
 */
 void sProver::initialize() {
-    keepTable = g->get_eval_table();
-    sum = Goldilocks2::zero();
-    for (size_t i = 0; i < keepTable.size(); ++i) {
-        sum = sum + keepTable[i];
-    }
+    sum = g.get_sum();
 }
 
 std::array<Goldilocks2::Element, 2> sProver::send_message(const size_t& round, const std::vector<Goldilocks2::Element>& rands) {
@@ -28,20 +28,11 @@ std::array<Goldilocks2::Element, 2> sProver::send_message(const size_t& round, c
 
     if (round > 1) {
         // namely r_{i-1}
-        uint64_t offset_last = (offset << 1);
-        Goldilocks2::Element r = rands.back(); // challenge
-        for (uint64_t b = 0; b < offset_last; ++b) {
-            Goldilocks2::Element A, B, oneminusr;
-            Goldilocks2::sub(oneminusr, Goldilocks::one(), r);
-            Goldilocks2::mul(A, keepTable[b], oneminusr);
-            Goldilocks2::mul(B, keepTable[b + offset_last], r);
-            Goldilocks2::add(keepTable[b], A, B);
-        }
-        keepTable.resize(offset_last);
+        g.fix(0, rands.back());
     }
     for (uint64_t b = 0; b < offset; ++b) {
-        Goldilocks2::add(s[0], s[0], keepTable[b]);
-        Goldilocks2::add(s[1], s[1], keepTable[b + offset]);
+        s[0] += g[b];
+        s[1] += g[b + offset];
     }
     return s;
 }

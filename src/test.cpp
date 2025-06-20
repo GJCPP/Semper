@@ -58,17 +58,17 @@ bool test_product3_sumcheck() {
         std::vector<Element> poly1_vec = random_vec_ext(1 << l);
         std::vector<Element> poly2_vec = random_vec_ext(1 << l);
         std::vector<Element> poly3_vec = random_vec_ext(1 << l);
-        std::shared_ptr<MultilinearPolynomial> poly1 = std::make_shared<MultilinearPolynomial>(poly1_vec);
-        std::shared_ptr<MultilinearPolynomial> poly2 = std::make_shared<MultilinearPolynomial>(poly2_vec);
-        std::shared_ptr<MultilinearPolynomial> poly3 = std::make_shared<MultilinearPolynomial>(poly3_vec);
-        ligeropcs_ext pcs1 = ligeroProver_ext(*poly1, inv_rho).commit();
-        ligeropcs_ext pcs2 = ligeroProver_ext(*poly2, inv_rho).commit();
-        ligeropcs_ext pcs3 = ligeroProver_ext(*poly3, inv_rho).commit();
+        MultilinearPolynomial poly1(poly1_vec);
+        MultilinearPolynomial poly2(poly2_vec);
+        MultilinearPolynomial poly3(poly3_vec);
+        ligeropcs_ext pcs1 = ligeroProver_ext(poly1, inv_rho).commit();
+        ligeropcs_ext pcs2 = ligeroProver_ext(poly2, inv_rho).commit();
+        ligeropcs_ext pcs3 = ligeroProver_ext(poly3, inv_rho).commit();
 
         // Run product3 sumcheck
         p3Prover prover(poly1, poly2, poly3);
         p3Verifier verifier;
-        std::array<std::shared_ptr<const oracle_ext>, 3> oracle = { std::make_shared<ligeropcs_ext>(pcs1), std::make_shared<ligeropcs_ext>(pcs2), std::make_shared<ligeropcs_ext>(pcs3) };
+        std::array<const oracle_ext*, 3> oracle = { &pcs1, &pcs2, &pcs3 };
         if (!verifier.execute_sumcheck(prover, oracle, sec_param)) {
             return false;
         }
@@ -84,15 +84,15 @@ bool test_product2_sumcheck() {
         // Generate random polynomials and their commitments
         std::vector<Element> poly1_vec = random_vec_ext(1 << l);
         std::vector<Element> poly2_vec = random_vec_ext(1 << l);
-        std::shared_ptr<MultilinearPolynomial> poly1 = std::make_shared<MultilinearPolynomial>(poly1_vec);
-        std::shared_ptr<MultilinearPolynomial> poly2 = std::make_shared<MultilinearPolynomial>(poly2_vec);
-        ligeropcs_ext pcs1 = ligeroProver_ext(*poly1, inv_rho).commit();
-        ligeropcs_ext pcs2 = ligeroProver_ext(*poly2, inv_rho).commit();
+        MultilinearPolynomial poly1(poly1_vec);
+        MultilinearPolynomial poly2(poly2_vec);
+        ligeropcs_ext pcs1 = ligeroProver_ext(poly1, inv_rho).commit();
+        ligeropcs_ext pcs2 = ligeroProver_ext(poly2, inv_rho).commit();
 
         // Run product3 sumcheck
         p2Prover prover(poly1, poly2);
         p2Verifier verifier;
-        std::array<std::shared_ptr<const oracle_ext>, 2> oracle = { std::make_shared<ligeropcs_ext>(pcs1), std::make_shared<ligeropcs_ext>(pcs2) };
+        std::array<const oracle_ext*, 2> oracle = { &pcs1, &pcs2 };
         if (!verifier.execute_sumcheck(prover, oracle, sec_param)) {
             return false;
         }
@@ -103,14 +103,14 @@ bool test_product2_sumcheck() {
         // Generate random polynomials and their commitments
         std::vector<Element> poly1_vec = random_vec_ext(1 << l);
         std::vector<Element> poly2_vec = random_vec_ext(1 << l);
-        std::shared_ptr<MultilinearPolynomial> poly1 = std::make_shared<MultilinearPolynomial>(poly1_vec);
-        std::shared_ptr<MultilinearPolynomial> poly2 = std::make_shared<MLE_Pow>(random_ext(), l, u, true);
-        std::shared_ptr<const oracle_ext> pcs1 = std::make_shared<ligeropcs_ext>(ligeroProver_ext(*poly1, inv_rho).commit());
+        MultilinearPolynomial poly1(poly1_vec);
+        MLE_Pow poly2(random_ext(), l, u, true);
+        ligeropcs_ext pcs1 = ligeroProver_ext(poly1, inv_rho).commit();
 
         // Run product3 sumcheck
         p2Prover prover(poly1, poly2);
         p2Verifier verifier;
-        std::array<std::shared_ptr<const oracle_ext>, 2> oracle = { pcs1, poly2 };
+        std::array<const oracle_ext*, 2> oracle = { &pcs1, &poly2 };
         if (!verifier.execute_sumcheck(prover, oracle, sec_param)) {
             return false;
         }
@@ -126,9 +126,9 @@ bool test_partial_sumcheck_product2() {
         // Generate random polynomials and their commitments
         std::vector<Element> f_vec = random_vec_ext(1 << (2 * l));
         std::vector<Element> g_vec = random_vec_ext(1 << l);
-        std::shared_ptr<MultilinearPolynomial> f = std::make_shared<MultilinearPolynomial>(f_vec);
-        std::shared_ptr<MultilinearPolynomial> fp = std::make_shared<MultilinearPolynomial>(f->sum_over_lowbits(l));
-        std::shared_ptr<MultilinearPolynomial> g = std::make_shared<MultilinearPolynomial>(g_vec);
+        MultilinearPolynomial f(f_vec);
+        MultilinearPolynomial fp(f.sum_over_lowbits(l));
+        MultilinearPolynomial g(g_vec);
 
         // Create commitments
         ligeropcs_ext pcs = ligeroProver_ext(f_vec, inv_rho).commit();
@@ -144,13 +144,13 @@ bool test_partial_sumcheck_product2() {
         // check the claim
         // Obtain val2
         Goldilocks2::Element val2 = pcs2.open(result->challenges, sec_param);
-        Goldilocks2::Element claimed_val1 = fp->evaluate(result->challenges); // Prover sends this to verifier
+        Goldilocks2::Element claimed_val1 = fp.evaluate(result->challenges); // Prover sends this to verifier
         if (claimed_val1 * val2 != result->claim) {
             return false;
         }
         result->claim = claimed_val1;
         // check the claimed_val1
-        f->fix(0, result->challenges);
+        f.fix(0, result->challenges);
         sProver prover2(f);
         sVerifier verifier2;
         if (!verifier2.partial_sumcheck(prover2, result->challenges, result->claim, sec_param)) {
@@ -218,15 +218,12 @@ bool test_conv_check() {
         }
 
 
-        std::shared_ptr<convTriple> triple = std::make_shared<convTriple>(X, W, Y);
+        convTriple triple(X, W, Y);
         convProver prover(triple);
-        std::array<std::shared_ptr<const ligeropcs_ext>, 3> pcs = triple->commit(2);
-        std::array<std::shared_ptr<const oracle_ext>, 3> oracle = {
-            pcs[0],
-            pcs[1],
-            pcs[2] };
+        std::array<ligeropcs_ext, 3> pcs = triple.commit(2);
+        std::array<const ligeropcs_ext, 3> oracle = { pcs[0], pcs[1], pcs[2] };
 
-        if (!triple->check()) {
+        if (!triple.check()) {
             return false;
         }
 

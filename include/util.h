@@ -109,3 +109,4 @@ Goldilocks2::Element eval_power_mle(const Goldilocks2::Element& beta,
 Goldilocks2::Element pow(Goldilocks2::Element beta, size_t u);
 
 std::vector<Goldilocks2::Element> combine_challenges(const std::vector<Goldilocks2::Element>& c1, const std::vector<Goldilocks2::Element>& c2);
+std::vector<Goldilocks2::Element> combine_challenges(const std::vector<Goldilocks2::Element>& c1, const std::vector<Goldilocks2::Element>& c2, const std::vector<Goldilocks2::Element>& c3);

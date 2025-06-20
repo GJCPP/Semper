@@ -6,9 +6,15 @@
 #include <random>
 #include <cassert>
 
-p2Prover::p2Prover(std::shared_ptr<const MultilinearPolynomial> p1, std::shared_ptr<const MultilinearPolynomial> p2) 
-    : p1(p1), p2(p2), nrnd(p1->get_num_vars()), sum(Goldilocks2::zero()) {
-    assert(p1->get_num_vars() == p2->get_num_vars());
+p2Prover::p2Prover(const MultilinearPolynomial& p1, const MultilinearPolynomial& p2) 
+    : p1(p1), p2(p2), nrnd(p1.get_num_vars()), sum(Goldilocks2::zero()) {
+    assert(p1.get_num_vars() == p2.get_num_vars());
+    initialize();
+}
+
+p2Prover::p2Prover(MultilinearPolynomial&& p1, MultilinearPolynomial&& p2)
+    : p1(std::move(p1)), p2(std::move(p2)), nrnd(p1.get_num_vars()), sum(Goldilocks2::zero()) {
+    assert(p1.get_num_vars() == p2.get_num_vars());
     initialize();
 }
 
@@ -17,24 +23,18 @@ p2Prover::p2Prover(std::shared_ptr<const MultilinearPolynomial> p1, std::shared_
 2. calculate sum
 */
 void p2Prover::initialize() {
-    uint64_t tsize = 1ull << p1->get_num_vars();
+    uint64_t tsize = 1ull << p1.get_num_vars();
 
-    keepTablep1 = p1->get_eval_table();
-    keepTablep2 = p2->get_eval_table();
+    sum = Goldilocks2::zero();
     for (uint64_t mask = 0; mask < tsize; ++mask) {
-        sum = sum + keepTablep1[mask] * keepTablep2[mask];
+        sum += p1[mask] * p2[mask];
     }
     // std::cout << Goldilocks2::toString(sum) << '\n';
 }
 
-inline void p2Prover::shrinkTable(const Goldilocks2::Element& r, const uint64_t& offset) {
-    for (uint64_t b = 0; b < offset; ++b) {
-        Goldilocks2::Element oneminusr = Goldilocks2::one() - r;
-        keepTablep1[b] = keepTablep1[b] * oneminusr + keepTablep1[b + offset] * r;
-        keepTablep2[b] = keepTablep2[b] * oneminusr + keepTablep2[b + offset] * r;
-    }
-    keepTablep1.resize(offset);
-    keepTablep2.resize(offset);
+inline void p2Prover::shrinkTable(const Goldilocks2::Element& r) {
+    p1.fix(0, r);
+    p2.fix(0, r);
 }
 
 
@@ -55,15 +55,13 @@ std::array<Goldilocks2::Element, 3> p2Prover::send_message(const size_t& round, 
 
     if (round > 1) {
         // namely r_{i-1}
-        uint64_t offset_last = (offset << 1);
-        Goldilocks2::Element r = rands[round - 2];
-        shrinkTable(r, offset_last);
+        shrinkTable(rands.back());
     }
 
     for (uint64_t b = 0; b < offset; ++b) {
-        s[0] = s[0] + keepTablep1[b] * keepTablep2[b]; // f(0) = g_1(0) * g_2(0)
-        s[1] = s[1] + keepTablep1[b + offset] * keepTablep2[b + offset]; // f(1) = g_1(1) * g_2(1)
-        s[2] = s[2] + lincomb(keepTablep1[b + offset], keepTablep1[b], 2) * lincomb(keepTablep2[b + offset], keepTablep2[b], 2); // f(2) = (2 g_1(1) - g_1(0)) * (2 g_2(1) - g_2(0))
+        s[0] += p1[b] * p2[b]; // f(0) = g_1(0) * g_2(0)
+        s[1] += p1[b + offset] * p2[b + offset]; // f(1) = g_1(1) * g_2(1)
+        s[2] += lincomb(p1[b + offset], p1[b], 2) * lincomb(p2[b + offset], p2[b], 2); // f(2) = (2 g_1(1) - g_1(0)) * (2 g_2(1) - g_2(0))
     }
     return s;
 }
@@ -82,7 +80,7 @@ inline void p2Verifier::interpolate_2(Goldilocks2::Element& fr, const Goldilocks
     fr = a * r * r + b * r + c;
 }
 
-bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<std::shared_ptr<const oracle_base>, 2>& oracle, const size_t& sec_param) {
+bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<const oracle_base*, 2>& oracle, const size_t& sec_param) {
 
     Goldilocks2::Element sum = pr.get_sum();
     size_t nrnd = pr.get_rounds();
@@ -124,7 +122,7 @@ bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<std::shared_ptr
     return true;
 }
 
-bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<std::shared_ptr<const oracle_ext>, 2>& oracle, const size_t& sec_param) {
+bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<const oracle_ext*, 2>& oracle, const size_t& sec_param) {
 
     Goldilocks2::Element sum = pr.get_sum();
     size_t nrnd = pr.get_rounds();
