@@ -17,7 +17,7 @@ public:
     Goldilocks2::Element get_sum() const { return sum; }
     size_t get_rounds() const { return nrnd; }
     
-private:
+// private:
     void initialize();
 
     std::unique_ptr<MultilinearPolynomial> p1;

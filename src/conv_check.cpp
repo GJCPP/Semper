@@ -50,8 +50,8 @@ p2Prover convProver::fix_beta_r_D(
 
 p2Prover convProver::shrink_XW() {
     return p2Prover(
-        triple.X->sum_over_lowbits_with_power(triple.logN, beta).clone(),
-        triple.W->sum_over_lowbits_with_power(triple.logK, beta).clone()
+        std::make_unique<MultilinearPolynomial>(triple.W->sum_over_lowbits_with_power(triple.logK, beta)),
+        std::make_unique<MultilinearPolynomial>(triple.X->sum_over_lowbits_with_power(triple.logN, beta))
     );
 }
 
@@ -104,9 +104,10 @@ convProver make_conv2_prover(
         }
     }
     for (size_t d = 0; d < D; ++d) {
+        Y_1d[d].resize(n * n + n * m - 1);
         for (size_t c = 0; c < C; ++c) {
             auto temp = conv(X_1d[c], W_1d[c][d]);
-            Y_1d[d].resize(temp.size());
+            assert(temp.size() == Y_1d[d].size());
             for (size_t i = 0; i < temp.size(); ++i) {
                 Y_1d[d][i] += temp[i];
             }
@@ -152,7 +153,7 @@ bool convVerifier::execute_convcheck(
     if (!claim_xw) return false;
     auto r_C = std::move(claim_xw->challenges);
     
-    // Step 3.2: Prover claims x and w, proves separately X'(r_C) = \sum_n X(r_C, n)
+    // Step 3.2: Prover claims x and w, proves separately X'(r_C) = \sum_n X(r_C, n) \beta^n
     // End with r_N for X and r_K for W
     auto [X_prover, W_prover] = prover.fix_r_C(r_C);
     Goldilocks2::Element x_val = X_prover.get_sum(), w_val = W_prover.get_sum();

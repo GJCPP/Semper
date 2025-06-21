@@ -43,12 +43,12 @@ public:
     virtual Goldilocks2::Element get_sum() const;
 
     // Iterate through all evaluations with their indices
-    void iterate_nonzero(const std::function<void(size_t, Goldilocks2::Element, Goldilocks2::Element)> f) const;
+    virtual void iterate_nonzero(const std::function<void(size_t)> f, size_t offset) const;
 
     // Fix the pos-th variable to val, and compute new evaluation table
-    void fix(size_t pos, const Goldilocks2::Element& val);
-    void fix(size_t pos, const std::vector<Goldilocks2::Element>& val);
-    void fix(size_t pos, const std::vector<Goldilocks2::Element>::const_iterator begin, const std::vector<Goldilocks2::Element>::const_iterator end);
+    virtual void fix(size_t pos, const Goldilocks2::Element& val);
+    virtual void fix(size_t pos, const std::vector<Goldilocks2::Element>& val);
+    virtual void fix(size_t pos, const std::vector<Goldilocks2::Element>::const_iterator begin, const std::vector<Goldilocks2::Element>::const_iterator end);
 
     // Sum over the last len bits
     virtual MultilinearPolynomial sum_over_lowbits(size_t len) const;

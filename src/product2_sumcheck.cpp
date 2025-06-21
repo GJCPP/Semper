@@ -54,11 +54,20 @@ std::array<Goldilocks2::Element, 3> p2Prover::send_message(const size_t& round, 
         shrinkTable(rands.back());
     }
 
-    for (uint64_t b = 0; b < offset; ++b) {
-        s[0] += p1->eval_hypercube(b) * p2->eval_hypercube(b);
-        s[1] += p1->eval_hypercube(b + offset) * p2->eval_hypercube(b + offset);
-        s[2] += lincomb(p1->eval_hypercube(b + offset), p1->eval_hypercube(b), 2) * lincomb(p2->eval_hypercube(b + offset), p2->eval_hypercube(b), 2);
-    }
+
+    // for (uint64_t b = 0; b < offset; ++b) {
+    //     s[0] += p1->eval_hypercube(b) * p2->eval_hypercube(b);
+    //     s[1] += p1->eval_hypercube(b + offset) * p2->eval_hypercube(b + offset);
+    //     s[2] += lincomb(p1->eval_hypercube(b + offset), p1->eval_hypercube(b), 2) * lincomb(p2->eval_hypercube(b + offset), p2->eval_hypercube(b), 2);
+    // }
+
+    p1->iterate_nonzero([&](size_t b) {
+        Goldilocks2::Element p1e0 = p1->eval_hypercube(b), p1e1 = p1->eval_hypercube(b + offset);
+        Goldilocks2::Element p2e0 = p2->eval_hypercube(b), p2e1 = p2->eval_hypercube(b + offset);
+        s[0] += p1e0 * p2e0;
+        s[1] += p1e1 * p2e1;
+        s[2] += lincomb(p1e1, p1e0, 2) * lincomb(p2e1, p2e0, 2);
+    }, offset);
     return s;
 }
 

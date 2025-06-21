@@ -262,14 +262,14 @@ void random_conv2(
 
 bool test_conv2_check() {
     for (int cnt(0); cnt != CNT_TEST; ++cnt) {
-        size_t C = rand() % 10 + 1, D = rand() % 5 + 1, n = rand() % 10 + 3, m = 3;
+        srand(cnt);
+        size_t C = rand() % 10 + 1, D = rand() % 5 + 1, n = rand() % 10 + 4, m = 3;
         
         // X: C x n x n, W: C x D x m x m, Y: D x n x n
         std::vector<std::vector<std::vector<Goldilocks2::Element>>> X;
         std::vector<std::vector<std::vector<std::vector<Goldilocks2::Element>>>> W;
         std::vector<std::vector<std::vector<Goldilocks2::Element>>> Y;
         
-        srand(42);
         random_conv2(C, D, n, m, X, W);
 
         convProver prover(make_conv2_prover(C, D, n, m, X, W));
@@ -297,7 +297,7 @@ bool test_conv2_check() {
 }
 
 bool run_test() {
-    // srand(time(NULL));
+    srand(79);
     if (!test_arithmetic()) {
         std::cout << "test_arithmetic failed" << std::endl;
         return false;

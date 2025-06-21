@@ -311,3 +311,7 @@ inline Goldilocks2::Element& operator+=(Goldilocks2::Element &in1, const Goldilo
     Goldilocks2::add(in1, in1, in2);
     return in1;
 }
+inline std::ostream& operator<<(std::ostream& os, const Goldilocks2::Element &in1) { 
+    os << in1[0].fe;
+    return os;
+}

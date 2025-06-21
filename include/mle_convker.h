@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <optional>
 
 #include "util.h"
 #include "mle.h"
@@ -18,7 +19,10 @@ public:
     Goldilocks2::Element eval_hypercube(size_t i) const override;
     // Goldilocks2::Element evaluate(const std::vector<Goldilocks2::Element>& input) const override;
 
-    
+    Goldilocks2::Element evaluate(const std::vector<Goldilocks2::Element>& point) const override;
+
+    void fix(size_t pos, const Goldilocks2::Element& val) override;
+
     // Sum over the last len bits
     // virtual MultilinearPolynomial sum_over_lowbits(size_t len) const override;
 
@@ -27,8 +31,15 @@ public:
 
     // Goldilocks2::Element evaluate(const std::vector<Goldilocks2::Element>& input) const override;
 
+    void iterate_nonzero(const std::function<void(size_t)> f, size_t offset) const override;
+
 protected:
     size_t C, D, n, m;
     int logC, logD, lognm, logmm;
+    bool expanded;
 
+    void expand();
+
+    std::optional<size_t> to_real_index(size_t i) const;
+    size_t to_virtual_index(size_t i) const;
 };

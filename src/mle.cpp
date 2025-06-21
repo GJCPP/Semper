@@ -123,10 +123,9 @@ Goldilocks2::Element MultilinearPolynomial::get_sum() const {
     return sum;
 }
 
-void MultilinearPolynomial::iterate_nonzero(const std::function<void(size_t, Goldilocks2::Element, Goldilocks2::Element)> f) const {
-    size_t offset = 1ull << (num_vars - 1);
+void MultilinearPolynomial::iterate_nonzero(const std::function<void(size_t)> f, size_t offset) const {
     for (size_t i = 0; i < offset; ++i) {
-        f(i, evaluations[i], evaluations[i + offset]);
+        f(i);
     }
 }
 
@@ -176,7 +175,7 @@ MultilinearPolynomial MultilinearPolynomial::sum_over_lowbits_with_power(size_t 
     for (size_t i = 0; i < (1ull << (num_vars - len)); ++i) {
         Goldilocks2::Element power = Goldilocks2::one();
         for (size_t j = 0; j < (1ull << len); ++j) {
-            evs[i] = evs[i] + evaluations[(i << len) | j] * power;
+            evs[i] += evaluations[(i << len) | j] * power;
             power = power * beta;
         }
     }
