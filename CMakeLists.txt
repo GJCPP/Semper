@@ -18,6 +18,7 @@ find_package(OpenMP REQUIRED)
 target_link_libraries(goldilocks PRIVATE
     OpenMP::OpenMP_CXX
     pthread
+    cnpy
 )
 
 file(GLOB SOURCES

@@ -8,3 +8,5 @@ bench
 *.d
 build
 Debug
+training_trace
+data

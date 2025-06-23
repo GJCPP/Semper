@@ -12,7 +12,7 @@ g++ -std=c++17 -O3 -o  bench bench.cpp ./src/* -lssl -lcrypto -lpthread -lgoldil
 
 #include "timer.h"
 #include "test.h"
-
+#include "data_loader.h"
 
 #define iterations 1'000'000'000
 
@@ -82,7 +82,9 @@ int main() {
 
     // bench_logup(1ull << 10);
     //bench_logup(1ull << 28);
-    run_test();
+    // run_test();
+
+    play_with_data_loader();
 
     return 0;
 }
