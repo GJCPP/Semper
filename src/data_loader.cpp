@@ -2,9 +2,15 @@
 
 
 cnpy::npz_t loadEpochData(const std::string& dir, int epoch) {
-    // Load data file for this epoch
     std::string data_file = dir + "/epoch_" + std::to_string(epoch) + ".npz";
-    return cnpy::npz_load(data_file);
+    cnpy::npz_t npz_data = cnpy::npz_load(data_file);
+
+    cnpy::npz_t data_map;
+    for (auto& pair : npz_data) {
+        data_map[pair.first] = pair.second;
+    }
+
+    return data_map;
 }
 
 void play_with_data_loader() {
