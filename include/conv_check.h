@@ -8,8 +8,6 @@
 #include "product2_sumcheck.h"
 #include "mle_convker.h"
 
-// #define GJC
-
 class convProver;
 class convVerifier;
 

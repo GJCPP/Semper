@@ -4,9 +4,14 @@ from torch.utils.data import DataLoader,Subset
 import torch.nn.functional as F
 import numpy as np
 import os
+import random
+import copy
+
+save_cache = True
 
 class ManualVGG16:
     def __init__(self):
+        torch.backends.cudnn.deterministic = True
         self.W = {}
 
         # Conv layers (no bias), Kaiming init
@@ -40,14 +45,16 @@ class ManualVGG16:
         self.cache = {}
 
     def save_to_cache(self, key, value):
+        if not save_cache:
+            return
         if self.cache.get(key) is None:
             self.cache[key] = []
-        self.cache[key].append(value)
+        self.cache[key].append(copy.deepcopy(value))
 
     def forward(self, x):
         #self.input = x
         idx = 1
-        self.input_q = torch.round(x*self.scale).to(torch.int64)
+        self.input_q = (x*self.scale).to(torch.int64)
         x_q=self.input_q
         self.save_to_cache('input_q', x_q)
         
@@ -62,13 +69,56 @@ class ManualVGG16:
 
             for lid in layers:
                 x_q = F.conv2d(x_q.to(torch.float64), self.W[f'conv_q{lid}'].to(torch.float64), padding=1)
-                x_q = torch.round(x_q/self.scale).to(torch.int64)
+                x_q = x_q.to(torch.int64) // self.scale
                 x_q = F.relu(x_q)
                 self.save_to_cache(f'W_conv_q{lid}', self.W[f'conv_q{lid}'])
                 self.save_to_cache(f'z_q{lid}', x_q)
+
             x_q, pool_q_idx = F.max_pool2d(x_q, kernel_size=2, stride=2, return_indices=True)
             x_q = x_q.to(torch.int64)
             self.save_to_cache(f'pool_q{block}', (x_q, pool_q_idx))
+            # import random
+
+            # if block == 1:
+            #     W = self.cache['W_conv_q1'][-1]  # shape [64, 3, 3, 3]
+            #     x_pad = F.pad(self.input_q, (1, 1, 1, 1), mode='constant', value=0)  # [N, 3, H+2, W+2]
+            #     z_ref = self.cache['z_q1'][-1]  # [N, 64, H, W]
+
+            #     N, C, H, W_ = self.input_q.shape
+            #     OC = W.shape[0]  # 64
+
+            #     K = 20000  # number of random points to sample
+            #     errors = 0
+
+            #     for _ in range(K):
+            #         # Randomly sample one point
+            #         # n = random.randint(0, N - 1)
+            #         # oc = random.randint(0, OC - 1)
+            #         # i = random.randint(0, H - 1)
+            #         # j = random.randint(0, W_ - 1)
+            #         n = 0
+            #         oc = 0
+            #         i = 0
+            #         j = 0
+
+            #         # Manually compute conv+ReLU at that location
+            #         acc = 0
+            #         for c in range(C):
+            #             for ki in range(3):
+            #                 for kj in range(3):
+            #                     xi = x_pad[n, c, i + ki, j + kj].item()
+            #                     wi = W[oc, c, ki, kj].item()
+            #                     acc += xi * wi
+            #                     print(acc,xi,wi)
+            #         acc = acc // self.scale
+            #         if acc < 0:
+            #             acc = 0
+
+            #         actual = z_ref[n, oc, i, j].item()
+            #         if acc != actual:
+            #             errors += 1
+            #         exit(0)
+            #     print(f"Checked {K} random positions — {errors} mismatches.")
 
         #x = x.view(x.size(0), -1)
         #self.cache['flat'] = x
@@ -232,7 +282,7 @@ def train_manual():
     # Create directory for saving data
     os.makedirs('training_trace', exist_ok=True)
 
-    for epoch in range(2):
+    for epoch in range(1):
         correct = total = 0
         correct2= 0
         cnt=0
@@ -264,17 +314,22 @@ def train_manual():
             if cnt%10==0:
                 print(f" Int Accuracy = {100 * correct2 / total:.2f}%")
 
-        # Convert tensors to numpy arrays before saving
-        cache_np = {}
-        for key, value in model.cache.items():
-            cache_np[key] = np.array(value)
-        np.savez(f'training_trace/epoch_{epoch}.npz', **cache_np)
+        if save_cache:
+            # Convert tensors to numpy arrays before saving
+            cache_np = {}
+            idx = 0
+            for key, value in model.cache.items():
+                cache_np[str(idx).zfill(3) + "_" + key] = np.array(value)
+                idx += 1
+            np.savez(f'training_trace/epoch_{epoch}.npz', **cache_np)
 
-        # print(epoch_data)
+            # print(epoch_data)
 
-        print(f"Epoch {epoch+1}: Accuracy = {100 * correct2 / total:.2f}%")
-        model.clear_cache()
+            print(f"Epoch {epoch+1}: Accuracy = {100 * correct2 / total:.2f}%")
+            model.clear_cache()
 
 if __name__ == "__main__":
+    torch.manual_seed(0)
+    random.seed(0)
     train_manual()
 

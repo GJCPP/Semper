@@ -116,14 +116,11 @@ convProver make_conv2_prover(
 
     size_t N = n * n;
     size_t K = n * m;
-#ifdef GJC
-    return convProver(convTriple(X_1d, W_1d, Y_1d));
-#else
+
     return convProver(convTriple(C, N, D, K,
         std::make_unique<MultilinearPolynomial>(X_1d),
         std::make_unique<MLE_Convker>(W, C, D, n, m),
         std::make_unique<MultilinearPolynomial>(Y_1d)));
-#endif
 }
 
 bool convVerifier::execute_convcheck(
