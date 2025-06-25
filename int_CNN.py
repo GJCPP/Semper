@@ -7,7 +7,7 @@ import os
 import random
 import copy
 
-save_cache = True
+save_cache_to_file = True
 
 class ManualVGG16:
     def __init__(self):
@@ -45,8 +45,6 @@ class ManualVGG16:
         self.cache = {}
 
     def save_to_cache(self, key, value):
-        if not save_cache:
-            return
         if self.cache.get(key) is None:
             self.cache[key] = []
         self.cache[key].append(copy.deepcopy(value))
@@ -76,7 +74,8 @@ class ManualVGG16:
 
             x_q, pool_q_idx = F.max_pool2d(x_q, kernel_size=2, stride=2, return_indices=True)
             x_q = x_q.to(torch.int64)
-            self.save_to_cache(f'pool_q{block}', (x_q, pool_q_idx))
+            self.save_to_cache(f'pool_q{block}', x_q)
+            self.save_to_cache(f'pool_idx_q{block}', pool_q_idx)
             # import random
 
             # if block == 1:
@@ -209,15 +208,16 @@ class ManualVGG16:
 
         # reshape to conv5 output shape
         #grad = grad_flat.view(c['pool5'][0].shape)
-        grad_q = grad_flat_q.view(c['pool_q5'][-1][0].shape)
+        grad_q = grad_flat_q.view(c['pool_q5'][-1].shape)
         self.save_to_cache('grad_q', grad_q)
 
         # backward through conv blocks
         for block in reversed(range(1, 6)):
             #pooled_out, indices = c[f'pool{block}']
             first_lid = [1, 3, 5, 8, 11][block - 1]
-            pooled_out_q, indices_q = c[f'pool_q{block}'][-1]
 
+            pooled_out_q = c[f'pool_q{block}'][-1]
+            indices_q = c[f'pool_idx_q{block}'][-1]
             # MaxUnpool to restore pre-pool shape
             #grad = F.max_unpool2d(grad, indices, kernel_size=2, stride=2, output_size=c[f'z{first_lid}'].shape)
 
@@ -246,7 +246,7 @@ class ManualVGG16:
                     input_q = self.input_q
                 elif lid == conv_ids[0]:
                 #    input_ = c[f'pool{block - 1}'][0] if block > 1 else self.input
-                    input_q = c[f'pool_q{block - 1}'][-1][0] if block > 1 else self.input_q
+                    input_q = c[f'pool_q{block - 1}'][-1] if block > 1 else self.input_q
                 else:
                 #    input_ = c[f'z{lid - 1}']
                     input_q = c[f'z_q{lid - 1}'][-1]
@@ -314,14 +314,15 @@ def train_manual():
             if cnt%10==0:
                 print(f" Int Accuracy = {100 * correct2 / total:.2f}%")
 
-        if save_cache:
+        if save_cache_to_file:
             # Convert tensors to numpy arrays before saving
-            cache_np = {}
-            idx = 0
-            for key, value in model.cache.items():
-                cache_np[str(idx).zfill(3) + "_" + key] = np.array(value)
-                idx += 1
-            np.savez(f'training_trace/epoch_{epoch}.npz', **cache_np)
+            # cache_np = {}
+            # idx = 0
+            # for key, value in model.cache.items():
+            #     cache_np[str(idx).zfill(3) + "_" + key] = np.array(value)
+            #     idx += 1
+            
+            np.savez(f'training_trace/epoch_{epoch}.npz', **model.cache)
 
             # print(epoch_data)
 

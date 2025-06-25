@@ -3,6 +3,7 @@
 #include <string>
 #include <cstdint>
 #include <memory>
+#include <functional>
 #include "goldilocks_quadratic_ext.h"
 #include "oracle.h"
 

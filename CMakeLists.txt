@@ -2,8 +2,9 @@ cmake_minimum_required(VERSION 3.10)
 
 project(LogUP LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_COMPILER g++-13)
 
 include_directories(include)
 include_directories(goldilocks/src)
@@ -43,7 +44,7 @@ target_sources(bench PRIVATE ${SOURCES})
 # set(CMAKE_CXX_FLAGS_DEBUG "-g -DDEBUG")
 
 target_compile_options(bench PRIVATE
-    $<$<CONFIG:Release>:-Wall -O3 -mavx2 -fopenmp>
+    $<$<CONFIG:Release>:-Wall -O2 -mavx2 -fopenmp>
     $<$<CONFIG:Debug>:-Wall -g -DDEBUG -mavx2 -fopenmp>)
 
 # Use "cmake -D CMAKE_BUILD_TYPE=Debug .." to build in debug mode
