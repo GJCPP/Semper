@@ -6,6 +6,8 @@
 template<typename T>
 class array_view {
 public:
+    array_view() : data(nullptr), data_shape({}), index_offset({}), dims(0), default_value(T()) {}
+
     array_view(T* _data, const std::vector<size_t>& _shape, T _default_value = T()) 
         : data(_data), data_shape(_shape), index_offset(_shape.size()), dims(_shape.size()), default_value(_default_value) {
 

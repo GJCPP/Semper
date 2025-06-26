@@ -54,7 +54,7 @@ class ManualVGG16:
         idx = 1
         self.input_q = (x*self.scale).to(torch.int64)
         x_q=self.input_q
-        self.save_to_cache('input_q', x_q)
+        self.save_to_cache('z_q0', x_q)
         
         for block, layers in enumerate([(1, 2), (3, 4), (5, 6, 7), (8, 9, 10), (11, 12, 13)], start=1):
             #for lid in layers:
@@ -139,10 +139,10 @@ class ManualVGG16:
 
         self.save_to_cache('flat_q', x_q)
         self.save_to_cache('W_fc1_q', self.W['fc1_q'])
-        self.save_to_cache('fc1_zq', z1_q)
+        self.save_to_cache('z1_q', z1_q)
         self.save_to_cache('a1_q', a1_q)
         self.save_to_cache('W_fc2_q', self.W['fc2_q'])
-        self.save_to_cache('fc2_zq', z2_q)
+        self.save_to_cache('z2_q', z2_q)
         self.save_to_cache('a2_q', a2_q)
         self.save_to_cache('W_fc3_q', self.W['fc3_q'])
         self.save_to_cache('logits_q', logits_q)
@@ -160,13 +160,13 @@ class ManualVGG16:
         #    W['fc3'] -= lr * dW_fc3
         
         grad_a2_q = torch.round(grad_logits_q.to(torch.float64) @ W['fc3_q'].T.to(torch.float64)/self.scale).to(torch.int64)
-        dW_fc3_q = torch.round(c['fc2_zq'][-1].T.to(torch.float64) @ grad_logits_q.to(torch.float64) /self.scale).to(torch.int64)
+        dW_fc3_q = torch.round(c['z2_q'][-1].T.to(torch.float64) @ grad_logits_q.to(torch.float64) /self.scale).to(torch.int64)
         #print(dW_fc3_q.shape,dW_fc3.shape,W['fc3_q'].shape)
         with torch.no_grad():
             W['fc3_q'] -= torch.round(lr * dW_fc3_q).to(torch.int64)
 
-        self.save_to_cache('grad_a2_q', grad_a2_q)
         self.save_to_cache('dW_fc3_q', dW_fc3_q)
+        self.save_to_cache('grad_a2_q', grad_a2_q)
 
 
         # FC2
@@ -177,15 +177,15 @@ class ManualVGG16:
         #    W['fc2'] -= lr * dW_fc2
             
 
-        grad_z2_q = grad_a2_q * (c['fc2_zq'][-1] > 0)
+        grad_z2_q = grad_a2_q * (c['z2_q'][-1] > 0)
         grad_a1_q = torch.round(grad_z2_q.to(torch.float64) @ W['fc2_q'].T.to(torch.float64) /self.scale).to(torch.int64)
-        dW_fc2_q = torch.round(c['fc1_zq'][-1].T @ grad_z2_q/self.scale).to(torch.int64)
+        dW_fc2_q = torch.round(c['z1_q'][-1].T @ grad_z2_q/self.scale).to(torch.int64)
         with torch.no_grad():
             W['fc2_q'] -= torch.round(lr * dW_fc2_q).to(torch.int64)
 
         self.save_to_cache('grad_z2_q', grad_z2_q)
-        self.save_to_cache('grad_a1_q', grad_a1_q)
         self.save_to_cache('dW_fc2_q', dW_fc2_q)
+        self.save_to_cache('grad_a1_q', grad_a1_q)
 
         # FC1
         #grad_z1 = grad_a1 * (c['fc1_z'] > 0)
@@ -194,22 +194,22 @@ class ManualVGG16:
         #with torch.no_grad():
         #    W['fc1'] -= lr * dW_fc1
 
-        grad_z1_q = grad_a1_q * (c['fc1_zq'][-1] > 0)
+        grad_z1_q = grad_a1_q * (c['z1_q'][-1] > 0)
         grad_flat_q = torch.round(grad_z1_q @ W['fc1_q'].T /self.scale).to(torch.int64)
         dW_fc1_q = torch.round(c['flat_q'][-1].T @ grad_z1_q/self.scale).to(torch.int64)
         with torch.no_grad():
             W['fc1_q'] -= torch.round(lr * dW_fc1_q).to(torch.int64)
 
         self.save_to_cache('grad_z1_q', grad_z1_q)
-        self.save_to_cache('grad_flat_q', grad_flat_q)
         self.save_to_cache('dW_fc1_q', dW_fc1_q)
+        self.save_to_cache('grad_flat_q', grad_flat_q)
 
         #print("dW  fc1 err:",torch.mean(torch.abs(dW_fc1_q/self.scale-dW_fc1)),dW_fc1.max(),dW_fc1.min())
 
         # reshape to conv5 output shape
         #grad = grad_flat.view(c['pool5'][0].shape)
         grad_q = grad_flat_q.view(c['pool_q5'][-1].shape)
-        self.save_to_cache('grad_q', grad_q)
+        self.save_to_cache('grad_pool_q5', grad_q)
 
         # backward through conv blocks
         for block in reversed(range(1, 6)):
@@ -237,6 +237,7 @@ class ManualVGG16:
                 conv_ids = [11, 12, 13]
 
             for lid in reversed(conv_ids):
+                self.save_to_cache(f'grad_z_q{lid}', grad_q)
                 #grad = grad * (c[f'z{lid}'] > 0)  # ReLU
                 grad_q = grad_q * (c[f'z_q{lid}'][-1] > 0)  # ReLU
                 #print("gq Error",torch.abs(grad-grad_q/self.scale).mean(),grad.max(),grad.min())
@@ -265,6 +266,13 @@ class ManualVGG16:
                 grad_q = torch.round(F.conv_transpose2d(grad_q.to(torch.float64), W[f'conv_q{lid}'].to(torch.float64), padding=1)/self.scale).to(torch.int64)
                 with torch.no_grad():
                     W[f'conv_q{lid}'] -= torch.round(lr * dW_q).to(torch.int64)
+                
+                self.save_to_cache(f'dW_conv_q{lid}', dW_q)
+            if block == 1:
+                self.save_to_cache(f'grad_z_q0', grad_q)
+            else:
+                self.save_to_cache(f'grad_pool_q{block - 1}', grad_q)
+            
 
 def train_manual():
     transform = transforms.Compose([
@@ -305,6 +313,7 @@ def train_manual():
                 probs_q[range(x.size(0)), y] -= 1   # compute logits, grad
                 probs_q /= x.size(0)
                 probs_q=torch.round(probs_q*model.scale).to(torch.int64)
+                model.save_to_cache('probs_q', probs_q)
             
             with torch.no_grad():
                 model.backward_propogation(probs_q, lr=lr)
@@ -318,9 +327,9 @@ def train_manual():
             # Convert tensors to numpy arrays before saving
             # cache_np = {}
             # idx = 0
-            # for key, value in model.cache.items():
-            #     cache_np[str(idx).zfill(3) + "_" + key] = np.array(value)
-            #     idx += 1
+            for key, value in model.cache.items():
+                print(key)
+                print(len(value), value[0].shape)
             
             np.savez(f'training_trace/epoch_{epoch}.npz', **model.cache)
 

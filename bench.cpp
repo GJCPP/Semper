@@ -12,7 +12,7 @@ g++ -std=c++17 -O3 -o  bench bench.cpp ./src/* -lssl -lcrypto -lpthread -lgoldil
 
 #include "timer.h"
 #include "test.h"
-#include "data_loader.h"
+#include "VCG16.h"
 
 #define iterations 1'000'000'000
 
@@ -84,7 +84,8 @@ int main() {
     //bench_logup(1ull << 28);
     // run_test();
 
-    play_with_data_loader();
+    VCG16 vcg16("/home/gaojc/Desktop/logup-main/training_trace/", 0, 1 << 14);
+    vcg16.check(1000);
 
     return 0;
 }
