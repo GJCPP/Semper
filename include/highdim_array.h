@@ -71,8 +71,15 @@ public:
         return index_offset[i];
     }
 
+    int get_dims() const {
+        return dims;
+    }
+
 protected:
     void init_offset() {
+        if (dims == 0) {
+            return;
+        }
         index_offset[dims - 1] = 1;
         for (int i = dims - 2; i >= 0; --i) {
             index_offset[i] = index_offset[i + 1] * data_shape[i + 1];

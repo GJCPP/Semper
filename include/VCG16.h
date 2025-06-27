@@ -9,7 +9,7 @@ public:
     };
     class layer_info {
     public:
-        layer_info();
+        layer_info() = default;
         layer_type type;
         std::string name;
         array_view<int64_t> input, d_input;
@@ -18,7 +18,7 @@ public:
     };
     VCG16(std::string data_dir, int epoch, int64_t scale);
 
-    bool check(int n_samples = 0) const;
+    bool check(size_t n_samples = 0) const;
 
     void add_layer(layer_type type,
                     const std::string& name,
@@ -37,14 +37,15 @@ protected:
     std::map<std::string, std::vector<size_t>> data_shape;
     std::vector<layer_info> layers;
 
-    bool check_conv_relu(int n_samples = 0) const;
+    // bool check_conv_relu(int n_samples = 0) const;
 };
 
 bool check_conv_relu(
     const array_view<int64_t>& input, // [N, C, H, W]
     const array_view<int64_t>& weights, // [OC, C, 3, 3]
     const array_view<int64_t>& expected, // [N, OC, H, W]
-    int64_t scale
+    int64_t scale,
+    size_t n_samples = 0
 );
 
 bool random_check_conv_relu(

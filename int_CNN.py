@@ -135,7 +135,7 @@ class ManualVGG16:
         a1_q = F.relu(z1_q)
         z2_q = torch.round(a1_q.to(torch.float64) @ self.W['fc2_q'].to(torch.float64) /self.scale).to(torch.int64)
         a2_q = F.relu(z2_q)
-        logits_q = torch.round(a2_q.to(torch.float64) @ self.W['fc3_q'].to(torch.float64) /self.scale).to(torch.int64)
+        z3_q = torch.round(a2_q.to(torch.float64) @ self.W['fc3_q'].to(torch.float64) /self.scale).to(torch.int64)
 
         self.save_to_cache('flat_q', x_q)
         self.save_to_cache('W_fc1_q', self.W['fc1_q'])
@@ -145,22 +145,22 @@ class ManualVGG16:
         self.save_to_cache('z2_q', z2_q)
         self.save_to_cache('a2_q', a2_q)
         self.save_to_cache('W_fc3_q', self.W['fc3_q'])
-        self.save_to_cache('logits_q', logits_q)
+        self.save_to_cache('z3_q', z3_q)
 
-        return logits_q
+        return z3_q
 
-    def backward_propogation(self, grad_logits_q,  lr=0.01):
+    def backward_propogation(self, grad_z3_q,  lr=0.01):
         W = self.W
         c = self.cache
-        #print("grad err:",torch.mean(torch.abs(grad_logits-grad_logits_q/self.scale)),grad_logits.max(),grad_logits.min())
+        #print("grad err:",torch.mean(torch.abs(grad_logits-grad_z3_q/self.scale)),grad_logits.max(),grad_logits.min())
         # FC3
         #grad_a2 = grad_logits @ W['fc3'].T
         #dW_fc3 = c['fc2_z'].T @ grad_logits
         #with torch.no_grad():
         #    W['fc3'] -= lr * dW_fc3
         
-        grad_a2_q = torch.round(grad_logits_q.to(torch.float64) @ W['fc3_q'].T.to(torch.float64)/self.scale).to(torch.int64)
-        dW_fc3_q = torch.round(c['z2_q'][-1].T.to(torch.float64) @ grad_logits_q.to(torch.float64) /self.scale).to(torch.int64)
+        grad_a2_q = torch.round(grad_z3_q.to(torch.float64) @ W['fc3_q'].T.to(torch.float64)/self.scale).to(torch.int64)
+        dW_fc3_q = torch.round(c['z2_q'][-1].T.to(torch.float64) @ grad_z3_q.to(torch.float64) /self.scale).to(torch.int64)
         #print(dW_fc3_q.shape,dW_fc3.shape,W['fc3_q'].shape)
         with torch.no_grad():
             W['fc3_q'] -= torch.round(lr * dW_fc3_q).to(torch.int64)
@@ -306,10 +306,10 @@ def train_manual():
             })
 
             with torch.no_grad():
-                logits_q = model.forward(x)
+                z3_q = model.forward(x)
             
             with torch.no_grad():
-                probs_q = F.softmax(logits_q/model.scale, dim=1)
+                probs_q = F.softmax(z3_q/model.scale, dim=1)
                 probs_q[range(x.size(0)), y] -= 1   # compute logits, grad
                 probs_q /= x.size(0)
                 probs_q=torch.round(probs_q*model.scale).to(torch.int64)
@@ -318,7 +318,7 @@ def train_manual():
             with torch.no_grad():
                 model.backward_propogation(probs_q, lr=lr)
 
-            correct2 += (logits_q.argmax(1) == y).sum().item()
+            correct2 += (z3_q.argmax(1) == y).sum().item()
             total += y.size(0)
             if cnt%10==0:
                 print(f" Int Accuracy = {100 * correct2 / total:.2f}%")
