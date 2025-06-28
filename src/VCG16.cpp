@@ -10,8 +10,8 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale)
     }
     data[{}] = nullptr;
     data_shape[{}] = {};
-    minibatch = data_shape["z_q0"][0];
-    img_per_batch = data_shape["z_q0"][1];
+    minibatch = data_shape["a_q0"][0];
+    img_per_batch = data_shape["a_q0"][1];
 
     std::vector<std::vector<int>> conv_layers = {{1, 2}, {3, 4}, {5, 6, 7}, {8, 9, 10}, {11, 12, 13}};
     int ind_pool = 1;
@@ -22,9 +22,9 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale)
                 input_name = std::format("pool_q{}", ind_pool - 1);
             }
             else {
-                input_name = std::format("z_q{}", lid - 1);
+                input_name = std::format("a_q{}", lid - 1);
             }
-            add_layer(layer_type::conv_relu,
+            add_layer(layer_type::conv,
                 std::format("conv_{}", lid),
                 input_name,
                 std::format("z_q{}", lid),
@@ -32,13 +32,21 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale)
                 std::format("grad_{}", input_name),
                 std::format("grad_z_q{}", lid),
                 std::format("dW_conv_q{}", lid));
+            add_layer(layer_type::relu,
+                std::format("relu_{}", lid),
+                std::format("z_q{}", lid),
+                std::format("a_q{}", lid),
+                {},
+                std::format("grad_z_q{}", lid),
+                std::format("grad_a_q{}", lid),
+                {});
         }
         add_layer(layer_type::pool,
             std::format("pool_{}", ind_pool),
-            std::format("z_q{}", layer.back()),
+            std::format("a_q{}", layer.back()),
             std::format("pool_q{}", ind_pool),
             {},
-            std::format("grad_z_q{}", layer.back()),
+            std::format("grad_a_q{}", layer.back()),
             std::format("grad_pool_q{}", ind_pool),
             {});
         ++ind_pool;
@@ -87,16 +95,24 @@ bool VCG16::check(size_t n_samples) const {
         bool pass = true;
         std::cout << "Checking layer " << layer.name << std::endl;
         switch (layer.type) {
-            case layer_type::conv_relu:
+            case layer_type::conv:
                 for (size_t i = 0; i < layer.input.shape(0); ++i) {
-                    pass = check_conv_relu(layer.input[i], layer.weight[i], layer.output[i], scale, n_samples);
+                    pass &= check_conv(layer.input[i], layer.weight[i], layer.output[i], 1, scale, n_samples);
                 }
+                if (!pass) {
+                    std::cout << "❌ Layer " << layer.name << " failed. (forward)" << std::endl;
+                    break;
+                }
+                // for (size_t i = 0; i < layer.input.shape(0); ++i) {
+                //     pass &= check_conv(layer.input[i], layer.d_output[i], layer.d_weight[i], 1, scale, n_samples);
+                // }
+                // if (!pass) std::cout << "❌ Layer " << layer.name << " failed. (backward)" << std::endl;
                 break;
+
             default:
                 break;
         }
         if (!pass) {
-            std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
             return false;
         }
     }
@@ -174,21 +190,23 @@ void VCG16::add_layer(layer_type type,
 //     return true;
 // }
 
-bool check_conv_relu(
+bool check_conv(
     const array_view<int64_t>& input, // [N, C, H, W]
-    const array_view<int64_t>& weights, // [OC, C, 3, 3]
-    const array_view<int64_t>& expected, // [N, OC, H, W]
+    const array_view<int64_t>& weights, // [OC, C, K, K]
+    const array_view<int64_t>& expected, // [N, OC, H + 2 * pad - K + 1, W + 2 * pad - K + 1]
+    size_t pad,
     int64_t scale,
     size_t n_samples
 ) {
     if (n_samples > 0) {
-        return random_check_conv_relu(input, weights, expected, scale, n_samples);
+        return random_check_conv(input, weights, expected, pad, scale, n_samples);
     }
     size_t N = input.shape(0);
     size_t C = input.shape(1);
     size_t H = expected.shape(2);
     size_t W = expected.shape(3);
     size_t OC = weights.shape(0);
+    size_t K = weights.shape(2);
     assert(input.get_dims() == 4);
     assert(weights.get_dims() == 4);
     assert(expected.get_dims() == 4);
@@ -198,16 +216,16 @@ bool check_conv_relu(
     assert(input.shape(3) == W);
     assert(weights.shape(0) == OC);
     assert(weights.shape(1) == C);
-    assert(weights.shape(2) == 3);
-    assert(weights.shape(3) == 3);
+    assert(weights.shape(2) == K);
+    assert(weights.shape(3) == K);
     assert(expected.shape(0) == N);
     assert(expected.shape(1) == OC);
-    assert(expected.shape(2) == H);
-    assert(expected.shape(3) == W);
+    assert(expected.shape(2) == H + 2 * pad - K + 1);
+    assert(expected.shape(3) == W + 2 * pad - K + 1);
 
     bool ret = true;
 
-// #pragma omp parallel for
+#pragma omp parallel for
     for (size_t n = 0; n < N; ++n) {
 
         auto view_input_n = input[n];
@@ -230,15 +248,16 @@ bool check_conv_relu(
                         auto view_weights_oc_c = view_weights_oc[c];
                         auto view_input_n_c = view_input_n[c];
 
-                        for (size_t ki = 0; ki < 3 && ret; ++ki) {
-                            for (size_t kj = 0; kj < 3 && ret; ++kj) {
-                                acc += view_input_n_c(i + ki - 1, j + kj - 1) * view_weights_oc_c(ki, kj);
-                                std::cout << acc << " " << view_input_n_c(i + ki - 1, j + kj - 1) << " " << view_weights_oc_c(ki, kj) << std::endl;
+                        for (size_t ki = 0; ki < K && ret; ++ki) {
+                            for (size_t kj = 0; kj < K && ret; ++kj) {
+                                if (i + ki - pad >= 0 && i + ki - pad < H && j + kj - pad >= 0 && j + kj - pad < W) {
+                                    acc += view_input_n_c(i + ki - pad, j + kj - pad) * view_weights_oc_c(ki, kj);
+                                }
                             }
                         }
                     }
-                    acc = acc / scale;
-                    if (acc < 0) acc = 0;
+                    // acc = acc / scale; // downscale
+                    // if (acc < 0) acc = 0; // relu
 
                     int64_t actual = view_expected_n_oc_h(j);
                     if (std::abs(actual - acc) > 1) {
@@ -254,10 +273,11 @@ bool check_conv_relu(
 }
 
 
-bool random_check_conv_relu(
+bool random_check_conv(
     const array_view<int64_t>& input, // [N, C, H, W]
-    const array_view<int64_t>& weights, // [OC, C, 3, 3]
-    const array_view<int64_t>& expected, // [N, OC, H, W]
+    const array_view<int64_t>& weights, // [OC, C, K, K]
+    const array_view<int64_t>& expected, // [N, OC, H + 2 * pad - K + 1, W + 2 * pad - K + 1]
+    size_t pad,
     int64_t scale,
     size_t n_samples
 ) {
@@ -265,6 +285,7 @@ bool random_check_conv_relu(
     size_t C = input.shape(1);
     size_t H = expected.shape(2);
     size_t W = expected.shape(3);
+    size_t K = weights.shape(2);
     size_t OC = weights.shape(0);
     assert(input.shape(0) == N);
     assert(input.shape(1) == C);
@@ -272,12 +293,12 @@ bool random_check_conv_relu(
     assert(input.shape(3) == W);
     assert(weights.shape(0) == OC);
     assert(weights.shape(1) == C);
-    assert(weights.shape(2) == 3);
-    assert(weights.shape(3) == 3);
+    assert(weights.shape(2) == K);
+    assert(weights.shape(3) == K);
     assert(expected.shape(0) == N);
     assert(expected.shape(1) == OC);
-    assert(expected.shape(2) == H);
-    assert(expected.shape(3) == W);
+    assert(expected.shape(2) == H + 2 * pad - K + 1);
+    assert(expected.shape(3) == W + 2 * pad - K + 1);
 
     bool ret = true;
 
@@ -289,14 +310,16 @@ bool random_check_conv_relu(
         size_t j = rand() % W;
         int64_t acc = 0;
         for (size_t c = 0; c < C; ++c) {
-            for (size_t ki = 0; ki < 3; ++ki) {
-                for (size_t kj = 0; kj < 3; ++kj) {
-                    acc += input(n, c, i + ki - 1, j + kj - 1) * weights(oc, c, ki, kj);
+            for (size_t ki = 0; ki < K; ++ki) {
+                for (size_t kj = 0; kj < K; ++kj) {
+                    if (i + ki - pad >= 0 && i + ki - pad < H && j + kj - pad >= 0 && j + kj - pad < W) {
+                        acc += input(n, c, i + ki - pad, j + kj - pad) * weights(oc, c, ki, kj);
+                    }
                 }
             }
         }
-        acc = acc / scale;
-        if (acc < 0) acc = 0;
+        // acc = acc / scale; // downscale
+        // if (acc < 0) acc = 0; // relu
 
         int64_t actual = expected(n, oc, i, j);
         if (std::abs(actual - acc) > 1) {

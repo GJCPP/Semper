@@ -54,7 +54,7 @@ class ManualVGG16:
         idx = 1
         self.input_q = (x*self.scale).to(torch.int64)
         x_q=self.input_q
-        self.save_to_cache('z_q0', x_q)
+        self.save_to_cache('a_q0', x_q)
         
         for block, layers in enumerate([(1, 2), (3, 4), (5, 6, 7), (8, 9, 10), (11, 12, 13)], start=1):
             #for lid in layers:
@@ -67,10 +67,11 @@ class ManualVGG16:
 
             for lid in layers:
                 x_q = F.conv2d(x_q.to(torch.float64), self.W[f'conv_q{lid}'].to(torch.float64), padding=1)
+                self.save_to_cache(f'z_q{lid}', x_q.to(torch.int64))
                 x_q = x_q.to(torch.int64) // self.scale
-                x_q = F.relu(x_q)
+                x_q = F.relu(x_q).to(torch.int64)
                 self.save_to_cache(f'W_conv_q{lid}', self.W[f'conv_q{lid}'])
-                self.save_to_cache(f'z_q{lid}', x_q)
+                self.save_to_cache(f'a_q{lid}', x_q)
 
             x_q, pool_q_idx = F.max_pool2d(x_q, kernel_size=2, stride=2, return_indices=True)
             x_q = x_q.to(torch.int64)
@@ -237,9 +238,9 @@ class ManualVGG16:
                 conv_ids = [11, 12, 13]
 
             for lid in reversed(conv_ids):
-                self.save_to_cache(f'grad_z_q{lid}', grad_q)
+                self.save_to_cache(f'grad_a_q{lid}', grad_q)
                 #grad = grad * (c[f'z{lid}'] > 0)  # ReLU
-                grad_q = grad_q * (c[f'z_q{lid}'][-1] > 0)  # ReLU
+                grad_q = grad_q * (c[f'a_q{lid}'][-1] > 0)  # ReLU
                 #print("gq Error",torch.abs(grad-grad_q/self.scale).mean(),grad.max(),grad.min())
                 # Get input to this conv layer
                 if lid == 1:
@@ -250,7 +251,7 @@ class ManualVGG16:
                     input_q = c[f'pool_q{block - 1}'][-1] if block > 1 else self.input_q
                 else:
                 #    input_ = c[f'z{lid - 1}']
-                    input_q = c[f'z_q{lid - 1}'][-1]
+                    input_q = c[f'a_q{lid - 1}'][-1]
                 
                 # Compute weight gradient and update
                 #dW = torch.nn.grad.conv2d_weight(input_, W[f'conv{lid}'].shape, grad, padding=1)
@@ -269,7 +270,7 @@ class ManualVGG16:
                 
                 self.save_to_cache(f'dW_conv_q{lid}', dW_q)
             if block == 1:
-                self.save_to_cache(f'grad_z_q0', grad_q)
+                self.save_to_cache(f'grad_a_q0', grad_q)
             else:
                 self.save_to_cache(f'grad_pool_q{block - 1}', grad_q)
             

@@ -5,7 +5,7 @@
 class VCG16 {
 public:
     enum layer_type {
-        conv_relu, pool, full, relu, softmax, flat
+        conv, pool, full, relu, softmax, flat
     };
     class layer_info {
     public:
@@ -40,18 +40,20 @@ protected:
     // bool check_conv_relu(int n_samples = 0) const;
 };
 
-bool check_conv_relu(
+bool check_conv(
     const array_view<int64_t>& input, // [N, C, H, W]
     const array_view<int64_t>& weights, // [OC, C, 3, 3]
     const array_view<int64_t>& expected, // [N, OC, H, W]
+    size_t pad,
     int64_t scale,
     size_t n_samples = 0
 );
 
-bool random_check_conv_relu(
+bool random_check_conv(
     const array_view<int64_t>& input, // [N, C, H, W]
     const array_view<int64_t>& weights, // [OC, C, 3, 3]
     const array_view<int64_t>& expected, // [N, OC, H, W]
+    size_t pad,
     int64_t scale,
     size_t n_samples
 );
