@@ -4,18 +4,32 @@
 #include <vector>
 
 template<typename T>
+class array_view;
+
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const array_view<T>& arr);
+
+template<typename T>
 class array_view {
 public:
-    array_view() : data(nullptr), data_shape({}), index_offset({}), dims(0), default_value(T()) {}
+    friend std::ostream& operator<< <T>(std::ostream& os, const array_view<T>& arr);
+
+    array_view() : data(nullptr), data_shape({}), index_offset({}), dims(0), default_value(T()), data_size(0) {}
 
     array_view(T* _data, const std::vector<size_t>& _shape, T _default_value = T()) 
-        : data(_data), data_shape(_shape), index_offset(_shape.size()), dims(_shape.size()), default_value(_default_value) {
-
+        : data(_data), data_shape(_shape), index_offset(_shape.size()), dims(_shape.size()), default_value(_default_value), data_size(1) {
+        for (size_t i = 0; i < _shape.size(); ++i) {
+            data_size *= _shape[i];
+        }
         init_offset();
     }
 
     T& get(size_t index) {
         return data[index];
+    }
+
+    size_t size() const {
+        return data_size;
     }
 
     T& operator()(const std::vector<size_t>& indices) {
@@ -67,12 +81,28 @@ public:
         return data_shape[i];
     }
 
+    std::vector<size_t> get_shape() const {
+        return data_shape;
+    }
+
     size_t offset(int i) const {
         return index_offset[i];
     }
 
     int get_dims() const {
         return dims;
+    }
+
+    bool operator==(const array_view<T>& other) const {
+        if (data_size != other.data_size) {
+            throw std::runtime_error("array_view: Array sizes do not match");
+        }
+        for (size_t i = 0; i < data_size; ++i) {
+            if (data[i] != other.data[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 
 protected:
@@ -88,6 +118,27 @@ protected:
     int dims;
     T default_value;
     T* data;
+    size_t data_size;
     std::vector<size_t> data_shape;
     std::vector<size_t> index_offset;
 };
+
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const array_view<T>& arr) {
+    os << "[";
+    if (arr.dims == 1) {
+        for (size_t i = 0; i < arr.data_size; ++i) {
+            os << arr.data[i] << " ";
+        }
+    } else {
+        for (size_t i = 0; i < arr.data_shape[0]; ++i) {
+            os << arr[i];
+            if (i < arr.data_shape[0] - 1) {
+                os << ", ";
+            }
+            os << std::endl;
+        }
+    }
+    os << "]";
+    return os;
+}

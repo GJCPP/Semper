@@ -7,7 +7,7 @@ import os
 import random
 import copy
 
-save_cache_to_file = True
+save_cache_to_file = False
 
 class ManualVGG16:
     def __init__(self):
@@ -237,10 +237,12 @@ class ManualVGG16:
             elif block == 5:
                 conv_ids = [11, 12, 13]
 
+
             for lid in reversed(conv_ids):
                 self.save_to_cache(f'grad_a_q{lid}', grad_q)
                 #grad = grad * (c[f'z{lid}'] > 0)  # ReLU
                 grad_q = grad_q * (c[f'a_q{lid}'][-1] > 0)  # ReLU
+                self.save_to_cache(f'grad_z_q{lid}', grad_q)
                 #print("gq Error",torch.abs(grad-grad_q/self.scale).mean(),grad.max(),grad.min())
                 # Get input to this conv layer
                 if lid == 1:
@@ -255,8 +257,45 @@ class ManualVGG16:
                 
                 # Compute weight gradient and update
                 #dW = torch.nn.grad.conv2d_weight(input_, W[f'conv{lid}'].shape, grad, padding=1)
+                
                 dw_Q=torch.nn.grad.conv2d_weight(input_q.to(torch.float64), W[f'conv_q{lid}'].shape, grad_q.to(torch.float64), padding=1)
                 dW_q = torch.round(dw_Q/self.scale).to(torch.int64)
+
+                self.save_to_cache(f'dW_conv_q{lid}', dw_Q.to(torch.int64))
+                # if lid == 1:
+                #     print("Checking conv2d_weight manually for lid=1")
+
+                #     padding = 1
+                #     stride = 1
+                #     input_f = input_q.to(torch.float64)
+                #     grad_f = grad_q.to(torch.float64)
+                #     dw_auto = dw_Q  # torch result
+
+                #     OC, IC, KH, KW = dw_auto.shape
+                #     N = input_f.shape[0]
+                #     H_out, W_out = grad_f.shape[2], grad_f.shape[3]
+                #     H_in, W_in = input_f.shape[2], input_f.shape[3]
+
+                #     # Check selected or all values
+                #     for oc in range(OC):
+                #         for ic in range(IC):
+                #             for kh in range(KH):
+                #                 for kw in range(KW):
+                #                     dw_manual = 0.0
+                #                     for n in range(N):
+                #                         for i in range(H_out):
+                #                             for j in range(W_out):
+                #                                 in_i = i * stride + kh - padding
+                #                                 in_j = j * stride + kw - padding
+                #                                 if 0 <= in_i < H_in and 0 <= in_j < W_in:
+                #                                     dw_manual += input_f[n, ic, in_i, in_j] * grad_f[n, oc, i, j]
+                #                     auto_val = dw_auto[oc, ic, kh, kw].item()
+                #                     err = abs(dw_manual - auto_val)
+                #                     if err > 1e-6:
+                #                         print(f"❌ Mismatch at ({oc},{ic},{kh},{kw}): manual={dw_manual:.3f}, torch={auto_val:.3f}, err={err:.3e}")
+                #                     else:
+                #                         print(f"✅ Match at ({oc},{ic},{kh},{kw}): val={auto_val:.3f}")
+                #     exit(0)
 
                 # Propagate grad to previous layer
                 #grad = F.conv_transpose2d(grad, W[f'conv{lid}'], padding=1)
@@ -268,7 +307,6 @@ class ManualVGG16:
                 with torch.no_grad():
                     W[f'conv_q{lid}'] -= torch.round(lr * dW_q).to(torch.int64)
                 
-                self.save_to_cache(f'dW_conv_q{lid}', dW_q)
             if block == 1:
                 self.save_to_cache(f'grad_a_q0', grad_q)
             else:
@@ -324,20 +362,21 @@ def train_manual():
             if cnt%10==0:
                 print(f" Int Accuracy = {100 * correct2 / total:.2f}%")
 
+        # Convert tensors to numpy arrays before saving
+        # cache_np = {}
+        # idx = 0
+        for key, value in model.cache.items():
+            print(key)
+            print(len(value), value[0].shape)
+            print(value[0][0, 0])
+        
         if save_cache_to_file:
-            # Convert tensors to numpy arrays before saving
-            # cache_np = {}
-            # idx = 0
-            for key, value in model.cache.items():
-                print(key)
-                print(len(value), value[0].shape)
-            
             np.savez(f'training_trace/epoch_{epoch}.npz', **model.cache)
 
-            # print(epoch_data)
+        # print(epoch_data)
 
-            print(f"Epoch {epoch+1}: Accuracy = {100 * correct2 / total:.2f}%")
-            model.clear_cache()
+        print(f"Epoch {epoch+1}: Accuracy = {100 * correct2 / total:.2f}%")
+        model.clear_cache()
 
 if __name__ == "__main__":
     torch.manual_seed(0)

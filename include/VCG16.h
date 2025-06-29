@@ -45,7 +45,6 @@ bool check_conv(
     const array_view<int64_t>& weights, // [OC, C, 3, 3]
     const array_view<int64_t>& expected, // [N, OC, H, W]
     size_t pad,
-    int64_t scale,
     size_t n_samples = 0
 );
 
@@ -54,6 +53,35 @@ bool random_check_conv(
     const array_view<int64_t>& weights, // [OC, C, 3, 3]
     const array_view<int64_t>& expected, // [N, OC, H, W]
     size_t pad,
-    int64_t scale,
+    size_t n_samples
+);
+
+bool check_singleconv(
+    const array_view<int64_t>& input, // [H, W]
+    const array_view<int64_t>& weights, // [K, K]
+    const array_view<int64_t>& expected, // [H + 2 * pad - K + 1, W + 2 * pad - K + 1]
+    size_t pad
+);
+
+void add_conv(
+    const array_view<int64_t>& input, // [H, W]
+    const array_view<int64_t>& weights, // [K, K]
+    array_view<int64_t>& output, // [H + 2 * pad - K + 1, W + 2 * pad - K + 1]
+    size_t pad
+);
+
+bool check_conv2d_weight_gradient(
+    const array_view<int64_t>& input,
+    const array_view<int64_t>& d_output,
+    const array_view<int64_t>& d_weight,
+    size_t padding,
+    size_t n_samples = 0
+);
+
+bool random_check_conv2d_weight_gradient(
+    const array_view<int64_t>& input,
+    const array_view<int64_t>& d_output,
+    const array_view<int64_t>& d_weight,
+    size_t padding,
     size_t n_samples
 );
