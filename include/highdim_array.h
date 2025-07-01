@@ -75,7 +75,7 @@ public:
         size_t linear_index = 0;
         for (int i = 0; i < dims; ++i) {
             if (indices[i] < data_shape[i]) {
-                linear_index += indices[i] * index_offset[i];
+                linear_index += (reversed[i] ? data_shape[i] - 1 - indices[i] : indices[i]) * index_offset[i];
             } else {
                 throw std::runtime_error("array_view: Index out of bounds");
             }
@@ -86,9 +86,9 @@ public:
     const T& operator()(std::vector<size_t> indices) const {
         assert(indices.size() == dims);
         size_t linear_index = 0;
-        for (int i = 0; i < data_shape.size(); ++i) {
+        for (int i = 0; i < dims; ++i) {
             if (indices[i] < data_shape[i]) {
-                linear_index += indices[i] * index_offset[i];
+                linear_index += (reversed[i] ? data_shape[i] - 1 - indices[i] : indices[i]) * index_offset[i];
             } else {
                 throw std::runtime_error("array_view: Index out of bounds");
             }
@@ -100,6 +100,12 @@ public:
         std::vector<size_t> new_shape(data_shape.begin() + 1, data_shape.end());
         std::vector<size_t> new_offset(index_offset.begin() + 1, index_offset.end());
         std::vector<bool> new_reversed(reversed.begin() + 1, reversed.end());
+        if (index >= data_shape[0]) {
+            throw std::runtime_error("array_view: Index out of bounds");
+        }
+        if (reversed[0]) {
+            index = data_shape[0] - 1 - index;
+        }
         return array_view<T>(data + index * index_offset[0], new_shape, new_offset, new_reversed);
     }
 

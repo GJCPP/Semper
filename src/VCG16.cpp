@@ -96,6 +96,7 @@ bool VCG16::check(size_t n_samples) const {
         std::cout << "Checking layer " << layer.name << std::endl;
         switch (layer.type) {
             case layer_type::conv:
+                // Check forward pass
                 #pragma omp parallel for
                 for (size_t i = 0; i < layer.input.shape(0); ++i) { // mini-batch
                     #pragma omp critical
@@ -110,11 +111,13 @@ bool VCG16::check(size_t n_samples) const {
                     std::cout << "❌ Layer " << layer.name << " failed. (forward)" << std::endl;
                     break;
                 }
+
+                // Check backward pass, check d_weight
                 #pragma omp parallel for
                 for (size_t i = 0; i < layer.input.shape(0); ++i) { // mini-batch
                     #pragma omp critical
                     {
-                        std::cout << "Checking layer " << layer.name << " (backward) for mini-batch " << i << std::endl;
+                        std::cout << "Checking layer " << layer.name << " (backward, d_weight) for mini-batch " << i << std::endl;
                     }
                     array_view<int64_t> input_i(layer.input[i]);
                     array_view<int64_t> d_output_i(layer.d_output[i]);
@@ -127,7 +130,32 @@ bool VCG16::check(size_t n_samples) const {
                     }
                     // if (!pass) break;
                 }
-                if (!pass) std::cout << "❌ Layer " << layer.name << " failed. (backward)" << std::endl;
+                if (!pass) {
+                    std::cout << "❌ Layer " << layer.name << " failed. (backward, d_weight)" << std::endl;
+                    break;
+                }
+
+                // Check backward pass, check d_input
+                #pragma omp parallel for
+                for (size_t i = 0; i < layer.input.shape(0); ++i) { // mini-batch
+                    #pragma omp critical
+                    {
+                        std::cout << "Checking layer " << layer.name << " (backward, d_input) for mini-batch " << i << std::endl;
+                    }
+                    array_view<int64_t> d_input_i(layer.d_input[i]);
+                    array_view<int64_t> d_output_i(layer.d_output[i]);
+                    array_view<int64_t> weight_i(layer.weight[i]);
+                    weight_i.reverse(2);
+                    weight_i.reverse(3);
+                    weight_i.swap_dim(0, 1);
+                    if (pass) {
+                        pass &= check_conv(d_output_i, weight_i, d_input_i, 1, n_samples);
+                    }
+                }
+                if (!pass) {
+                    std::cout << "❌ Layer " << layer.name << " failed. (backward, d_input)" << std::endl;
+                    break;
+                }
                 break;
 
             default:

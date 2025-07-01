@@ -7,7 +7,7 @@ import os
 import random
 import copy
 
-save_cache_to_file = False
+save_cache_to_file = True
 
 class ManualVGG16:
     def __init__(self):
@@ -224,7 +224,7 @@ class ManualVGG16:
 
 
             grad_q = F.max_unpool2d(grad_q.to(torch.float64), indices_q, kernel_size=(2,2), stride=(2,2), output_size=c[f'z_q{first_lid}'][-1].shape).to(torch.int64)
-
+            grad_q_scaled = True
             # Get conv layer ids in this block
             if block == 1:
                 conv_ids = [1, 2]
@@ -239,10 +239,14 @@ class ManualVGG16:
 
 
             for lid in reversed(conv_ids):
-                self.save_to_cache(f'grad_a_q{lid}', grad_q)
+                self.save_to_cache(f'grad_a_q{lid}', grad_q) # scaled
                 #grad = grad * (c[f'z{lid}'] > 0)  # ReLU
                 grad_q = grad_q * (c[f'a_q{lid}'][-1] > 0)  # ReLU
-                self.save_to_cache(f'grad_z_q{lid}', grad_q)
+                
+                if not grad_q_scaled:
+                    grad_q = torch.round(grad_q.to(torch.float64) / self.scale).to(torch.int64)
+                    grad_q_scaled = True
+                self.save_to_cache(f'grad_z_q{lid}', grad_q) # unscaled
                 #print("gq Error",torch.abs(grad-grad_q/self.scale).mean(),grad.max(),grad.min())
                 # Get input to this conv layer
                 if lid == 1:
@@ -261,7 +265,7 @@ class ManualVGG16:
                 dw_Q=torch.nn.grad.conv2d_weight(input_q.to(torch.float64), W[f'conv_q{lid}'].shape, grad_q.to(torch.float64), padding=1)
                 dW_q = torch.round(dw_Q/self.scale).to(torch.int64)
 
-                self.save_to_cache(f'dW_conv_q{lid}', dw_Q.to(torch.int64))
+                self.save_to_cache(f'dW_conv_q{lid}', dw_Q.to(torch.int64)) # unscaled
                 # if lid == 1:
                 #     print("Checking conv2d_weight manually for lid=1")
 
@@ -303,14 +307,19 @@ class ManualVGG16:
                 #    W[f'conv{lid}'] -= lr * dW
 
 
-                grad_q = torch.round(F.conv_transpose2d(grad_q.to(torch.float64), W[f'conv_q{lid}'].to(torch.float64), padding=1)/self.scale).to(torch.int64)
+                grad_q = F.conv_transpose2d(grad_q.to(torch.float64), W[f'conv_q{lid}'].to(torch.float64), padding=1).to(torch.int64)
+                grad_q_scaled = False
                 with torch.no_grad():
                     W[f'conv_q{lid}'] -= torch.round(lr * dW_q).to(torch.int64)
-                
+            
             if block == 1:
-                self.save_to_cache(f'grad_a_q0', grad_q)
+                self.save_to_cache(f'grad_a_q0', grad_q) # Actually we don't need this
             else:
                 self.save_to_cache(f'grad_pool_q{block - 1}', grad_q)
+                
+            if not grad_q_scaled:
+                grad_q = torch.round(grad_q.to(torch.float64) / self.scale).to(torch.int64)
+                grad_q_scaled = True
             
 
 def train_manual():
