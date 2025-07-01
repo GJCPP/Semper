@@ -1,5 +1,6 @@
 #pragma once
 #include <format>
+#include <random>
 #include "data_loader.h"
 
 class VCG16 {
@@ -56,13 +57,6 @@ bool random_check_conv(
     size_t n_samples
 );
 
-bool check_singleconv(
-    const array_view<int64_t>& input, // [H, W]
-    const array_view<int64_t>& weights, // [K, K]
-    const array_view<int64_t>& expected, // [H + 2 * pad - K + 1, W + 2 * pad - K + 1]
-    size_t pad
-);
-
 void add_conv(
     const array_view<int64_t>& input, // [H, W]
     const array_view<int64_t>& weights, // [K, K]
@@ -70,18 +64,18 @@ void add_conv(
     size_t pad
 );
 
-bool check_conv2d_weight_gradient(
+bool check_relu(
+    const array_view<int64_t>& sign,
     const array_view<int64_t>& input,
-    const array_view<int64_t>& d_output,
-    const array_view<int64_t>& d_weight,
-    size_t padding,
+    const array_view<int64_t>& output,
+    int64_t scale,
     size_t n_samples = 0
 );
 
-bool random_check_conv2d_weight_gradient(
+bool random_check_relu(
+    const array_view<int64_t>& sign,
     const array_view<int64_t>& input,
-    const array_view<int64_t>& d_output,
-    const array_view<int64_t>& d_weight,
-    size_t padding,
+    const array_view<int64_t>& output,
+    int64_t scale,
     size_t n_samples
 );

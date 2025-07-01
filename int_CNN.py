@@ -132,11 +132,11 @@ class ManualVGG16:
         #self.cache['logits'] = logits
 
         x_q = x_q.view(x_q.size(0), -1).to(torch.int64)
-        z1_q = torch.round(x_q.to(torch.float64) @ self.W['fc1_q'].to(torch.float64) /self.scale).to(torch.int64)
-        a1_q = F.relu(z1_q)
-        z2_q = torch.round(a1_q.to(torch.float64) @ self.W['fc2_q'].to(torch.float64) /self.scale).to(torch.int64)
-        a2_q = F.relu(z2_q)
-        z3_q = torch.round(a2_q.to(torch.float64) @ self.W['fc3_q'].to(torch.float64) /self.scale).to(torch.int64)
+        z1_q = (x_q.to(torch.float64) @ self.W['fc1_q'].to(torch.float64)).to(torch.int64)
+        a1_q = (F.relu(z1_q)/self.scale).to(torch.int64)
+        z2_q = (a1_q.to(torch.float64) @ self.W['fc2_q'].to(torch.float64)).to(torch.int64)
+        a2_q = (F.relu(z2_q)/self.scale).to(torch.int64)
+        z3_q = (a2_q.to(torch.float64) @ self.W['fc3_q'].to(torch.float64)).to(torch.int64)
 
         self.save_to_cache('flat_q', x_q)
         self.save_to_cache('W_fc1_q', self.W['fc1_q'])
@@ -160,8 +160,8 @@ class ManualVGG16:
         #with torch.no_grad():
         #    W['fc3'] -= lr * dW_fc3
         
-        grad_a2_q = torch.round(grad_z3_q.to(torch.float64) @ W['fc3_q'].T.to(torch.float64)/self.scale).to(torch.int64)
-        dW_fc3_q = torch.round(c['z2_q'][-1].T.to(torch.float64) @ grad_z3_q.to(torch.float64) /self.scale).to(torch.int64)
+        grad_a2_q = (grad_z3_q.to(torch.float64) @ W['fc3_q'].T.to(torch.float64)).to(torch.int64)
+        dW_fc3_q = torch.round(c['z2_q'][-1].T.to(torch.float64)/self.scale @ grad_z3_q.to(torch.float64) /self.scale).to(torch.int64)
         #print(dW_fc3_q.shape,dW_fc3.shape,W['fc3_q'].shape)
         with torch.no_grad():
             W['fc3_q'] -= torch.round(lr * dW_fc3_q).to(torch.int64)
@@ -178,9 +178,9 @@ class ManualVGG16:
         #    W['fc2'] -= lr * dW_fc2
             
 
-        grad_z2_q = grad_a2_q * (c['z2_q'][-1] > 0)
-        grad_a1_q = torch.round(grad_z2_q.to(torch.float64) @ W['fc2_q'].T.to(torch.float64) /self.scale).to(torch.int64)
-        dW_fc2_q = torch.round(c['z1_q'][-1].T @ grad_z2_q/self.scale).to(torch.int64)
+        grad_z2_q = torch.round(grad_a2_q * (c['z2_q'][-1] > 0) / self.scale).to(torch.int64)
+        grad_a1_q = torch.round(grad_z2_q.to(torch.float64) @ W['fc2_q'].T.to(torch.float64)).to(torch.int64)
+        dW_fc2_q = torch.round(c['z1_q'][-1].to(torch.float64).T/self.scale @ grad_z2_q.to(torch.float64)/self.scale).to(torch.int64)
         with torch.no_grad():
             W['fc2_q'] -= torch.round(lr * dW_fc2_q).to(torch.int64)
 
@@ -195,9 +195,9 @@ class ManualVGG16:
         #with torch.no_grad():
         #    W['fc1'] -= lr * dW_fc1
 
-        grad_z1_q = grad_a1_q * (c['z1_q'][-1] > 0)
-        grad_flat_q = torch.round(grad_z1_q @ W['fc1_q'].T /self.scale).to(torch.int64)
-        dW_fc1_q = torch.round(c['flat_q'][-1].T @ grad_z1_q/self.scale).to(torch.int64)
+        grad_z1_q = torch.round(grad_a1_q * (c['z1_q'][-1] > 0) / self.scale).to(torch.int64)
+        grad_flat_q = torch.round(grad_z1_q @ W['fc1_q'].T).to(torch.int64)
+        dW_fc1_q = torch.round(c['flat_q'][-1].to(torch.float64).T @ grad_z1_q.to(torch.float64)/self.scale).to(torch.int64)
         with torch.no_grad():
             W['fc1_q'] -= torch.round(lr * dW_fc1_q).to(torch.int64)
 
@@ -209,7 +209,7 @@ class ManualVGG16:
 
         # reshape to conv5 output shape
         #grad = grad_flat.view(c['pool5'][0].shape)
-        grad_q = grad_flat_q.view(c['pool_q5'][-1].shape)
+        grad_q = torch.round(grad_flat_q.view(c['pool_q5'][-1].shape) / self.scale).to(torch.int64)
         self.save_to_cache('grad_pool_q5', grad_q)
 
         # backward through conv blocks
@@ -239,6 +239,9 @@ class ManualVGG16:
 
 
             for lid in reversed(conv_ids):
+                if grad_q_scaled:
+                    grad_q = grad_q * self.scale
+                    grad_q_scaled = False
                 self.save_to_cache(f'grad_a_q{lid}', grad_q) # scaled
                 #grad = grad * (c[f'z{lid}'] > 0)  # ReLU
                 grad_q = grad_q * (c[f'a_q{lid}'][-1] > 0)  # ReLU
@@ -311,16 +314,15 @@ class ManualVGG16:
                 grad_q_scaled = False
                 with torch.no_grad():
                     W[f'conv_q{lid}'] -= torch.round(lr * dW_q).to(torch.int64)
-            
+
             if block == 1:
                 self.save_to_cache(f'grad_a_q0', grad_q) # Actually we don't need this
-            else:
+            else:            
                 self.save_to_cache(f'grad_pool_q{block - 1}', grad_q)
-                
+            
             if not grad_q_scaled:
                 grad_q = torch.round(grad_q.to(torch.float64) / self.scale).to(torch.int64)
                 grad_q_scaled = True
-            
 
 def train_manual():
     transform = transforms.Compose([
@@ -354,7 +356,7 @@ def train_manual():
             })
 
             with torch.no_grad():
-                z3_q = model.forward(x)
+                z3_q = model.forward(x)/model.scale
             
             with torch.no_grad():
                 probs_q = F.softmax(z3_q/model.scale, dim=1)

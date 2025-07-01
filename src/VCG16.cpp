@@ -71,7 +71,7 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale)
             std::format("dW_fc{}_q", layer));
         if (layer < 3) {
             add_layer(layer_type::relu,
-                std::format("relu_{}", layer),
+                std::format("fc_relu_{}", layer),
                 std::format("z{}_q", layer),
                 std::format("a{}_q", layer),
                 {},
@@ -97,15 +97,9 @@ bool VCG16::check(size_t n_samples) const {
         switch (layer.type) {
             case layer_type::conv:
                 // Check forward pass
-                #pragma omp parallel for
-                for (size_t i = 0; i < layer.input.shape(0); ++i) { // mini-batch
-                    #pragma omp critical
-                    {
-                        std::cout << "Checking layer " << layer.name << " (forward) for mini-batch " << i << std::endl;
-                    }
-                    if (pass) {
-                        pass &= check_conv(layer.input[i], layer.weight[i], layer.output[i], 1, n_samples);
-                    }
+                for (size_t i = 0; i < layer.input.shape(0) && pass; ++i) { // mini-batch
+                    std::cout << "Checking layer " << layer.name << " (forward) for mini-batch " << i << std::endl;
+                    pass &= check_conv(layer.input[i], layer.weight[i], layer.output[i], 1, n_samples);
                 }
                 if (!pass) {
                     std::cout << "❌ Layer " << layer.name << " failed. (forward)" << std::endl;
@@ -113,21 +107,15 @@ bool VCG16::check(size_t n_samples) const {
                 }
 
                 // Check backward pass, check d_weight
-                #pragma omp parallel for
-                for (size_t i = 0; i < layer.input.shape(0); ++i) { // mini-batch
-                    #pragma omp critical
-                    {
-                        std::cout << "Checking layer " << layer.name << " (backward, d_weight) for mini-batch " << i << std::endl;
-                    }
+                for (size_t i = 0; i < layer.input.shape(0) && pass; ++i) { // mini-batch
+                    std::cout << "Checking layer " << layer.name << " (backward, d_weight) for mini-batch " << i << std::endl;
                     array_view<int64_t> input_i(layer.input[i]);
                     array_view<int64_t> d_output_i(layer.d_output[i]);
                     array_view<int64_t> d_weight_i(layer.d_weight[i]);
                     input_i.swap_dim(0, 1);
                     d_output_i.swap_dim(0, 1);
                     d_weight_i.swap_dim(0, 1);
-                    if (pass) {
-                        pass &= check_conv(input_i, d_output_i, d_weight_i, 1, n_samples);
-                    }
+                    pass &= check_conv(input_i, d_output_i, d_weight_i, 1, n_samples);
                     // if (!pass) break;
                 }
                 if (!pass) {
@@ -136,26 +124,42 @@ bool VCG16::check(size_t n_samples) const {
                 }
 
                 // Check backward pass, check d_input
-                #pragma omp parallel for
-                for (size_t i = 0; i < layer.input.shape(0); ++i) { // mini-batch
-                    #pragma omp critical
-                    {
-                        std::cout << "Checking layer " << layer.name << " (backward, d_input) for mini-batch " << i << std::endl;
-                    }
+                for (size_t i = 0; i < layer.input.shape(0) && pass; ++i) { // mini-batch
+                    std::cout << "Checking layer " << layer.name << " (backward, d_input) for mini-batch " << i << std::endl;
                     array_view<int64_t> d_input_i(layer.d_input[i]);
                     array_view<int64_t> d_output_i(layer.d_output[i]);
                     array_view<int64_t> weight_i(layer.weight[i]);
                     weight_i.reverse(2);
                     weight_i.reverse(3);
                     weight_i.swap_dim(0, 1);
-                    if (pass) {
-                        pass &= check_conv(d_output_i, weight_i, d_input_i, 1, n_samples);
-                    }
+                    pass &= check_conv(d_output_i, weight_i, d_input_i, 1, n_samples);
                 }
                 if (!pass) {
                     std::cout << "❌ Layer " << layer.name << " failed. (backward, d_input)" << std::endl;
                     break;
                 }
+                break;
+
+            case layer_type::relu:
+                std::cout << "Checking layer " << layer.name << " (forward)" << std::endl;
+                pass &= check_relu(layer.input, layer.input, layer.output, scale, n_samples);
+                if (!pass) {
+                    std::cout << "❌ Layer " << layer.name << " failed. (forward)" << std::endl;
+                    break;
+                }
+
+                std::cout << "Checking layer " << layer.name << " (backward)" << std::endl;
+                pass &= check_relu(layer.input, layer.d_output, layer.d_input, scale, n_samples);
+                if (!pass) {
+                    std::cout << "❌ Layer " << layer.name << " failed. (backward)" << std::endl;
+                    break;
+                }
+                // std::cout << "Checking layer " << layer.name << " (backward)" << std::endl;
+                // pass &= check_relu(layer.d_input, layer.d_output, scale, n_samples);
+                // if (!pass) {
+                //     std::cout << "❌ Layer " << layer.name << " failed. (backward)" << std::endl;
+                //     break;
+                // }
                 break;
 
             default:
@@ -261,7 +265,7 @@ bool check_conv(
                     // if (acc < 0) acc = 0; // relu
 
                     int64_t actual = view_expected_n_oc_h(j);
-                    if (std::abs(actual - acc) > 1) {
+                    if (actual != acc) {
                         ret = false;
                         std::cout << "❌ Mismatch at (n=" << n << ", oc=" << oc << ", i=" << i << ", j=" << j << "): manual=" << acc << ", expected=" << actual << std::endl;
                     }
@@ -322,7 +326,7 @@ bool random_check_conv(
         // if (acc < 0) acc = 0; // relu
 
         int64_t actual = expected(n, oc, i, j);
-        if (std::abs(actual - acc) > 1) {
+        if (actual != acc) {
             std::cout << "❌ Mismatch at (n=" << n << ", oc=" << oc << ", i=" << i << ", j=" << j << "): manual=" << acc << ", expected=" << actual << std::endl;
             ret = false;
         }
@@ -330,50 +334,6 @@ bool random_check_conv(
     return ret;
 }
 
-
-bool check_singleconv(
-    const array_view<int64_t>& input, // [H, W]
-    const array_view<int64_t>& weights, // [K, K]
-    const array_view<int64_t>& expected, // [H + 2 * pad - K + 1, W + 2 * pad - K + 1]
-    size_t pad
-) {
-    size_t H = input.shape(0);
-    size_t W = input.shape(1);
-    size_t K = weights.shape(0);
-    size_t OH = H + 2 * pad - K + 1;
-    size_t OW = W + 2 * pad - K + 1;
-    assert(input.get_dims() == 2);
-    assert(weights.get_dims() == 2);
-    assert(expected.get_dims() == 2);
-    assert(input.shape(0) == H);
-    assert(input.shape(1) == W);
-    assert(weights.shape(0) == K);
-    assert(weights.shape(1) == K);
-    assert(expected.shape(0) == OH);
-    assert(expected.shape(1) == OW);
-
-    bool ret = true;
-
-// #pragma omp parallel for
-    for (size_t i = 0; i < OH; ++i) {
-        for (size_t j = 0; j < OW; ++j) {
-            int64_t acc = 0;
-            for (size_t ki = 0; ki < K; ++ki) {
-                for (size_t kj = 0; kj < K; ++kj) {
-                    if (i + ki >= pad && i + ki < H + pad && j + kj >= pad && j + kj < W + pad) {
-                        acc += input(i + ki - pad, j + kj - pad) * weights(ki, kj);
-                    }
-                }
-            }
-            int64_t actual = expected(i, j);
-            if (actual != acc) {
-                std::cout << "❌ Mismatch at (i=" << i << ", j=" << j << "): manual=" << acc << ", expected=" << actual << std::endl;
-                ret = false;
-            }
-        }
-    }
-    return ret;
-}
 
 void add_conv(const array_view<int64_t>& input, const array_view<int64_t>& weights, array_view<int64_t>& output, size_t pad) {
     
@@ -408,3 +368,65 @@ void add_conv(const array_view<int64_t>& input, const array_view<int64_t>& weigh
     }
 }
 
+bool check_relu(
+    const array_view<int64_t>& sign,
+    const array_view<int64_t>& input, // [N, C, H, W]
+    const array_view<int64_t>& output, // [N, C, H, W]
+    int64_t scale,
+    size_t n_samples
+) {
+    if (n_samples > 0) {
+        return random_check_relu(sign, input, output, scale, n_samples);
+    }
+    assert(input.size() == output.size());
+
+    bool ret = true;
+    size_t sz = input.size();
+    
+    #pragma omp parallel for
+    for (size_t i = 0; i < sz; ++i) {
+        int64_t s = sign.get(i);
+        int64_t actual = input.get(i);
+        int64_t expected = output.get(i);
+        if (s < 0) actual = 0;
+        actual = actual / scale;
+        if (std::abs(actual - expected) > 1) {
+            ret = false;
+            #pragma omp critical
+            {
+                std::cout << "❌ Mismatch at (i=" << i << "): manual=" << actual << ", expected=" << expected << std::endl;
+            }
+        }
+    }
+    return ret;
+}
+
+bool random_check_relu(
+    const array_view<int64_t>& sign,
+    const array_view<int64_t>& input, // [N, C, H, W]
+    const array_view<int64_t>& output, // [N, C, H, W]
+    int64_t scale,
+    size_t n_samples
+) {
+    bool ret = true;
+    size_t sz = input.size();
+    static std::mt19937 rng(std::random_device{}());
+
+    #pragma omp parallel for
+    for (size_t cnt = 0; cnt < n_samples; ++cnt) {
+        size_t i = std::uniform_int_distribution<size_t>(0, sz - 1)(rng);
+        int64_t s = sign.get(i);
+        int64_t actual = input.get(i);
+        int64_t expected = output.get(i);
+        if (s < 0) actual = 0;
+        actual = actual / scale;
+        if (std::abs(actual - expected) > 1) {
+            ret = false;
+            #pragma omp critical
+            {
+                std::cout << "❌ Mismatch at (i=" << i << "): manual=" << actual << ", expected=" << expected << std::endl;
+            }
+        }
+    }
+    return ret;
+}

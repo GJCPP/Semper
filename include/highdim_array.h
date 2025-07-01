@@ -37,6 +37,10 @@ public:
         return data[index];
     }
 
+    const T& get(size_t index) const {
+        return data[index];
+    }
+
     void reorder(const std::vector<int>& ind) {
         if (ind.size() != dims) {
             throw std::runtime_error("array_view: Indices size does not match");
