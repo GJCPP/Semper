@@ -85,7 +85,7 @@ int main() {
     // run_test();
 
     VCG16 vcg16("/home/gaojc/Desktop/logup-main/training_trace/", 0, 1 << 14);
-    vcg16.check(1000);
+    vcg16.check(100);
 
     return 0;
 }

@@ -116,9 +116,16 @@ bool VCG16::check(size_t n_samples) const {
                     {
                         std::cout << "Checking layer " << layer.name << " (backward) for mini-batch " << i << std::endl;
                     }
+                    array_view<int64_t> input_i(layer.input[i]);
+                    array_view<int64_t> d_output_i(layer.d_output[i]);
+                    array_view<int64_t> d_weight_i(layer.d_weight[i]);
+                    input_i.swap_dim(0, 1);
+                    d_output_i.swap_dim(0, 1);
+                    d_weight_i.swap_dim(0, 1);
                     if (pass) {
-                        pass &= check_conv2d_weight_gradient(layer.input[i], layer.d_output[i], layer.d_weight[i], 1, n_samples);
+                        pass &= check_conv(input_i, d_output_i, d_weight_i, 1, n_samples);
                     }
+                    // if (!pass) break;
                 }
                 if (!pass) std::cout << "❌ Layer " << layer.name << " failed. (backward)" << std::endl;
                 break;
@@ -167,8 +174,8 @@ bool check_conv(
     }
     size_t N = input.shape(0);
     size_t C = input.shape(1);
-    size_t H = expected.shape(2);
-    size_t W = expected.shape(3);
+    size_t H = input.shape(2);
+    size_t W = input.shape(3);
     size_t OC = weights.shape(0);
     size_t K = weights.shape(2);
     size_t OH = H + 2 * pad - K + 1;
@@ -191,7 +198,7 @@ bool check_conv(
 
     bool ret = true;
 
-// #pragma omp parallel for
+#pragma omp parallel for
     for (size_t n = 0; n < N; ++n) {
 
         auto view_input_n = input[n];
@@ -246,10 +253,12 @@ bool random_check_conv(
 ) {
     size_t N = input.shape(0);
     size_t C = input.shape(1);
-    size_t H = expected.shape(2);
-    size_t W = expected.shape(3);
+    size_t H = input.shape(2);
+    size_t W = input.shape(3);
     size_t K = weights.shape(2);
     size_t OC = weights.shape(0);
+    size_t OH = H + 2 * pad - K + 1;
+    size_t OW = W + 2 * pad - K + 1;
     assert(input.shape(0) == N);
     assert(input.shape(1) == C);
     assert(input.shape(2) == H);
@@ -260,8 +269,8 @@ bool random_check_conv(
     assert(weights.shape(3) == K);
     assert(expected.shape(0) == N);
     assert(expected.shape(1) == OC);
-    assert(expected.shape(2) == H + 2 * pad - K + 1);
-    assert(expected.shape(3) == W + 2 * pad - K + 1);
+    assert(expected.shape(2) == OH);
+    assert(expected.shape(3) == OW);
 
     bool ret = true;
 
@@ -269,8 +278,8 @@ bool random_check_conv(
     for (size_t cnt = 0; cnt < n_samples; ++cnt) {
         size_t n = rand() % N;
         size_t oc = rand() % OC;
-        size_t i = rand() % H;
-        size_t j = rand() % W;
+        size_t i = rand() % OH;
+        size_t j = rand() % OW;
         int64_t acc = 0;
         for (size_t c = 0; c < C; ++c) {
             for (size_t ki = 0; ki < K; ++ki) {
@@ -371,115 +380,3 @@ void add_conv(const array_view<int64_t>& input, const array_view<int64_t>& weigh
     }
 }
 
-bool check_conv2d_weight_gradient(
-    const array_view<int64_t>& input, // [N, C, H, W]
-    const array_view<int64_t>& d_output, // [N, OC, H + 2 * pad - K + 1, W + 2 * pad - K + 1]
-    const array_view<int64_t>& d_weight, // [OC, C, K, K]
-    size_t padding,
-    size_t n_samples
-) {
-    if (n_samples > 0) {
-        return random_check_conv2d_weight_gradient(input, d_output, d_weight, padding, n_samples);
-    }
-    size_t N = input.shape(0);
-    size_t C = input.shape(1);
-    size_t H = input.shape(2);
-    size_t W = input.shape(3);
-    size_t K = d_weight.shape(2);
-    size_t OC = d_output.shape(1);
-    size_t OH = H + 2 * padding - K + 1;
-    size_t OW = W + 2 * padding - K + 1;
-    assert(input.get_dims() == 4);
-    assert(d_output.get_dims() == 4);
-    assert(d_weight.get_dims() == 4);
-    assert(input.shape(0) == N);
-    assert(input.shape(1) == C);
-    assert(input.shape(2) == H);
-    assert(input.shape(3) == W);
-    assert(d_output.shape(0) == N);
-    assert(d_output.shape(1) == OC);
-    assert(d_output.shape(2) == OH);
-    assert(d_output.shape(3) == OW);
-    assert(d_weight.shape(0) == OC);
-    assert(d_weight.shape(1) == C);
-    assert(d_weight.shape(2) == K);
-    assert(d_weight.shape(3) == K);
-    bool pass = true;
-
-    #pragma omp parallel for
-    for (size_t oc = 0; oc < OC; ++oc) {  // output channel
-        for (size_t ic = 0; ic < C; ++ic) { // input channel
-            std::vector<int64_t> acc(d_weight[oc][ic].size(), 0);
-            array_view<int64_t> acc_view(acc.data(), d_weight[oc][ic].get_shape());
-
-            for (size_t n = 0; n < N; ++n) { // per image
-                add_conv(input[n][ic], d_output[n][oc], acc_view, padding);
-            }
-
-            if (acc_view != d_weight[oc][ic]) {
-                #pragma omp critical
-                std::cout << "❌ Mismatch at (oc=" << oc << ", ic=" << ic << "):\n  manual=" << acc_view
-                                << "\n  expected=" << d_weight[oc][ic] << std::endl;
-                pass = false;
-            }
-        }
-    }
-
-    return pass;
-}
-
-bool random_check_conv2d_weight_gradient(
-    const array_view<int64_t>& input,
-    const array_view<int64_t>& d_output,
-    const array_view<int64_t>& d_weight,
-    size_t padding,
-    size_t n_samples
-) {
-    size_t N = input.shape(0);
-    size_t C = input.shape(1);
-    size_t H = input.shape(2);
-    size_t W = input.shape(3);
-    size_t K = d_weight.shape(2);
-    size_t OC = d_output.shape(1);
-    size_t OH = H + 2 * padding - K + 1;
-    size_t OW = W + 2 * padding - K + 1;
-    assert(input.get_dims() == 4);
-    assert(d_output.get_dims() == 4);
-    assert(d_weight.get_dims() == 4);
-    assert(input.shape(0) == N);
-    assert(input.shape(1) == C);
-    assert(input.shape(2) == H);
-    assert(input.shape(3) == W);
-    assert(d_output.shape(0) == N);
-    assert(d_output.shape(1) == OC);
-    assert(d_output.shape(2) == OH);
-    assert(d_output.shape(3) == OW);
-    assert(d_weight.shape(0) == OC);
-    assert(d_weight.shape(1) == C);
-    assert(d_weight.shape(2) == K);
-    assert(d_weight.shape(3) == K);
-    bool pass = true;
-
-    #pragma omp parallel for
-    for (size_t cnt = 0; cnt < n_samples; ++cnt) {
-        size_t n = rand() % N;
-        size_t oc = rand() % OC;
-        size_t ic = rand() % C;
-        size_t i = rand() % OH;
-        size_t j = rand() % OW;
-        std::vector<int64_t> acc(d_weight[oc][ic].size(), 0);
-        array_view<int64_t> acc_view(acc.data(), d_weight[oc][ic].get_shape());
-
-        for (size_t n = 0; n < N; ++n) { // per image
-            add_conv(input[n][ic], d_output[n][oc], acc_view, padding);
-        }
-
-        if (acc_view != d_weight[oc][ic]) {
-            #pragma omp critical
-            std::cout << "❌ Mismatch at (oc=" << oc << ", ic=" << ic << "):\n  manual=" << acc_view
-                            << "\n  expected=" << d_weight[oc][ic] << std::endl;
-            pass = false;
-        }
-    }
-    return pass;
-}
