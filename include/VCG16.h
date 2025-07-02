@@ -88,6 +88,7 @@ bool check_pool(
     const array_view<int64_t>& idx, // [N, C, H / stride, W / stride]
     size_t kernel_size,
     size_t stride,
+    bool backward,
     size_t n_samples = 0
 );
 
@@ -97,6 +98,7 @@ bool random_check_pool(
     const array_view<int64_t>& idx, // [N, C, H / stride, W / stride]
     size_t kernel_size,
     size_t stride,
-    size_t n_samples = 0
+    bool backward,
+    size_t n_samples
 );
 

@@ -161,7 +161,7 @@ bool VCG16::check(size_t n_samples) const {
                 std::cout << "Checking layer " << layer.name << " (forward)" << std::endl;
                 for (int i = 0; i < layer.input.shape(0); ++i) {
                     std::cout << "Checking layer " << layer.name << " (forward) for mini-batch " << i << std::endl;
-                    pass &= check_pool(layer.input[i], layer.output[i], layer.aux[i], 2, 2, n_samples);
+                    pass &= check_pool(layer.input[i], layer.output[i], layer.aux[i], 2, 2, false, n_samples);
                 }
                 if (!pass) {
                     std::cout << "❌ Layer " << layer.name << " failed. (forward)" << std::endl;
@@ -170,7 +170,7 @@ bool VCG16::check(size_t n_samples) const {
                 std::cout << "Checking layer " << layer.name << " (backward)" << std::endl;
                 for (int i = 0; i < layer.input.shape(0); ++i) {
                     std::cout << "Checking layer " << layer.name << " (backward) for mini-batch " << i << std::endl;
-                    pass &= check_pool(layer.d_input[i], layer.d_output[i], layer.aux[i], 2, 2, n_samples);
+                    pass &= check_pool(layer.d_input[i], layer.d_output[i], layer.aux[i], 2, 2, true, n_samples);
                 }
                 if (!pass) {
                     std::cout << "❌ Layer " << layer.name << " failed. (backward)" << std::endl;
@@ -455,6 +455,7 @@ bool check_pool(
     const array_view<int64_t>& idx,
     size_t kernel_size,
     size_t stride,
+    bool backward,
     size_t n_samples
 ) {
     size_t N = input.shape(0);
@@ -478,7 +479,7 @@ bool check_pool(
     assert(W % stride == 0);
 
     if (n_samples > 0) {
-        return random_check_pool(input, output, idx, kernel_size, stride, n_samples);
+        return random_check_pool(input, output, idx, kernel_size, stride, backward, n_samples);
     }
 
     bool ret = true;
@@ -499,6 +500,31 @@ bool check_pool(
                 for (size_t j = 0; j < OW; ++j) {
                     size_t index = view_idx_n_c(i, j);
                     int64_t max_val = view_input_n_c.get(index);
+                    for (size_t ki = 0; ki < kernel_size; ++ki) {
+                        for (size_t kj = 0; kj < kernel_size; ++kj) {
+                            size_t x = i * stride + ki;
+                            size_t y = j * stride + kj;
+                            if (backward) {
+                                if (x * W + y != index && view_input_n_c(x, y) != 0) {
+                                    ret = false;
+                                    #pragma omp critical
+                                    {
+                                        std::cout << "❌ Incorrect at (n=" << n << ", c=" << c << ", i=" << i << ", j=" << j << "): expect 0-grad,"
+                                                << ", but find " << view_input_n_c(x, y) << std::endl;
+                                    }
+                                }
+                            } else {
+                                if (view_input_n_c(x, y) > max_val) {
+                                    ret = false;
+                                    #pragma omp critical
+                                    {
+                                        std::cout << "❌ Incorrect at (n=" << n << ", c=" << c << ", i=" << i << ", j=" << j << "): expect max_val = " << max_val
+                                                << ", but find larger value " << view_input_n_c(x, y) << std::endl;
+                                    }
+                                }
+                            }
+                        }
+                    }
                     if (max_val != view_output_n_c(i, j)) {
                         ret = false;
                         #pragma omp critical
@@ -519,6 +545,7 @@ bool random_check_pool(
     const array_view<int64_t>& idx,
     size_t kernel_size,
     size_t stride,
+    bool backward,
     size_t n_samples
 ) {
     size_t N = input.shape(0);
@@ -542,6 +569,32 @@ bool random_check_pool(
             #pragma omp critical
             {
                 std::cout << "❌ Mismatch at (n=" << n << ", c=" << c << ", i=" << i << ", j=" << j << "): manual=" << max_val << ", expected=" << output(n, c, i, j) << std::endl;
+            }
+        }
+        for (size_t ki = 0; ki < kernel_size; ++ki) {
+            for (size_t kj = 0; kj < kernel_size; ++kj) {
+                size_t x = i * stride + ki;
+                size_t y = j * stride + kj;
+        
+                if (backward) {
+                    if (x * W + y != index && input(n, c, x, y) != 0) {
+                        ret = false;
+                        #pragma omp critical
+                        {
+                            std::cout << "❌ Incorrect at (n=" << n << ", c=" << c << ", i=" << i << ", j=" << j << "): expect 0-grad,"
+                                    << ", but find " << input(n, c, x, y) << std::endl;
+                        }
+                    }
+                } else {
+                    if (input(n, c, x, y) > max_val) {
+                        ret = false;
+                        #pragma omp critical
+                        {
+                            std::cout << "❌ Incorrect at (n=" << n << ", c=" << c << ", i=" << i << ", j=" << j << "): expect max_val = " << max_val
+                                    << ", but find larger value " << input(n, c, x, y) << std::endl;
+                        }
+                    }
+                }
             }
         }
     }
