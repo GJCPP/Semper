@@ -48,7 +48,8 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale)
             {},
             std::format("grad_a_q{}", layer.back()),
             std::format("grad_pool_q{}", ind_pool),
-            {});
+            {},
+            std::format("pool_idx_q{}", ind_pool));
         ++ind_pool;
     }
     add_layer(layer_type::flat,
@@ -154,12 +155,27 @@ bool VCG16::check(size_t n_samples) const {
                     std::cout << "❌ Layer " << layer.name << " failed. (backward)" << std::endl;
                     break;
                 }
-                // std::cout << "Checking layer " << layer.name << " (backward)" << std::endl;
-                // pass &= check_relu(layer.d_input, layer.d_output, scale, n_samples);
-                // if (!pass) {
-                //     std::cout << "❌ Layer " << layer.name << " failed. (backward)" << std::endl;
-                //     break;
-                // }
+                break;
+
+            case layer_type::pool:
+                std::cout << "Checking layer " << layer.name << " (forward)" << std::endl;
+                for (int i = 0; i < layer.input.shape(0); ++i) {
+                    std::cout << "Checking layer " << layer.name << " (forward) for mini-batch " << i << std::endl;
+                    pass &= check_pool(layer.input[i], layer.output[i], layer.aux[i], 2, 2, n_samples);
+                }
+                if (!pass) {
+                    std::cout << "❌ Layer " << layer.name << " failed. (forward)" << std::endl;
+                    break;
+                }
+                std::cout << "Checking layer " << layer.name << " (backward)" << std::endl;
+                for (int i = 0; i < layer.input.shape(0); ++i) {
+                    std::cout << "Checking layer " << layer.name << " (backward) for mini-batch " << i << std::endl;
+                    pass &= check_pool(layer.d_input[i], layer.d_output[i], layer.aux[i], 2, 2, n_samples);
+                }
+                if (!pass) {
+                    std::cout << "❌ Layer " << layer.name << " failed. (backward)" << std::endl;
+                    break;
+                }
                 break;
 
             default:
@@ -180,7 +196,8 @@ void VCG16::add_layer(layer_type type,
                       const std::string& weight,
                       const std::string& d_input,
                       const std::string& d_output,
-                      const std::string& d_weight) {
+                      const std::string& d_weight,
+                      const std::string& aux) {
     layer_info info;
     info.type = type;
     info.name = name;
@@ -190,6 +207,7 @@ void VCG16::add_layer(layer_type type,
     info.d_input = array_view<int64_t>(data[d_input], data_shape[d_input]);
     info.d_output = array_view<int64_t>(data[d_output], data_shape[d_output]);
     info.d_weight = array_view<int64_t>(data[d_weight], data_shape[d_weight]);
+    info.aux = array_view<int64_t>(data[aux], data_shape[aux]);
     layers.push_back(info);
 }
 
@@ -425,6 +443,105 @@ bool random_check_relu(
             #pragma omp critical
             {
                 std::cout << "❌ Mismatch at (i=" << i << "): manual=" << actual << ", expected=" << expected << std::endl;
+            }
+        }
+    }
+    return ret;
+}
+
+bool check_pool(
+    const array_view<int64_t>& input,
+    const array_view<int64_t>& output,
+    const array_view<int64_t>& idx,
+    size_t kernel_size,
+    size_t stride,
+    size_t n_samples
+) {
+    size_t N = input.shape(0);
+    size_t C = input.shape(1);
+    size_t H = input.shape(2);
+    size_t W = input.shape(3);
+    size_t OH = H / stride;
+    size_t OW = W / stride;
+    assert(input.get_dims() == 4);
+    assert(output.get_dims() == 4);
+    assert(output.shape(0) == N);
+    assert(output.shape(1) == C);
+    assert(output.shape(2) == OH);
+    assert(output.shape(3) == OW);
+    assert(idx.get_dims() == 4);
+    assert(idx.shape(0) == N);
+    assert(idx.shape(1) == C);
+    assert(idx.shape(2) == OH);
+    assert(idx.shape(3) == OW);
+    assert(H % stride == 0);
+    assert(W % stride == 0);
+
+    if (n_samples > 0) {
+        return random_check_pool(input, output, idx, kernel_size, stride, n_samples);
+    }
+
+    bool ret = true;
+    #pragma omp parallel for
+    for (size_t n = 0; n < N; ++n) {
+
+        auto view_input_n = input[n];
+        auto view_output_n = output[n];
+        auto view_idx_n = idx[n];
+
+        for (size_t c = 0; c < C; ++c) {
+            
+            auto view_input_n_c = view_input_n[c];
+            auto view_output_n_c = view_output_n[c];
+            auto view_idx_n_c = view_idx_n[c];
+
+            for (size_t i = 0; i < OH; ++i) {
+                for (size_t j = 0; j < OW; ++j) {
+                    size_t index = view_idx_n_c(i, j);
+                    int64_t max_val = view_input_n_c.get(index);
+                    if (max_val != view_output_n_c(i, j)) {
+                        ret = false;
+                        #pragma omp critical
+                        {
+                            std::cout << "❌ Mismatch at (n=" << n << ", c=" << c << ", i=" << i << ", j=" << j << "): manual=" << max_val << ", expected=" << view_output_n_c(i, j) << std::endl;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return ret;
+}
+
+bool random_check_pool(
+    const array_view<int64_t>& input,
+    const array_view<int64_t>& output,
+    const array_view<int64_t>& idx,
+    size_t kernel_size,
+    size_t stride,
+    size_t n_samples
+) {
+    size_t N = input.shape(0);
+    size_t C = input.shape(1);
+    size_t H = input.shape(2);
+    size_t W = input.shape(3);
+    size_t OH = H / stride;
+    size_t OW = W / stride;
+    bool ret = true;
+
+    #pragma omp parallel for
+    for (size_t cnt = 0; cnt < n_samples; ++cnt) {
+        size_t n = rand() % N;
+        size_t c = rand() % C;
+        size_t i = rand() % OH;
+        size_t j = rand() % OW;
+        size_t index = idx(n, c, i, j);
+        int64_t max_val = input[n][c].get(index);
+        if (max_val != output(n, c, i, j)) {
+            ret = false;
+            #pragma omp critical
+            {
+                std::cout << "❌ Mismatch at (n=" << n << ", c=" << c << ", i=" << i << ", j=" << j << "): manual=" << max_val << ", expected=" << output(n, c, i, j) << std::endl;
             }
         }
     }

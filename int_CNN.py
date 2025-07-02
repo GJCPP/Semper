@@ -209,8 +209,9 @@ class ManualVGG16:
 
         # reshape to conv5 output shape
         #grad = grad_flat.view(c['pool5'][0].shape)
-        grad_q = torch.round(grad_flat_q.view(c['pool_q5'][-1].shape) / self.scale).to(torch.int64)
-        self.save_to_cache('grad_pool_q5', grad_q)
+        grad_q = (grad_flat_q.view(c['pool_q5'][-1].shape)).to(torch.int64)
+        grad_q_scaled = False
+        self.save_to_cache('grad_pool_q5', grad_q) # big value
 
         # backward through conv blocks
         for block in reversed(range(1, 6)):
@@ -224,7 +225,8 @@ class ManualVGG16:
 
 
             grad_q = F.max_unpool2d(grad_q.to(torch.float64), indices_q, kernel_size=(2,2), stride=(2,2), output_size=c[f'z_q{first_lid}'][-1].shape).to(torch.int64)
-            grad_q_scaled = True
+            # big value
+
             # Get conv layer ids in this block
             if block == 1:
                 conv_ids = [1, 2]
@@ -242,14 +244,14 @@ class ManualVGG16:
                 if grad_q_scaled:
                     grad_q = grad_q * self.scale
                     grad_q_scaled = False
-                self.save_to_cache(f'grad_a_q{lid}', grad_q) # scaled
+                self.save_to_cache(f'grad_a_q{lid}', grad_q) # big value
                 #grad = grad * (c[f'z{lid}'] > 0)  # ReLU
                 grad_q = grad_q * (c[f'a_q{lid}'][-1] > 0)  # ReLU
                 
                 if not grad_q_scaled:
                     grad_q = torch.round(grad_q.to(torch.float64) / self.scale).to(torch.int64)
                     grad_q_scaled = True
-                self.save_to_cache(f'grad_z_q{lid}', grad_q) # unscaled
+                self.save_to_cache(f'grad_z_q{lid}', grad_q) # small value
                 #print("gq Error",torch.abs(grad-grad_q/self.scale).mean(),grad.max(),grad.min())
                 # Get input to this conv layer
                 if lid == 1:
@@ -320,9 +322,9 @@ class ManualVGG16:
             else:            
                 self.save_to_cache(f'grad_pool_q{block - 1}', grad_q)
             
-            if not grad_q_scaled:
-                grad_q = torch.round(grad_q.to(torch.float64) / self.scale).to(torch.int64)
-                grad_q_scaled = True
+            # if not grad_q_scaled:
+            #     grad_q = torch.round(grad_q.to(torch.float64) / self.scale).to(torch.int64)
+            #     grad_q_scaled = True
 
 def train_manual():
     transform = transforms.Compose([
@@ -379,7 +381,7 @@ def train_manual():
         for key, value in model.cache.items():
             print(key)
             print(len(value), value[0].shape)
-            print(value[0][0, 0])
+            # print(value[0][0, 0])
         
         if save_cache_to_file:
             np.savez(f'training_trace/epoch_{epoch}.npz', **model.cache)

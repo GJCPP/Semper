@@ -16,6 +16,7 @@ public:
         array_view<int64_t> input, d_input;
         array_view<int64_t> weight, d_weight;
         array_view<int64_t> output, d_output; // Must be the input of the next layer
+        array_view<int64_t> aux; // auxiliary data for checking
     };
     VCG16(std::string data_dir, int epoch, int64_t scale);
 
@@ -28,7 +29,8 @@ public:
                     const std::string& weight,
                     const std::string& d_input,
                     const std::string& d_weight,
-                    const std::string& d_output);
+                    const std::string& d_output,
+                    const std::string& aux = "");
 
 protected:
     int64_t scale;
@@ -78,4 +80,22 @@ bool random_check_relu(
     const array_view<int64_t>& output,
     int64_t scale,
     size_t n_samples
+);
+
+bool check_pool(
+    const array_view<int64_t>& input, // [N, C, H, W]
+    const array_view<int64_t>& output, // [N, C, H / stride, W / stride]
+    const array_view<int64_t>& idx, // [N, C, H / stride, W / stride]
+    size_t kernel_size,
+    size_t stride,
+    size_t n_samples = 0
+);
+
+bool random_check_pool(
+    const array_view<int64_t>& input, // [N, C, H, W]
+    const array_view<int64_t>& output, // [N, C, H / stride, W / stride]
+    const array_view<int64_t>& idx, // [N, C, H / stride, W / stride]
+    size_t kernel_size,
+    size_t stride,
+    size_t n_samples = 0
 );
