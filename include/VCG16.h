@@ -99,3 +99,4 @@ bool random_check_pool(
     size_t stride,
     size_t n_samples = 0
 );
+
