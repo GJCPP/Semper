@@ -59,6 +59,9 @@ public:
     }
 
     void swap_dim(int i, int j) {
+        if (i < 0 || j < 0 || i >= dims || j >= dims) {
+            throw std::runtime_error("array_view::swap_dim: Index out of bounds");
+        }
         std::swap(data_shape[i], data_shape[j]);
         std::swap(index_offset[i], index_offset[j]);
         bool tmp_reversed = reversed[i];
@@ -101,6 +104,9 @@ public:
     }
 
     array_view<T> operator[](size_t index) const {
+        if (dims == 0) {
+            throw std::runtime_error("array_view::operator[]: Array is empty");
+        }
         std::vector<size_t> new_shape(data_shape.begin() + 1, data_shape.end());
         std::vector<size_t> new_offset(index_offset.begin() + 1, index_offset.end());
         std::vector<bool> new_reversed(reversed.begin() + 1, reversed.end());

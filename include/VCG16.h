@@ -18,7 +18,7 @@ public:
         array_view<int64_t> output, d_output; // Must be the input of the next layer
         array_view<int64_t> aux; // auxiliary data for checking
     };
-    VCG16(std::string data_dir, int epoch, int64_t scale);
+    VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value);
 
     bool check(size_t n_samples = 0) const;
 
@@ -33,15 +33,29 @@ public:
                     const std::string& aux = "");
 
 protected:
-    int64_t scale;
+    void init_e_pow();
+
+    int64_t scale, max_val, sqr_val;
     int epoch, minibatch, img_per_batch;
+    
     cnpy::npz_t filedata; // responsible for releasing data
+    
     std::map<std::string, int64_t*> data;
     std::map<std::string, std::vector<size_t>> data_shape;
+
+    array_view<int64_t> input_data, input_label;
+
     std::vector<layer_info> layers;
+    
+    std::vector<int64_t> e_pow_inv;
 
     // bool check_conv_relu(int n_samples = 0) const;
 };
+
+bool check_range(
+    const array_view<int64_t>& input,
+    int64_t max_value
+);
 
 bool check_conv(
     const array_view<int64_t>& input, // [N, C, H, W]
@@ -102,3 +116,36 @@ bool random_check_pool(
     size_t n_samples
 );
 
+bool check_flat(
+    const array_view<int64_t>& input, // [N, C, H, W]
+    const array_view<int64_t>& output, // [N, C * H * W]
+    size_t n_samples = 0
+);
+
+bool random_check_flat(
+    const array_view<int64_t>& input, // [N, C, H, W]
+    const array_view<int64_t>& output, // [N, C * H * W]
+    size_t n_samples
+);
+
+bool check_full(
+    const array_view<int64_t>& input, // [N, C]
+    const array_view<int64_t>& weights, // [C, OC]
+    const array_view<int64_t>& output, // [N, OC]
+    size_t n_samples = 0
+);
+
+bool random_check_full(
+    const array_view<int64_t>& input, // [N, C]
+    const array_view<int64_t>& weights, // [C, OC]
+    const array_view<int64_t>& output, // [N, OC]
+    size_t n_samples
+);
+
+bool check_softmax(
+    const array_view<int64_t>& input, // [N, C]
+    const array_view<int64_t>& output, // [N, C]
+    const array_view<int64_t>& label,
+    const std::vector<int64_t>& e_pow_inv,
+    int64_t scale
+);

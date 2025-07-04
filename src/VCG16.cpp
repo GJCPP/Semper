@@ -1,8 +1,8 @@
 
 #include "VCG16.h"
 
-VCG16::VCG16(std::string data_dir, int epoch, int64_t scale)
-    : epoch(epoch), scale(scale) {
+VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value)
+    : epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * max_val) {
     filedata = loadEpochData(data_dir, epoch);
     for (auto& [key, value] : filedata) {
         data[key] = value.data<int64_t>();
@@ -12,6 +12,9 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale)
     data_shape[{}] = {};
     minibatch = data_shape["a_q0"][0];
     img_per_batch = data_shape["a_q0"][1];
+
+    input_data = array_view<int64_t>(data["a_q0"], data_shape["a_q0"]);
+    input_label = array_view<int64_t>(data["a_q0_label"], data_shape["a_q0_label"]);
 
     std::vector<std::vector<int>> conv_layers = {{1, 2}, {3, 4}, {5, 6, 7}, {8, 9, 10}, {11, 12, 13}};
     int ind_pool = 1;
@@ -57,8 +60,8 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale)
         std::format("pool_q{}", ind_pool - 1),
         "flat_q",
         {},
-        std::format("grad_pool_q{}", ind_pool),
-        std::format("grad_flat_q"),
+        std::format("grad_pool_q{}", ind_pool - 1),
+        "grad_flat_q",
         {});
     for (int layer = 1; layer <= 3; ++layer) {
         std::string input_name = layer == 1 ? "flat_q" : std::format("a{}_q", layer - 1);
@@ -83,12 +86,27 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale)
     }
     add_layer(layer_type::softmax,
         "softmax",
-        "z3_q",
-        "probs_q",
-        {},
-        "probs_q",
-        {},
-        {});
+        "z3_q", // input
+        "probs_q", // output
+        {}, // weight = {}
+        "probs_q", // d_input = output
+        {}, // d_output = {}
+        {}, // d_weight = {}
+        "a_q0_label");
+
+
+    init_e_pow();
+}
+
+void VCG16::init_e_pow() {
+    e_pow_inv.resize(max_val);
+    for (int64_t i = 0; i < max_val; ++i) {
+        e_pow_inv[i] = std::round(std::exp(static_cast<double>(-i) / scale) * scale);
+        if (e_pow_inv[i] == 0) {
+            std::cout << "e_pow_inv[" << i << "] is 0, scale=" << scale << std::endl;
+            return;
+        }
+    }
 }
 
 bool VCG16::check(size_t n_samples) const {
@@ -97,6 +115,19 @@ bool VCG16::check(size_t n_samples) const {
         std::cout << "Checking layer " << layer.name << std::endl;
         switch (layer.type) {
             case layer_type::conv:
+                // Check range
+                std::cout << "Checking range." << std::endl;
+                pass &= check_range(layer.input, max_val);
+                pass &= check_range(layer.weight, max_val);
+                pass &= check_range(layer.output, sqr_val);
+                pass &= check_range(layer.d_input, sqr_val);
+                pass &= check_range(layer.d_output, max_val);
+                pass &= check_range(layer.d_weight, max_val);
+                if (!pass) {
+                    std::cout << "❌ Layer " << layer.name << " failed. (range)" << std::endl;
+                    break;
+                }
+
                 // Check forward pass
                 for (size_t i = 0; i < layer.input.shape(0) && pass; ++i) { // mini-batch
                     std::cout << "Checking layer " << layer.name << " (forward) for mini-batch " << i << std::endl;
@@ -142,6 +173,18 @@ bool VCG16::check(size_t n_samples) const {
                 break;
 
             case layer_type::relu:
+                //Check range
+                std::cout << "Checking range." << std::endl;
+                pass &= check_range(layer.input, sqr_val);
+                pass &= check_range(layer.output, max_val);
+                pass &= check_range(layer.d_input, max_val);
+                pass &= check_range(layer.d_output, sqr_val);
+                if (!pass) {
+                    std::cout << "❌ Layer " << layer.name << " failed. (range)" << std::endl;
+                    break;
+                }
+
+                //Check forward pass
                 std::cout << "Checking layer " << layer.name << " (forward)" << std::endl;
                 pass &= check_relu(layer.input, layer.input, layer.output, scale, n_samples);
                 if (!pass) {
@@ -149,6 +192,7 @@ bool VCG16::check(size_t n_samples) const {
                     break;
                 }
 
+                //Check backward pass
                 std::cout << "Checking layer " << layer.name << " (backward)" << std::endl;
                 pass &= check_relu(layer.input, layer.d_output, layer.d_input, scale, n_samples);
                 if (!pass) {
@@ -158,8 +202,20 @@ bool VCG16::check(size_t n_samples) const {
                 break;
 
             case layer_type::pool:
+                //Check range
+                std::cout << "Checking range." << std::endl;
+                pass &= check_range(layer.input, max_val);
+                pass &= check_range(layer.output, max_val);
+                pass &= check_range(layer.d_input, sqr_val);
+                pass &= check_range(layer.d_output, sqr_val);
+                if (!pass) {
+                    std::cout << "❌ Layer " << layer.name << " failed. (range)" << std::endl;
+                    break;
+                }
+
+                //Check forward pass
                 std::cout << "Checking layer " << layer.name << " (forward)" << std::endl;
-                for (int i = 0; i < layer.input.shape(0); ++i) {
+                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
                     std::cout << "Checking layer " << layer.name << " (forward) for mini-batch " << i << std::endl;
                     pass &= check_pool(layer.input[i], layer.output[i], layer.aux[i], 2, 2, false, n_samples);
                 }
@@ -167,8 +223,12 @@ bool VCG16::check(size_t n_samples) const {
                     std::cout << "❌ Layer " << layer.name << " failed. (forward)" << std::endl;
                     break;
                 }
+
+                //Check backward pass
+                
+                //Check backward pass
                 std::cout << "Checking layer " << layer.name << " (backward)" << std::endl;
-                for (int i = 0; i < layer.input.shape(0); ++i) {
+                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
                     std::cout << "Checking layer " << layer.name << " (backward) for mini-batch " << i << std::endl;
                     pass &= check_pool(layer.d_input[i], layer.d_output[i], layer.aux[i], 2, 2, true, n_samples);
                 }
@@ -176,6 +236,103 @@ bool VCG16::check(size_t n_samples) const {
                     std::cout << "❌ Layer " << layer.name << " failed. (backward)" << std::endl;
                     break;
                 }
+                break;
+
+            case layer_type::flat:
+                //Check range
+                std::cout << "Checking range." << std::endl;
+                pass &= check_range(layer.input, max_val);
+                pass &= check_range(layer.output, max_val);
+                pass &= check_range(layer.d_input, sqr_val);
+                pass &= check_range(layer.d_output, sqr_val);
+                if (!pass) {
+                    std::cout << "❌ Layer " << layer.name << " failed. (range)" << std::endl;
+                    break;
+                }
+
+                //Check forward pass
+                std::cout << "Checking layer " << layer.name << " (forward)" << std::endl;
+                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
+                    std::cout << "Checking layer " << layer.name << " (forward) for mini-batch " << i << std::endl;
+                    pass &= check_flat(layer.input[i], layer.output[i], n_samples);
+                }
+                if (!pass) {
+                    std::cout << "❌ Layer " << layer.name << " failed. (forward)" << std::endl;
+                    break;
+                }
+                
+                //Check backward pass
+                std::cout << "Checking layer " << layer.name << " (backward)" << std::endl;
+                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
+                    std::cout << "Checking layer " << layer.name << " (backward) for mini-batch " << i << std::endl;
+                    pass &= check_flat(layer.d_input[i], layer.d_output[i], n_samples);
+                }
+                if (!pass) {
+                    std::cout << "❌ Layer " << layer.name << " failed. (backward)" << std::endl;
+                    break;
+                }
+                break;
+
+            case layer_type::full:
+                //Check range
+                std::cout << "Checking range." << std::endl;
+                pass &= check_range(layer.input, max_val);
+                pass &= check_range(layer.output, sqr_val);
+                pass &= check_range(layer.d_input, sqr_val);
+                pass &= check_range(layer.d_output, max_val);
+                if (!pass) {
+                    std::cout << "❌ Layer " << layer.name << " failed. (range)" << std::endl;
+                    break;
+                }
+
+                //Check forward pass
+                std::cout << "Checking layer " << layer.name << " (forward)" << std::endl;
+                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
+                    std::cout << "Checking layer " << layer.name << " (forward) for mini-batch " << i << std::endl;
+                    pass &= check_full(layer.input[i], layer.weight[i], layer.output[i], n_samples);
+                }
+                
+                //Check backward pass, check d_weight
+                std::cout << "Checking layer " << layer.name << " (backward, d_weight)" << std::endl;
+                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
+                    std::cout << "Checking layer " << layer.name << " (backward, d_weight) for mini-batch " << i << std::endl;
+                    array_view<int64_t> input_i(layer.input[i]);
+                    input_i.swap_dim(0, 1); // Transpose input to [C, N]
+                    pass &= check_full(input_i, layer.d_output[i], layer.d_weight[i], n_samples);
+                }
+
+                //Check backward pass, check d_input
+                std::cout << "Checking layer " << layer.name << " (backward, d_input)" << std::endl;
+                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
+                    std::cout << "Checking layer " << layer.name << " (backward, d_input) for mini-batch " << i << std::endl;
+                    array_view<int64_t> weight_i(layer.weight[i]);
+                    weight_i.swap_dim(0, 1); // Transpose weight to [OC, C]
+                    pass &= check_full(layer.d_output[i], weight_i, layer.d_input[i], n_samples);
+                }
+                break;
+
+            case layer_type::softmax:
+                //Check range
+                std::cout << "Checking range." << std::endl;
+                pass &= check_range(layer.input, sqr_val);
+                pass &= check_range(layer.output, max_val);
+                pass &= check_range(layer.d_input, max_val);
+                if (!pass) {
+                    std::cout << "❌ Layer " << layer.name << " failed. (range)" << std::endl;
+                    break;
+                }
+
+                //Check softmax
+                std::cout << "Checking layer " << layer.name << std::endl;
+                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
+                    std::cout << "Checking layer " << layer.name << " (forward) for mini-batch " << i << std::endl;
+                    pass &= check_softmax(layer.input[i], layer.output[i], layer.aux[i], e_pow_inv, scale);
+                }
+                if (!pass) {
+                    std::cout << "❌ Layer " << layer.name << " failed. (forward)" << std::endl;
+                    break;
+                }
+
                 break;
 
             default:
@@ -211,6 +368,23 @@ void VCG16::add_layer(layer_type type,
     layers.push_back(info);
 }
 
+
+bool check_range(const array_view<int64_t>& input, int64_t max_value) {
+    bool ret = true;
+    size_t sz = input.size();
+    #pragma omp parallel for
+    for (size_t i = 0; i < sz; ++i) {
+        int64_t actual = input.get(i);
+        if (actual > max_value || -actual > max_value) {
+            ret = false;
+            #pragma omp critical
+            {
+                std::cout << "❌ Out of range at (i=" << i << "): value=" << actual << ", max_value=" << max_value << std::endl;
+            }
+        }
+    }
+    return ret;
+}
 
 bool check_conv(
     const array_view<int64_t>& input, // [N, C, H, W]
@@ -598,5 +772,233 @@ bool random_check_pool(
             }
         }
     }
+    return ret;
+}
+
+bool check_flat(
+    const array_view<int64_t>& input,
+    const array_view<int64_t>& output,
+    size_t n_samples) {
+
+    size_t N = input.shape(0);
+    size_t C = input.shape(1);
+    size_t H = input.shape(2);
+    size_t W = input.shape(3);
+    size_t OH = C * H * W;
+    assert(input.get_dims() == 4);
+    assert(output.get_dims() == 2);
+    assert(input.shape(0) == N);
+    assert(input.shape(1) == C);
+    assert(input.shape(2) == H);
+    assert(input.shape(3) == W);
+    assert(output.shape(0) == N);
+    assert(output.shape(1) == OH);
+
+    if (n_samples > 0) {
+        return random_check_flat(input, output, n_samples);
+    }
+
+    bool ret = true;
+    size_t sz = input.size();
+    #pragma omp parallel for
+    for (size_t n = 0; n < N; ++n) {
+
+        auto view_input_n = input[n];
+        auto view_output_n = output[n];
+
+        for (size_t c = 0; c < C; ++c) {
+
+            auto view_input_n_c = view_input_n[c];
+
+            for (size_t i = 0; i < H; ++i) {
+
+                auto view_input_n_c_i = view_input_n_c[i];
+
+                for (size_t j = 0; j < W; ++j) {
+                    size_t index = c * H * W + i * W + j;
+                    int64_t actual = view_input_n_c_i.get(j);
+                    int64_t expected = view_output_n.get(index);
+                    if (actual != expected) {
+                        ret = false;
+                        #pragma omp critical
+                        {
+                            std::cout << "❌ Mismatch at (n=" << n << ", c=" << c << ", i=" << i << ", j=" << j << "): manual=" << actual << ", expected=" << expected << std::endl;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return ret;
+}
+
+bool random_check_flat(
+    const array_view<int64_t>& input,
+    const array_view<int64_t>& output,
+    size_t n_samples) {
+
+    size_t N = input.shape(0);
+    size_t C = input.shape(1);
+    size_t H = input.shape(2);
+    size_t W = input.shape(3);
+    size_t OH = C * H * W;
+    bool ret = true;
+    static thread_local std::mt19937 rng(std::random_device{}());
+
+    #pragma omp parallel for
+    for (size_t cnt = 0; cnt < n_samples; ++cnt) {
+        size_t n = std::uniform_int_distribution<size_t>(0, N - 1)(rng);
+        size_t c = std::uniform_int_distribution<size_t>(0, C - 1)(rng);
+        size_t i = std::uniform_int_distribution<size_t>(0, H - 1)(rng);
+        size_t j = std::uniform_int_distribution<size_t>(0, W - 1)(rng);
+        size_t index = c * H * W + i * W + j;
+
+        int64_t actual = input(n, c, i, j);
+        int64_t expected = output(n, index);
+        if (actual != expected) {
+            ret = false;
+            #pragma omp critical
+            {
+                std::cout << "❌ Mismatch at (n=" << n << ", c=" << c << ", i=" << i << ", j=" << j << "): manual=" << actual << ", expected=" << expected << std::endl;
+            }
+        }
+    }
+    return ret;
+}
+
+bool check_full(
+    const array_view<int64_t>& input,
+    const array_view<int64_t>& weights,
+    const array_view<int64_t>& output,
+    size_t n_samples
+) {
+    size_t N = input.shape(0);
+    size_t C = input.shape(1);
+    size_t OC = output.shape(1);
+    assert(input.get_dims() == 2);
+    assert(weights.get_dims() == 2);
+    assert(output.get_dims() == 2);
+    assert(input.shape(0) == N);
+    assert(input.shape(1) == C);
+    assert(weights.shape(0) == C);
+    assert(weights.shape(1) == OC);
+    assert(output.shape(0) == N);
+    assert(output.shape(1) == OC);
+
+    if (n_samples > 0) {
+        return random_check_full(input, weights, output, n_samples);
+    }
+    bool ret = true;
+    #pragma omp parallel for
+    for (size_t n = 0; n < N; ++n) {
+        auto view_input_n = input[n];
+        auto view_weights_n = weights[n];
+        auto view_output_n = output[n];
+        for (size_t oc = 0; oc < OC; ++oc) {
+            int64_t actual = 0;
+            for (size_t c = 0; c < C; ++c) {
+                actual += view_input_n.get(c) * view_weights_n(c, oc);
+            }
+            int64_t expected = view_output_n.get(oc);
+            if (actual != expected) {
+                ret = false;
+                #pragma omp critical
+                {
+                    std::cout << "❌ Mismatch at (n=" << n << ", oc=" << oc << "): manual=" << actual << ", expected=" << expected << std::endl;
+                }
+            }
+        }
+    }
+    return ret;
+}
+
+bool random_check_full(
+    const array_view<int64_t>& input,
+    const array_view<int64_t>& weights,
+    const array_view<int64_t>& output,
+    size_t n_samples
+) {
+    size_t N = input.shape(0);
+    size_t C = input.shape(1);
+    size_t OC = output.shape(1);
+    bool ret = true;
+    static thread_local std::mt19937 rng(std::random_device{}());
+
+    // #pragma omp parallel for
+    for (size_t cnt = 0; cnt < n_samples; ++cnt) {
+        size_t n = std::uniform_int_distribution<size_t>(0, N - 1)(rng);
+        size_t c = std::uniform_int_distribution<size_t>(0, C - 1)(rng);
+        size_t oc = std::uniform_int_distribution<size_t>(0, OC - 1)(rng);
+        int64_t actual = 0;
+        for (size_t c = 0; c < C; ++c) {
+            actual += input(n, c) * weights(c, oc);
+        }
+        int64_t expected = output(n, oc);
+        if (actual != expected) {
+            ret = false;
+            #pragma omp critical
+            {
+                std::cout << "❌ Mismatch at (n=" << n << ", oc=" << oc << "): manual=" << actual << ", expected=" << expected << std::endl;
+            }
+        }
+    }
+    return ret;
+}
+
+bool check_softmax(
+    const array_view<int64_t>& input,
+    const array_view<int64_t>& output, // output = d_input
+    const array_view<int64_t>& label,
+    const std::vector<int64_t>& e_pow_inv,
+    int64_t scale) {
+
+    size_t N = input.shape(0);
+    size_t C = input.shape(1);
+    assert(input.get_dims() == 2);
+    assert(output.get_dims() == 2);
+    assert(input.shape(0) == N);
+    assert(input.shape(1) == C);
+    assert(output.shape(0) == N);
+    assert(output.shape(1) == C);
+
+    bool ret = true;
+    // #pragma omp parallel for
+    for (size_t n = 0; n < N; ++n) {
+        auto view_input_n = input[n];
+        auto view_output_n = output[n];
+        std::vector<int64_t> scale_input(C);
+        std::vector<int64_t> exp_input(C);
+        int64_t max_input = view_input_n(0) / scale;
+        for (size_t c = 0; c < C; ++c) {
+            scale_input[c] = view_input_n(c) / scale; // small value
+            if (scale_input[c] > max_input) {
+                max_input = scale_input[c];
+            }
+        }
+        for (size_t c = 0; c < C; ++c) {
+            exp_input[c] = e_pow_inv[max_input - scale_input[c]];
+        }
+        int64_t sum = 0;
+        for (size_t c = 0; c < C; ++c) {
+            sum += exp_input[c];
+        }
+        for (size_t c = 0; c < C; ++c) {
+            exp_input[c] = exp_input[c] * scale / sum;
+        }
+        exp_input[label(n)] -= 1 * scale;
+        for (size_t c = 0; c < C; ++c) {
+            exp_input[c] = exp_input[c] / int64_t(N);
+        }
+        for (size_t c = 0; c < C; ++c) {
+            if (std::abs(exp_input[c] - view_output_n(c)) > 1) {
+                ret = false;
+                #pragma omp critical
+                {
+                    std::cout << "❌ Mismatch at (n=" << n << ", c=" << c << "): manual=" << exp_input[c] << ", expected=" << view_output_n(c) << std::endl;
+                }
+            }
+        }
+    }
+
     return ret;
 }

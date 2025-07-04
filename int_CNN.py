@@ -49,13 +49,14 @@ class ManualVGG16:
             self.cache[key] = []
         self.cache[key].append(copy.deepcopy(value))
 
-    def forward(self, x):
+    def forward(self, x, y):
         #self.input = x
         idx = 1
         self.input_q = (x*self.scale).to(torch.int64)
         x_q=self.input_q
         self.save_to_cache('a_q0', x_q)
-        
+        self.save_to_cache('a_q0_label', y)
+
         for block, layers in enumerate([(1, 2), (3, 4), (5, 6, 7), (8, 9, 10), (11, 12, 13)], start=1):
             #for lid in layers:
             #    x = F.conv2d(x, self.W[f'conv{lid}'], padding=1)
@@ -159,12 +160,13 @@ class ManualVGG16:
         #dW_fc3 = c['fc2_z'].T @ grad_logits
         #with torch.no_grad():
         #    W['fc3'] -= lr * dW_fc3
-        
+        self.save_to_cache('grad_z3_q', grad_z3_q)
+
         grad_a2_q = (grad_z3_q.to(torch.float64) @ W['fc3_q'].T.to(torch.float64)).to(torch.int64)
-        dW_fc3_q = torch.round(c['z2_q'][-1].T.to(torch.float64)/self.scale @ grad_z3_q.to(torch.float64) /self.scale).to(torch.int64)
+        dW_fc3_q = (c['a2_q'][-1].T.to(torch.float64) @ grad_z3_q.to(torch.float64)).to(torch.int64) # big value
         #print(dW_fc3_q.shape,dW_fc3.shape,W['fc3_q'].shape)
         with torch.no_grad():
-            W['fc3_q'] -= torch.round(lr * dW_fc3_q).to(torch.int64)
+            W['fc3_q'] -= torch.round(lr * torch.round(dW_fc3_q  / self.scale)).to(torch.int64)
 
         self.save_to_cache('dW_fc3_q', dW_fc3_q)
         self.save_to_cache('grad_a2_q', grad_a2_q)
@@ -180,9 +182,9 @@ class ManualVGG16:
 
         grad_z2_q = torch.round(grad_a2_q * (c['z2_q'][-1] > 0) / self.scale).to(torch.int64)
         grad_a1_q = torch.round(grad_z2_q.to(torch.float64) @ W['fc2_q'].T.to(torch.float64)).to(torch.int64)
-        dW_fc2_q = torch.round(c['z1_q'][-1].to(torch.float64).T/self.scale @ grad_z2_q.to(torch.float64)/self.scale).to(torch.int64)
+        dW_fc2_q = (c['a1_q'][-1].to(torch.float64).T @ grad_z2_q.to(torch.float64)).to(torch.int64) # big value
         with torch.no_grad():
-            W['fc2_q'] -= torch.round(lr * dW_fc2_q).to(torch.int64)
+            W['fc2_q'] -= torch.round(lr * torch.round(dW_fc2_q / self.scale)).to(torch.int64)
 
         self.save_to_cache('grad_z2_q', grad_z2_q)
         self.save_to_cache('dW_fc2_q', dW_fc2_q)
@@ -197,9 +199,9 @@ class ManualVGG16:
 
         grad_z1_q = torch.round(grad_a1_q * (c['z1_q'][-1] > 0) / self.scale).to(torch.int64)
         grad_flat_q = torch.round(grad_z1_q @ W['fc1_q'].T).to(torch.int64)
-        dW_fc1_q = torch.round(c['flat_q'][-1].to(torch.float64).T @ grad_z1_q.to(torch.float64)/self.scale).to(torch.int64)
+        dW_fc1_q = (c['flat_q'][-1].to(torch.float64).T @ grad_z1_q.to(torch.float64)).to(torch.int64) # big value
         with torch.no_grad():
-            W['fc1_q'] -= torch.round(lr * dW_fc1_q).to(torch.int64)
+            W['fc1_q'] -= torch.round(lr * torch.round(dW_fc1_q / self.scale)).to(torch.int64)
 
         self.save_to_cache('grad_z1_q', grad_z1_q)
         self.save_to_cache('dW_fc1_q', dW_fc1_q)
@@ -326,6 +328,30 @@ class ManualVGG16:
             #     grad_q = torch.round(grad_q.to(torch.float64) / self.scale).to(torch.int64)
             #     grad_q_scaled = True
 
+def quantized_softmax(logits_q: torch.Tensor, scale: int) -> torch.Tensor:
+    """
+    Manually computes softmax with 14-bit fixed-point precision.
+    Input: logits_q - float64 tensor, true value
+    Output: float64 tensor, quantized value
+    """
+
+    # Convert to float for exponentiation
+    x = logits_q
+
+    # For numerical stability: subtract max per row
+    x_max = x.max(dim=1, keepdim=True).values
+    x_stable = (x - x_max).to(torch.float64) / scale
+
+    # Compute e^x and normalize
+    exp_x = torch.exp(x_stable)
+    exp_x = torch.round(exp_x*scale).to(torch.int64)
+    sum_exp = exp_x.sum(dim=1, keepdim=True)
+
+    softmax = (exp_x * scale) // sum_exp
+    print(softmax)
+
+    return softmax
+
 def train_manual():
     transform = transforms.Compose([
     transforms.ToTensor(),
@@ -358,13 +384,12 @@ def train_manual():
             })
 
             with torch.no_grad():
-                z3_q = model.forward(x)/model.scale
+                z3_q = model.forward(x, y) // model.scale
             
             with torch.no_grad():
-                probs_q = F.softmax(z3_q/model.scale, dim=1)
-                probs_q[range(x.size(0)), y] -= 1   # compute logits, grad
-                probs_q /= x.size(0)
-                probs_q=torch.round(probs_q*model.scale).to(torch.int64)
+                probs_q = quantized_softmax(z3_q, model.scale)
+                probs_q[range(x.size(0)), y] -= 1 * model.scale   # compute logits, grad
+                probs_q = (probs_q / x.size(0)).to(torch.int64)
                 model.save_to_cache('probs_q', probs_q)
             
             with torch.no_grad():
