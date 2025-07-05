@@ -4,17 +4,32 @@
 VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value)
     : epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * max_val) {
     filedata = loadEpochData(data_dir, epoch);
+    std::vector<std::string> keys;
+    std::vector<cnpy::NpyArray*> values;
     for (auto& [key, value] : filedata) {
-        data[key] = value.data<int64_t>();
-        data_shape[key] = value.shape;
+        keys.push_back(key);
+        values.push_back(&value);
+    }
+    
+    #pragma omp parallel for
+    for (size_t i = 0; i < keys.size(); ++i) {
+        std::string key = keys[i];
+        cnpy::NpyArray *value = values[i];
+        size_t num_vals = value->num_vals;
+        data[key] = std::make_unique<Goldilocks2::Element[]>(num_vals);
+        auto ptr = data[key].get();
+        for (size_t i = 0; i < num_vals; ++i) {
+            ptr[i] = Goldilocks2::fromS64(value->data<int64_t>()[i]);
+        }
+        data_shape[key] = value->shape;
     }
     data[{}] = nullptr;
     data_shape[{}] = {};
     minibatch = data_shape["a_q0"][0];
     img_per_batch = data_shape["a_q0"][1];
 
-    input_data = array_view<int64_t>(data["a_q0"], data_shape["a_q0"]);
-    input_label = array_view<int64_t>(data["a_q0_label"], data_shape["a_q0_label"]);
+    input_data = array_view<Goldilocks2::Element>(data["a_q0"].get(), data_shape["a_q0"]);
+    input_label = array_view<Goldilocks2::Element>(data["a_q0_label"].get(), data_shape["a_q0_label"]);
 
     std::vector<std::vector<int>> conv_layers = {{1, 2}, {3, 4}, {5, 6, 7}, {8, 9, 10}, {11, 12, 13}};
     int ind_pool = 1;
@@ -101,9 +116,9 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value)
 void VCG16::init_e_pow() {
     e_pow_inv.resize(max_val);
     for (int64_t i = 0; i < max_val; ++i) {
-        e_pow_inv[i] = std::round(std::exp(static_cast<double>(-i) / scale) * scale);
-        if (e_pow_inv[i] == 0) {
-            std::cout << "e_pow_inv[" << i << "] is 0, scale=" << scale << std::endl;
+        e_pow_inv[i] = Goldilocks2::fromS64(std::round(std::exp(static_cast<double>(-i) / scale) * scale));
+        if (e_pow_inv[i] == Goldilocks2::zero()) {
+            // std::cout << "e_pow_inv[" << i << "] is 0, scale=" << scale << std::endl;
             return;
         }
     }
@@ -141,9 +156,9 @@ bool VCG16::check(size_t n_samples) const {
                 // Check backward pass, check d_weight
                 for (size_t i = 0; i < layer.input.shape(0) && pass; ++i) { // mini-batch
                     std::cout << "Checking layer " << layer.name << " (backward, d_weight) for mini-batch " << i << std::endl;
-                    array_view<int64_t> input_i(layer.input[i]);
-                    array_view<int64_t> d_output_i(layer.d_output[i]);
-                    array_view<int64_t> d_weight_i(layer.d_weight[i]);
+                    array_view<Goldilocks2::Element> input_i(layer.input[i]);
+                    array_view<Goldilocks2::Element> d_output_i(layer.d_output[i]);
+                    array_view<Goldilocks2::Element> d_weight_i(layer.d_weight[i]);
                     input_i.swap_dim(0, 1);
                     d_output_i.swap_dim(0, 1);
                     d_weight_i.swap_dim(0, 1);
@@ -158,9 +173,9 @@ bool VCG16::check(size_t n_samples) const {
                 // Check backward pass, check d_input
                 for (size_t i = 0; i < layer.input.shape(0) && pass; ++i) { // mini-batch
                     std::cout << "Checking layer " << layer.name << " (backward, d_input) for mini-batch " << i << std::endl;
-                    array_view<int64_t> d_input_i(layer.d_input[i]);
-                    array_view<int64_t> d_output_i(layer.d_output[i]);
-                    array_view<int64_t> weight_i(layer.weight[i]);
+                    array_view<Goldilocks2::Element> d_input_i(layer.d_input[i]);
+                    array_view<Goldilocks2::Element> d_output_i(layer.d_output[i]);
+                    array_view<Goldilocks2::Element> weight_i(layer.weight[i]);
                     weight_i.reverse(2);
                     weight_i.reverse(3);
                     weight_i.swap_dim(0, 1);
@@ -296,7 +311,7 @@ bool VCG16::check(size_t n_samples) const {
                 std::cout << "Checking layer " << layer.name << " (backward, d_weight)" << std::endl;
                 for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
                     std::cout << "Checking layer " << layer.name << " (backward, d_weight) for mini-batch " << i << std::endl;
-                    array_view<int64_t> input_i(layer.input[i]);
+                    array_view<Goldilocks2::Element> input_i(layer.input[i]);
                     input_i.swap_dim(0, 1); // Transpose input to [C, N]
                     pass &= check_full(input_i, layer.d_output[i], layer.d_weight[i], n_samples);
                 }
@@ -305,7 +320,7 @@ bool VCG16::check(size_t n_samples) const {
                 std::cout << "Checking layer " << layer.name << " (backward, d_input)" << std::endl;
                 for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
                     std::cout << "Checking layer " << layer.name << " (backward, d_input) for mini-batch " << i << std::endl;
-                    array_view<int64_t> weight_i(layer.weight[i]);
+                    array_view<Goldilocks2::Element> weight_i(layer.weight[i]);
                     weight_i.swap_dim(0, 1); // Transpose weight to [OC, C]
                     pass &= check_full(layer.d_output[i], weight_i, layer.d_input[i], n_samples);
                 }
@@ -358,23 +373,23 @@ void VCG16::add_layer(layer_type type,
     layer_info info;
     info.type = type;
     info.name = name;
-    info.input = array_view<int64_t>(data[input], data_shape[input]);
-    info.output = array_view<int64_t>(data[output], data_shape[output]);
-    info.weight = array_view<int64_t>(data[weight], data_shape[weight]);
-    info.d_input = array_view<int64_t>(data[d_input], data_shape[d_input]);
-    info.d_output = array_view<int64_t>(data[d_output], data_shape[d_output]);
-    info.d_weight = array_view<int64_t>(data[d_weight], data_shape[d_weight]);
-    info.aux = array_view<int64_t>(data[aux], data_shape[aux]);
+    info.input = array_view<Goldilocks2::Element>(data[input].get(), data_shape[input]);
+    info.output = array_view<Goldilocks2::Element>(data[output].get(), data_shape[output]);
+    info.weight = array_view<Goldilocks2::Element>(data[weight].get(), data_shape[weight]);
+    info.d_input = array_view<Goldilocks2::Element>(data[d_input].get(), data_shape[d_input]);
+    info.d_output = array_view<Goldilocks2::Element>(data[d_output].get(), data_shape[d_output]);
+    info.d_weight = array_view<Goldilocks2::Element>(data[d_weight].get(), data_shape[d_weight]);
+    info.aux = array_view<Goldilocks2::Element>(data[aux].get(), data_shape[aux]);
     layers.push_back(info);
 }
 
 
-bool check_range(const array_view<int64_t>& input, int64_t max_value) {
+bool check_range(const array_view<Goldilocks2::Element>& input, int64_t max_value) {
     bool ret = true;
     size_t sz = input.size();
     #pragma omp parallel for
     for (size_t i = 0; i < sz; ++i) {
-        int64_t actual = input.get(i);
+        int64_t actual = Goldilocks2::toS64(input.get(i));
         if (actual > max_value || -actual > max_value) {
             ret = false;
             #pragma omp critical
@@ -387,9 +402,9 @@ bool check_range(const array_view<int64_t>& input, int64_t max_value) {
 }
 
 bool check_conv(
-    const array_view<int64_t>& input, // [N, C, H, W]
-    const array_view<int64_t>& weights, // [OC, C, K, K]
-    const array_view<int64_t>& expected, // [N, OC, H + 2 * pad - K + 1, W + 2 * pad - K + 1]
+    const array_view<Goldilocks2::Element>& input, // [N, C, H, W]
+    const array_view<Goldilocks2::Element>& weights, // [OC, C, K, K]
+    const array_view<Goldilocks2::Element>& expected, // [N, OC, H + 2 * pad - K + 1, W + 2 * pad - K + 1]
     size_t pad,
     size_t n_samples
 ) {
@@ -439,7 +454,7 @@ bool check_conv(
 
                 for (size_t j = 0; j < OW && ret; ++j) {
 
-                    int64_t acc = 0;
+                    Goldilocks2::Element acc = Goldilocks2::zero();
                     for (size_t c = 0; c < C && ret; ++c) {
 
                         auto view_weights_oc_c = view_weights_oc[c];
@@ -456,7 +471,7 @@ bool check_conv(
                     // acc = acc / scale; // downscale
                     // if (acc < 0) acc = 0; // relu
 
-                    int64_t actual = view_expected_n_oc_h(j);
+                    Goldilocks2::Element actual = view_expected_n_oc_h(j);
                     if (actual != acc) {
                         ret = false;
                         std::cout << "❌ Mismatch at (n=" << n << ", oc=" << oc << ", i=" << i << ", j=" << j << "): manual=" << acc << ", expected=" << actual << std::endl;
@@ -469,9 +484,9 @@ bool check_conv(
 }
 
 bool random_check_conv(
-    const array_view<int64_t>& input, // [N, C, H, W]
-    const array_view<int64_t>& weights, // [OC, C, K, K]
-    const array_view<int64_t>& expected, // [N, OC, H + 2 * pad - K + 1, W + 2 * pad - K + 1]
+    const array_view<Goldilocks2::Element>& input, // [N, C, H, W]
+    const array_view<Goldilocks2::Element>& weights, // [OC, C, K, K]
+    const array_view<Goldilocks2::Element>& expected, // [N, OC, H + 2 * pad - K + 1, W + 2 * pad - K + 1]
     size_t pad,
     size_t n_samples
 ) {
@@ -504,7 +519,7 @@ bool random_check_conv(
         size_t oc = rand() % OC;
         size_t i = rand() % OH;
         size_t j = rand() % OW;
-        int64_t acc = 0;
+        Goldilocks2::Element acc = Goldilocks2::zero();
         for (size_t c = 0; c < C; ++c) {
             for (size_t ki = 0; ki < K; ++ki) {
                 for (size_t kj = 0; kj < K; ++kj) {
@@ -517,7 +532,7 @@ bool random_check_conv(
         // acc = acc / scale; // downscale
         // if (acc < 0) acc = 0; // relu
 
-        int64_t actual = expected(n, oc, i, j);
+        Goldilocks2::Element actual = expected(n, oc, i, j);
         if (actual != acc) {
             std::cout << "❌ Mismatch at (n=" << n << ", oc=" << oc << ", i=" << i << ", j=" << j << "): manual=" << acc << ", expected=" << actual << std::endl;
             ret = false;
@@ -527,7 +542,7 @@ bool random_check_conv(
 }
 
 
-void add_conv(const array_view<int64_t>& input, const array_view<int64_t>& weights, array_view<int64_t>& output, size_t pad) {
+void add_conv(const array_view<Goldilocks2::Element>& input, const array_view<Goldilocks2::Element>& weights, array_view<Goldilocks2::Element>& output, size_t pad) {
     
     size_t H = input.shape(0);
     size_t W = input.shape(1);
@@ -547,7 +562,7 @@ void add_conv(const array_view<int64_t>& input, const array_view<int64_t>& weigh
 // #pragma omp parallel for
     for (size_t i = 0; i < OH; ++i) {
         for (size_t j = 0; j < OW; ++j) {
-            int64_t acc = 0;
+            Goldilocks2::Element acc = Goldilocks2::zero();
             for (size_t ki = 0; ki < K; ++ki) {
                 for (size_t kj = 0; kj < K; ++kj) {
                     if (i + ki >= pad && i + ki < H + pad && j + kj >= pad && j + kj < W + pad) {
@@ -561,9 +576,9 @@ void add_conv(const array_view<int64_t>& input, const array_view<int64_t>& weigh
 }
 
 bool check_relu(
-    const array_view<int64_t>& sign,
-    const array_view<int64_t>& input, // [N, C, H, W]
-    const array_view<int64_t>& output, // [N, C, H, W]
+    const array_view<Goldilocks2::Element>& sign,
+    const array_view<Goldilocks2::Element>& input, // [N, C, H, W]
+    const array_view<Goldilocks2::Element>& output, // [N, C, H, W]
     int64_t scale,
     size_t n_samples
 ) {
@@ -577,12 +592,12 @@ bool check_relu(
     
     #pragma omp parallel for
     for (size_t i = 0; i < sz; ++i) {
-        int64_t s = sign.get(i);
-        int64_t actual = input.get(i);
-        int64_t expected = output.get(i);
-        if (s < 0) actual = 0;
-        actual = actual / scale;
-        if (std::abs(actual - expected) > 1) {
+        Goldilocks2::Element s = sign.get(i);
+        Goldilocks2::Element actual = input.get(i);
+        Goldilocks2::Element expected = output.get(i);
+        if (Goldilocks2::isNeg(s)) actual = Goldilocks2::zero();
+        actual = Goldilocks2::fromS64(Goldilocks2::toS64(actual) / scale);
+        if (std::abs(Goldilocks2::toS64(actual - expected)) > 1) {
             ret = false;
             #pragma omp critical
             {
@@ -594,25 +609,25 @@ bool check_relu(
 }
 
 bool random_check_relu(
-    const array_view<int64_t>& sign,
-    const array_view<int64_t>& input, // [N, C, H, W]
-    const array_view<int64_t>& output, // [N, C, H, W]
+    const array_view<Goldilocks2::Element>& sign,
+    const array_view<Goldilocks2::Element>& input, // [N, C, H, W]
+    const array_view<Goldilocks2::Element>& output, // [N, C, H, W]
     int64_t scale,
     size_t n_samples
 ) {
     bool ret = true;
     size_t sz = input.size();
-    static std::mt19937 rng(std::random_device{}());
+    static thread_local std::mt19937 rng(std::random_device{}());
 
     #pragma omp parallel for
     for (size_t cnt = 0; cnt < n_samples; ++cnt) {
         size_t i = std::uniform_int_distribution<size_t>(0, sz - 1)(rng);
-        int64_t s = sign.get(i);
-        int64_t actual = input.get(i);
-        int64_t expected = output.get(i);
-        if (s < 0) actual = 0;
-        actual = actual / scale;
-        if (std::abs(actual - expected) > 1) {
+        Goldilocks2::Element s = sign.get(i);
+        Goldilocks2::Element actual = input.get(i);
+        Goldilocks2::Element expected = output.get(i);
+        if (Goldilocks2::isNeg(s)) actual = Goldilocks2::zero();
+        actual = Goldilocks2::fromS64(Goldilocks2::toS64(actual) / scale);
+        if (std::abs(Goldilocks2::toS64(actual - expected)) > 1) {
             ret = false;
             #pragma omp critical
             {
@@ -624,9 +639,9 @@ bool random_check_relu(
 }
 
 bool check_pool(
-    const array_view<int64_t>& input,
-    const array_view<int64_t>& output,
-    const array_view<int64_t>& idx,
+    const array_view<Goldilocks2::Element>& input,
+    const array_view<Goldilocks2::Element>& output,
+    const array_view<Goldilocks2::Element>& idx,
     size_t kernel_size,
     size_t stride,
     bool backward,
@@ -672,14 +687,14 @@ bool check_pool(
 
             for (size_t i = 0; i < OH; ++i) {
                 for (size_t j = 0; j < OW; ++j) {
-                    size_t index = view_idx_n_c(i, j);
-                    int64_t max_val = view_input_n_c.get(index);
+                    size_t index = view_idx_n_c(i, j)[0].fe;
+                    Goldilocks2::Element max_val = view_input_n_c.get(index);
                     for (size_t ki = 0; ki < kernel_size; ++ki) {
                         for (size_t kj = 0; kj < kernel_size; ++kj) {
                             size_t x = i * stride + ki;
                             size_t y = j * stride + kj;
                             if (backward) {
-                                if (x * W + y != index && view_input_n_c(x, y) != 0) {
+                                if (x * W + y != index && view_input_n_c(x, y) != Goldilocks2::zero()) {
                                     ret = false;
                                     #pragma omp critical
                                     {
@@ -688,7 +703,7 @@ bool check_pool(
                                     }
                                 }
                             } else {
-                                if (view_input_n_c(x, y) > max_val) {
+                                if (view_input_n_c(x, y)[0].fe > max_val[0].fe) {
                                     ret = false;
                                     #pragma omp critical
                                     {
@@ -714,9 +729,9 @@ bool check_pool(
 }
 
 bool random_check_pool(
-    const array_view<int64_t>& input,
-    const array_view<int64_t>& output,
-    const array_view<int64_t>& idx,
+    const array_view<Goldilocks2::Element>& input,
+    const array_view<Goldilocks2::Element>& output,
+    const array_view<Goldilocks2::Element>& idx,
     size_t kernel_size,
     size_t stride,
     bool backward,
@@ -736,8 +751,8 @@ bool random_check_pool(
         size_t c = rand() % C;
         size_t i = rand() % OH;
         size_t j = rand() % OW;
-        size_t index = idx(n, c, i, j);
-        int64_t max_val = input[n][c].get(index);
+        size_t index = idx(n, c, i, j)[0].fe;
+        Goldilocks2::Element max_val = input[n][c].get(index);
         if (max_val != output(n, c, i, j)) {
             ret = false;
             #pragma omp critical
@@ -751,7 +766,7 @@ bool random_check_pool(
                 size_t y = j * stride + kj;
         
                 if (backward) {
-                    if (x * W + y != index && input(n, c, x, y) != 0) {
+                    if (x * W + y != index && input(n, c, x, y) != Goldilocks2::zero()) {
                         ret = false;
                         #pragma omp critical
                         {
@@ -760,7 +775,7 @@ bool random_check_pool(
                         }
                     }
                 } else {
-                    if (input(n, c, x, y) > max_val) {
+                    if (input(n, c, x, y)[0].fe > max_val[0].fe) {
                         ret = false;
                         #pragma omp critical
                         {
@@ -776,8 +791,8 @@ bool random_check_pool(
 }
 
 bool check_flat(
-    const array_view<int64_t>& input,
-    const array_view<int64_t>& output,
+    const array_view<Goldilocks2::Element>& input,
+    const array_view<Goldilocks2::Element>& output,
     size_t n_samples) {
 
     size_t N = input.shape(0);
@@ -816,8 +831,8 @@ bool check_flat(
 
                 for (size_t j = 0; j < W; ++j) {
                     size_t index = c * H * W + i * W + j;
-                    int64_t actual = view_input_n_c_i.get(j);
-                    int64_t expected = view_output_n.get(index);
+                    Goldilocks2::Element actual = view_input_n_c_i.get(j);
+                    Goldilocks2::Element expected = view_output_n.get(index);
                     if (actual != expected) {
                         ret = false;
                         #pragma omp critical
@@ -833,8 +848,8 @@ bool check_flat(
 }
 
 bool random_check_flat(
-    const array_view<int64_t>& input,
-    const array_view<int64_t>& output,
+    const array_view<Goldilocks2::Element>& input,
+    const array_view<Goldilocks2::Element>& output,
     size_t n_samples) {
 
     size_t N = input.shape(0);
@@ -853,8 +868,8 @@ bool random_check_flat(
         size_t j = std::uniform_int_distribution<size_t>(0, W - 1)(rng);
         size_t index = c * H * W + i * W + j;
 
-        int64_t actual = input(n, c, i, j);
-        int64_t expected = output(n, index);
+        Goldilocks2::Element actual = input(n, c, i, j);
+        Goldilocks2::Element expected = output(n, index);
         if (actual != expected) {
             ret = false;
             #pragma omp critical
@@ -867,9 +882,9 @@ bool random_check_flat(
 }
 
 bool check_full(
-    const array_view<int64_t>& input,
-    const array_view<int64_t>& weights,
-    const array_view<int64_t>& output,
+    const array_view<Goldilocks2::Element>& input,
+    const array_view<Goldilocks2::Element>& weights,
+    const array_view<Goldilocks2::Element>& output,
     size_t n_samples
 ) {
     size_t N = input.shape(0);
@@ -895,11 +910,11 @@ bool check_full(
         auto view_weights_n = weights[n];
         auto view_output_n = output[n];
         for (size_t oc = 0; oc < OC; ++oc) {
-            int64_t actual = 0;
+            Goldilocks2::Element actual = Goldilocks2::zero();
             for (size_t c = 0; c < C; ++c) {
                 actual += view_input_n.get(c) * view_weights_n(c, oc);
             }
-            int64_t expected = view_output_n.get(oc);
+            Goldilocks2::Element expected = view_output_n.get(oc);
             if (actual != expected) {
                 ret = false;
                 #pragma omp critical
@@ -913,9 +928,9 @@ bool check_full(
 }
 
 bool random_check_full(
-    const array_view<int64_t>& input,
-    const array_view<int64_t>& weights,
-    const array_view<int64_t>& output,
+    const array_view<Goldilocks2::Element>& input,
+    const array_view<Goldilocks2::Element>& weights,
+    const array_view<Goldilocks2::Element>& output,
     size_t n_samples
 ) {
     size_t N = input.shape(0);
@@ -929,11 +944,11 @@ bool random_check_full(
         size_t n = std::uniform_int_distribution<size_t>(0, N - 1)(rng);
         size_t c = std::uniform_int_distribution<size_t>(0, C - 1)(rng);
         size_t oc = std::uniform_int_distribution<size_t>(0, OC - 1)(rng);
-        int64_t actual = 0;
+        Goldilocks2::Element actual = Goldilocks2::zero();
         for (size_t c = 0; c < C; ++c) {
             actual += input(n, c) * weights(c, oc);
         }
-        int64_t expected = output(n, oc);
+        Goldilocks2::Element expected = output(n, oc);
         if (actual != expected) {
             ret = false;
             #pragma omp critical
@@ -946,10 +961,10 @@ bool random_check_full(
 }
 
 bool check_softmax(
-    const array_view<int64_t>& input,
-    const array_view<int64_t>& output, // output = d_input
-    const array_view<int64_t>& label,
-    const std::vector<int64_t>& e_pow_inv,
+    const array_view<Goldilocks2::Element>& input,
+    const array_view<Goldilocks2::Element>& output, // output = d_input
+    const array_view<Goldilocks2::Element>& label,
+    const std::vector<Goldilocks2::Element>& e_pow_inv,
     int64_t scale) {
 
     size_t N = input.shape(0);
@@ -968,15 +983,15 @@ bool check_softmax(
         auto view_output_n = output[n];
         std::vector<int64_t> scale_input(C);
         std::vector<int64_t> exp_input(C);
-        int64_t max_input = view_input_n(0) / scale;
+        int64_t max_input = Goldilocks2::toS64(view_input_n(0)) / scale;
         for (size_t c = 0; c < C; ++c) {
-            scale_input[c] = view_input_n(c) / scale; // small value
+            scale_input[c] = Goldilocks2::toS64(view_input_n(c)) / scale; // small value
             if (scale_input[c] > max_input) {
                 max_input = scale_input[c];
             }
         }
         for (size_t c = 0; c < C; ++c) {
-            exp_input[c] = e_pow_inv[max_input - scale_input[c]];
+            exp_input[c] = Goldilocks2::toS64(e_pow_inv[max_input - scale_input[c]]);
         }
         int64_t sum = 0;
         for (size_t c = 0; c < C; ++c) {
@@ -985,12 +1000,12 @@ bool check_softmax(
         for (size_t c = 0; c < C; ++c) {
             exp_input[c] = exp_input[c] * scale / sum;
         }
-        exp_input[label(n)] -= 1 * scale;
+        exp_input[Goldilocks2::toS64(label(n))] -= 1 * scale;
         for (size_t c = 0; c < C; ++c) {
             exp_input[c] = exp_input[c] / int64_t(N);
         }
         for (size_t c = 0; c < C; ++c) {
-            if (std::abs(exp_input[c] - view_output_n(c)) > 1) {
+            if (std::abs(exp_input[c] - Goldilocks2::toS64(view_output_n(c))) > 1) {
                 ret = false;
                 #pragma omp critical
                 {

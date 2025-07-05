@@ -81,6 +81,23 @@ public:
             result[i] = Goldilocks::fromU64(in1[i]);
         }
     }
+    static inline Element fromS64(int64_t in1[FIELD_EXTENSION]){
+        Element result;
+        Goldilocks2::fromS64(result, in1);
+        return result;
+    }
+    static inline void fromS64(Element &result, int64_t in1[FIELD_EXTENSION]){
+        for (uint64_t i = 0; i < FIELD_EXTENSION; i++)
+        {
+            result[i] = Goldilocks::fromS64(in1[i]);
+        }
+    }
+    static inline Element fromS64(int64_t in1){
+        Element result;
+        int64_t arr[] = {in1, 0};
+        Goldilocks2::fromS64(result, arr);
+        return result;
+    }
     static inline Element fromS32(int32_t in1[FIELD_EXTENSION]){
         Element result;
         Goldilocks2::fromS32(result, in1);
@@ -248,6 +265,19 @@ public:
         result[1] = a[1] * Goldilocks::fromString(b);
     }
 
+    // ======== DIVSCALAR ========
+    static inline void divScalar(Element &result, const Element &a,const uint64_t b)
+    {
+        result[0] = Goldilocks::fromS64(Goldilocks::toS64(a[0]) / b);
+        result[1] = Goldilocks::fromS64(Goldilocks::toS64(a[1]) / b);
+    }
+    static inline Element divScalar(const Element &a,const uint64_t b)
+    {
+        Element result;
+        divScalar(result, a, b);
+        return result;
+    }
+
     // ======== SQUARE ========
     static inline void square(Element &result, Element &a)
     {
@@ -267,6 +297,14 @@ public:
         Goldilocks::Element dinv = Goldilocks::inv(denom);
         result[0] = x * dinv;
         result[1] = Goldilocks::neg(y) * dinv;
+    }
+
+    static inline int64_t toS64(const Element &a) {
+        return Goldilocks::toS64(a[0]);
+    }
+
+    static inline bool isNeg(const Element &a) {
+        return Goldilocks::toS64(a[0]) < 0;
     }
 };
 
@@ -311,7 +349,11 @@ inline Goldilocks2::Element& operator+=(Goldilocks2::Element &in1, const Goldilo
     Goldilocks2::add(in1, in1, in2);
     return in1;
 }
+inline Goldilocks2::Element& operator-=(Goldilocks2::Element &in1, const Goldilocks2::Element &in2) { 
+    Goldilocks2::sub(in1, in1, in2);
+    return in1;
+}
 inline std::ostream& operator<<(std::ostream& os, const Goldilocks2::Element &in1) { 
-    os << in1[0].fe;
+    os << Goldilocks2::toS64(in1);
     return os;
 }

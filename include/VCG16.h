@@ -1,6 +1,7 @@
 #pragma once
 #include <format>
 #include <random>
+#include "goldilocks_quadratic_ext.h"
 #include "data_loader.h"
 
 class VCG16 {
@@ -13,10 +14,10 @@ public:
         layer_info() = default;
         layer_type type;
         std::string name;
-        array_view<int64_t> input, d_input;
-        array_view<int64_t> weight, d_weight;
-        array_view<int64_t> output, d_output; // Must be the input of the next layer
-        array_view<int64_t> aux; // auxiliary data for checking
+        array_view<Goldilocks2::Element> input, d_input;
+        array_view<Goldilocks2::Element> weight, d_weight;
+        array_view<Goldilocks2::Element> output, d_output; // Must be the input of the next layer
+        array_view<Goldilocks2::Element> aux; // auxiliary data for checking
     };
     VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value);
 
@@ -40,66 +41,66 @@ protected:
     
     cnpy::npz_t filedata; // responsible for releasing data
     
-    std::map<std::string, int64_t*> data;
+    std::map<std::string, std::unique_ptr<Goldilocks2::Element[]>> data;
     std::map<std::string, std::vector<size_t>> data_shape;
 
-    array_view<int64_t> input_data, input_label;
+    array_view<Goldilocks2::Element> input_data, input_label;
 
     std::vector<layer_info> layers;
     
-    std::vector<int64_t> e_pow_inv;
+    std::vector<Goldilocks2::Element> e_pow_inv;
 
     // bool check_conv_relu(int n_samples = 0) const;
 };
 
 bool check_range(
-    const array_view<int64_t>& input,
+    const array_view<Goldilocks2::Element>& input,
     int64_t max_value
 );
 
 bool check_conv(
-    const array_view<int64_t>& input, // [N, C, H, W]
-    const array_view<int64_t>& weights, // [OC, C, 3, 3]
-    const array_view<int64_t>& expected, // [N, OC, H, W]
+    const array_view<Goldilocks2::Element>& input, // [N, C, H, W]
+    const array_view<Goldilocks2::Element>& weights, // [OC, C, 3, 3]
+    const array_view<Goldilocks2::Element>& expected, // [N, OC, H, W]
     size_t pad,
     size_t n_samples = 0
 );
 
 bool random_check_conv(
-    const array_view<int64_t>& input, // [N, C, H, W]
-    const array_view<int64_t>& weights, // [OC, C, 3, 3]
-    const array_view<int64_t>& expected, // [N, OC, H, W]
+    const array_view<Goldilocks2::Element>& input, // [N, C, H, W]
+    const array_view<Goldilocks2::Element>& weights, // [OC, C, 3, 3]
+    const array_view<Goldilocks2::Element>& expected, // [N, OC, H, W]
     size_t pad,
     size_t n_samples
 );
 
 void add_conv(
-    const array_view<int64_t>& input, // [H, W]
-    const array_view<int64_t>& weights, // [K, K]
-    array_view<int64_t>& output, // [H + 2 * pad - K + 1, W + 2 * pad - K + 1]
+    const array_view<Goldilocks2::Element>& input, // [H, W]
+    const array_view<Goldilocks2::Element>& weights, // [K, K]
+    array_view<Goldilocks2::Element>& output, // [H + 2 * pad - K + 1, W + 2 * pad - K + 1]
     size_t pad
 );
 
 bool check_relu(
-    const array_view<int64_t>& sign,
-    const array_view<int64_t>& input,
-    const array_view<int64_t>& output,
+    const array_view<Goldilocks2::Element>& sign,
+    const array_view<Goldilocks2::Element>& input,
+    const array_view<Goldilocks2::Element>& output,
     int64_t scale,
     size_t n_samples = 0
 );
 
 bool random_check_relu(
-    const array_view<int64_t>& sign,
-    const array_view<int64_t>& input,
-    const array_view<int64_t>& output,
+    const array_view<Goldilocks2::Element>& sign,
+    const array_view<Goldilocks2::Element>& input,
+    const array_view<Goldilocks2::Element>& output,
     int64_t scale,
     size_t n_samples
 );
 
 bool check_pool(
-    const array_view<int64_t>& input, // [N, C, H, W]
-    const array_view<int64_t>& output, // [N, C, H / stride, W / stride]
-    const array_view<int64_t>& idx, // [N, C, H / stride, W / stride]
+    const array_view<Goldilocks2::Element>& input, // [N, C, H, W]
+    const array_view<Goldilocks2::Element>& output, // [N, C, H / stride, W / stride]
+    const array_view<Goldilocks2::Element>& idx, // [N, C, H / stride, W / stride]
     size_t kernel_size,
     size_t stride,
     bool backward,
@@ -107,9 +108,9 @@ bool check_pool(
 );
 
 bool random_check_pool(
-    const array_view<int64_t>& input, // [N, C, H, W]
-    const array_view<int64_t>& output, // [N, C, H / stride, W / stride]
-    const array_view<int64_t>& idx, // [N, C, H / stride, W / stride]
+    const array_view<Goldilocks2::Element>& input, // [N, C, H, W]
+    const array_view<Goldilocks2::Element>& output, // [N, C, H / stride, W / stride]
+    const array_view<Goldilocks2::Element>& idx, // [N, C, H / stride, W / stride]
     size_t kernel_size,
     size_t stride,
     bool backward,
@@ -117,35 +118,35 @@ bool random_check_pool(
 );
 
 bool check_flat(
-    const array_view<int64_t>& input, // [N, C, H, W]
-    const array_view<int64_t>& output, // [N, C * H * W]
+    const array_view<Goldilocks2::Element>& input, // [N, C, H, W]
+    const array_view<Goldilocks2::Element>& output, // [N, C * H * W]
     size_t n_samples = 0
 );
 
 bool random_check_flat(
-    const array_view<int64_t>& input, // [N, C, H, W]
-    const array_view<int64_t>& output, // [N, C * H * W]
+    const array_view<Goldilocks2::Element>& input, // [N, C, H, W]
+    const array_view<Goldilocks2::Element>& output, // [N, C * H * W]
     size_t n_samples
 );
 
 bool check_full(
-    const array_view<int64_t>& input, // [N, C]
-    const array_view<int64_t>& weights, // [C, OC]
-    const array_view<int64_t>& output, // [N, OC]
+    const array_view<Goldilocks2::Element>& input, // [N, C]
+    const array_view<Goldilocks2::Element>& weights, // [C, OC]
+    const array_view<Goldilocks2::Element>& output, // [N, OC]
     size_t n_samples = 0
 );
 
 bool random_check_full(
-    const array_view<int64_t>& input, // [N, C]
-    const array_view<int64_t>& weights, // [C, OC]
-    const array_view<int64_t>& output, // [N, OC]
+    const array_view<Goldilocks2::Element>& input, // [N, C]
+    const array_view<Goldilocks2::Element>& weights, // [C, OC]
+    const array_view<Goldilocks2::Element>& output, // [N, OC]
     size_t n_samples
 );
 
 bool check_softmax(
-    const array_view<int64_t>& input, // [N, C]
-    const array_view<int64_t>& output, // [N, C]
-    const array_view<int64_t>& label,
-    const std::vector<int64_t>& e_pow_inv,
+    const array_view<Goldilocks2::Element>& input, // [N, C]
+    const array_view<Goldilocks2::Element>& output, // [N, C]
+    const array_view<Goldilocks2::Element>& label,
+    const std::vector<Goldilocks2::Element>& e_pow_inv,
     int64_t scale
 );
