@@ -6,6 +6,7 @@
 #include <functional>
 #include "goldilocks_quadratic_ext.h"
 #include "oracle.h"
+#include "array_view.h"
 
 // store a multilinear polynomial in a vector of evaluations
 class MultilinearPolynomial : public oracle_ext {
@@ -16,6 +17,7 @@ public:
     MultilinearPolynomial(const std::vector<std::vector<Goldilocks2::Element>>& evaluations);
     MultilinearPolynomial(const std::vector<std::vector<std::vector<Goldilocks2::Element>>>& evaluations);
     MultilinearPolynomial(const std::vector<uint64_t>& val_table);
+    MultilinearPolynomial(const array_view<Goldilocks2::Element>& evaluations);
     size_t get_num_vars() const { return num_vars; }
 
     virtual std::unique_ptr<MultilinearPolynomial> clone() const {

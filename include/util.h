@@ -6,7 +6,7 @@
 #include <vector>
 #include "goldilocks_quadratic_ext.h"
 #include "mle.h"
-#include "highdim_array.h"
+#include "array_view.h"
 
 const Goldilocks::Element ROOTS[33] = {
     Goldilocks::fromU64(0x1),

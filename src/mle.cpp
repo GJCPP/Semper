@@ -15,6 +15,7 @@ MultilinearPolynomial::MultilinearPolynomial(const std::vector<Goldilocks2::Elem
 
     size_t r = find_ceiling_log2(evaluations.size());
     num_vars = r;
+    this->evaluations.resize(1ull << num_vars);
 }
 
 MultilinearPolynomial::MultilinearPolynomial(const std::vector<std::vector<Goldilocks2::Element>>& x) {
@@ -47,6 +48,40 @@ MultilinearPolynomial::MultilinearPolynomial(const std::vector<uint64_t>& val_ta
     evaluations.resize(1ull << num_vars);
     for (size_t i = 0;i < val_table.size(); ++i) {
         evaluations[i] = Goldilocks2::fromU64(val_table[i]);
+    }
+}
+
+MultilinearPolynomial::MultilinearPolynomial(const array_view<Goldilocks2::Element>& val_table)
+    : num_vars(0) {
+    std::vector<size_t> dims(val_table.get_shape());
+    for (size_t i = 0; i < dims.size(); ++i) {
+        dims[i] = find_ceiling_log2(dims[i]);
+        num_vars += dims[i];
+    }
+    evaluations.resize(1ull << num_vars);
+    size_t N = (1ull << num_vars);
+    for (size_t i = 0; i < N; ++i) {
+        int left_bit = num_vars;
+        size_t ind = i;
+        int k = 0;
+        bool outofbound = false;
+        auto view = val_table;
+        while (view.get_dims() > 1) {
+            size_t j = (ind >> (left_bit - dims[k]));
+            if (j >= view.shape(0)) {
+                outofbound = true;
+                break;
+            }
+            view = view[j];
+            ind -= (j << (left_bit - dims[k]));
+            left_bit -= dims[k];
+            ++k;
+        }
+        if (outofbound || ind >= view.size()) {
+            evaluations[i] = Goldilocks2::zero();
+        } else {
+            evaluations[i] = view(ind);
+        }
     }
 }
 

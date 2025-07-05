@@ -7,7 +7,7 @@
 #include "mle_sumcheck.h"
 #include "product2_sumcheck.h"
 #include "mle_convker.h"
-#include "highdim_array.h"
+#include "array_view.h"
 
 class convProver;
 class convVerifier;

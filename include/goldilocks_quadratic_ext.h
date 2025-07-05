@@ -353,6 +353,10 @@ inline Goldilocks2::Element& operator-=(Goldilocks2::Element &in1, const Goldilo
     Goldilocks2::sub(in1, in1, in2);
     return in1;
 }
+inline Goldilocks2::Element& operator*=(Goldilocks2::Element &in1, const Goldilocks2::Element &in2) { 
+    Goldilocks2::mul(in1, in1, in2);
+    return in1;
+}
 inline std::ostream& operator<<(std::ostream& os, const Goldilocks2::Element &in1) { 
     os << Goldilocks2::toS64(in1);
     return os;

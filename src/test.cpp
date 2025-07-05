@@ -378,6 +378,34 @@ bool test_conv2_check_padding() {
     return true;
 }
 
+bool test_pad_check() {
+    for (int cnt(0); cnt != CNT_TEST; ++cnt) {
+        size_t n = rand() % 20 + 2, m = rand() % 20 + 1;
+        std::vector<Goldilocks2::Element> r = random_vec_ext(n * m);
+        array_view<Goldilocks2::Element> r_view(r.data(), {n, m});
+        MultilinearPolynomial X(r_view);
+        ligeropcs_ext pcs = ligero_commit_ext(X, 2);
+
+        size_t pad_row = 1ull << find_ceiling_log2(m + rand() % 100 + 1);
+        std::vector<Goldilocks2::Element> r_pad(n * pad_row, Goldilocks2::zero());
+        for (size_t i = 0; i < n; ++i) {
+            for (size_t j = 0; j < m; ++j) {
+                r_pad[i * pad_row + j] = r_view(i, j);
+            }
+        }
+        array_view<Goldilocks2::Element> r_pad_view(r_pad.data(), {n, pad_row});
+        MultilinearPolynomial X_pad(r_pad_view);
+        int begin = find_ceiling_log2(n), end = find_ceiling_log2(n * pad_row) - find_ceiling_log2(m);
+        auto challenge = random_vec_ext(X_pad.get_num_vars());
+        Goldilocks2::Element claimed_Xr = X_pad.evaluate(challenge);
+        if (!execute_pad_check(claimed_Xr, &pcs, begin, end, challenge, 32)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+
 bool run_test() {
     srand(79);
     if (!test_arithmetic()) {
@@ -414,6 +442,10 @@ bool run_test() {
     }
     if (!test_conv2_check_padding()) {
         std::cout << "test_conv2_check_padding failed" << std::endl;
+        return false;
+    }
+    if (!test_pad_check()) {
+        std::cout << "test_pad_check failed" << std::endl;
         return false;
     }
     std::cout << "All tests passed" << std::endl;

@@ -5,6 +5,6 @@
 #include <random>
 #include <cnpy.h>
 
-#include "highdim_array.h"
+#include "array_view.h"
 
 cnpy::npz_t loadEpochData(const std::string& dir, int epoch);
