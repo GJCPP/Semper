@@ -161,6 +161,13 @@ public:
         return true;
     }
 
+    T* get_data() {
+        return data;
+    }
+    const T* get_data() const {
+        return data;
+    }
+
 protected:
     void init_offset() {
         if (dims == 0) {

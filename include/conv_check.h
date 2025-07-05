@@ -7,6 +7,7 @@
 #include "mle_sumcheck.h"
 #include "product2_sumcheck.h"
 #include "mle_convker.h"
+#include "highdim_array.h"
 
 class convProver;
 class convVerifier;
@@ -89,4 +90,10 @@ convProver make_conv2_prover(
     const std::vector<std::vector<std::vector<Goldilocks2::Element>>>& X, // in_channels x n x n
     const std::vector<std::vector<std::vector<std::vector<Goldilocks2::Element>>>>& W); // in_channels x out_channels x m x m
 
+// Flatten the tensor and create a conv2Prover
+convProver make_conv2_prover(
+    size_t C, size_t D, size_t n, size_t m, size_t padding,
+    const array_view<Goldilocks2::Element>& X, // in_channels x n x n
+    const array_view<Goldilocks2::Element>& W, // in_channels x out_channels x m x m
+    const array_view<Goldilocks2::Element>& Y); // out_channels x (n + 2 * padding - m + 1) x (n + 2 * padding - m + 1)
 

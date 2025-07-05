@@ -24,6 +24,30 @@ MLE_Convker::MLE_Convker(const std::vector<std::vector<std::vector<std::vector<G
     }
 }
 
+MLE_Convker::MLE_Convker(const array_view<Goldilocks2::Element>& kernel, size_t C, size_t D, size_t n, size_t m)
+    : C(C), D(D), n(n), m(m), expanded(false) {
+
+    assert(kernel.shape(0) == C && kernel.shape(1) == D && kernel.shape(2) == m && kernel.shape(3) == m);
+
+    logC = find_ceiling_log2(C);
+    logD = find_ceiling_log2(D);
+    lognm = find_ceiling_log2(n * m);
+    logmm = find_ceiling_log2(m * m);
+    num_vars = logC + logD + lognm;
+    evaluations.resize(1ull << (logC + logD + logmm), Goldilocks2::zero());
+
+    size_t off_c = (1 << logD + logmm), off_d = (1 << logmm);
+    for (size_t c = 0; c < C; ++c) {
+        for (size_t d = 0; d < D; ++d) {
+            for (size_t i = 0; i < m; ++i) {
+                for (size_t j = 0; j < m; ++j) {
+                    evaluations[c * off_c + d * off_d + i * m + j] = kernel(c, d, m - i - 1, m - j - 1); // Reverse the kernel
+                }
+            }
+        }
+    }
+}
+
 Goldilocks2::Element MLE_Convker::eval_hypercube(size_t mask) const {
     if (expanded) {
         return evaluations[mask];

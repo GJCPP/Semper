@@ -123,6 +123,80 @@ convProver make_conv2_prover(
         std::make_unique<MultilinearPolynomial>(Y_1d)));
 }
 
+convProver make_conv2_prover(
+    size_t C,
+    size_t D,
+    size_t n,
+    size_t m,
+    size_t padding,
+    const array_view<Goldilocks2::Element>& X,
+    const array_view<Goldilocks2::Element>& W,
+    const array_view<Goldilocks2::Element>& Y) {
+
+    size_t in = n + 2 * padding;
+    size_t on = in - m + 1;
+    size_t Y_len = in * in + m * in - 1;
+
+    assert(X.shape(0) == C);
+    assert(X.shape(1) == n);
+    assert(X.shape(2) == n);
+    assert(W.shape(0) == C);
+    assert(W.shape(1) == D);
+    assert(W.shape(2) == m);
+    assert(W.shape(3) == m);
+    assert(Y.shape(0) == D);
+    assert(Y.shape(1) == on);
+    assert(Y.shape(2) == on);
+
+    std::vector<std::vector<Goldilocks2::Element>> X_1d(C);
+    std::vector<std::vector<bool>> Y_1d_visited(D);
+    std::vector<std::vector<Goldilocks2::Element>> Y_1d(D); // D x Y_len
+
+    #pragma omp parallel for
+    for (size_t c = 0; c < C; ++c) {
+        X_1d[c] = flatten_2d(X[c], padding);
+        assert(X_1d[c].size() == in * in);
+    }
+
+    #pragma omp parallel for
+    for (size_t d = 0; d < D; ++d) {
+        Y_1d_visited[d].resize(Y_len);
+        Y_1d[d].resize(Y_len);
+    }
+
+    // Fill Y_1d with Y
+    // #pragma omp parallel for
+    for (size_t d = 0; d < D; ++d) {
+        for (size_t i = 0; i < on; ++i) {
+            for (size_t j = 0; j < on; ++j) {
+                size_t deg = i * in + j + in * m + m;
+                assert(deg < Y_len);
+                Y_1d[d][deg] = Y(d, i, j);
+                Y_1d_visited[d][deg] = true;
+            }
+        }
+        for (size_t i = 0; i < Y_len; ++i) {
+            if (Y_1d_visited[d][i]) continue;
+            // Compute and fill Y_1d[d][i]
+            for (size_t c = 0; c < C; ++c) {
+                for (size_t k = 0; k < m; ++k) {
+                    for (size_t l = 0; l < m; ++l) {
+                        size_t delta = k * in + l;
+                        if (i - delta < X_1d[c].size()) {
+                            Y_1d[d][i] += X_1d[c][i - delta] * W(c, d, m - k - 1, m - l - 1);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return convProver(convTriple(C, in * in, D, in * m,
+        std::make_unique<MultilinearPolynomial>(std::move(X_1d)),
+        std::make_unique<MLE_Convker>(W, C, D, in, m),
+        std::make_unique<MultilinearPolynomial>(std::move(Y_1d))));
+}
+
 bool convVerifier::execute_convcheck(
     convProver& prover,
     const std::array<const oracle_ext*, 3>& oracle,

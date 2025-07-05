@@ -82,14 +82,14 @@ int main() {
 
     // bench_logup(1ull << 10);
     //bench_logup(1ull << 28);
-    // run_test();
+    run_test();
 
-    VCG16 vcg16("/home/gaojc/Desktop/logup-main/training_trace/", 0, 1 << 14, 1 << 24);
-#ifdef DEBUG
-    vcg16.check(1);
-#else
-    vcg16.check(1);
-#endif
+//     VCG16 vcg16("/home/gaojc/Desktop/logup-main/training_trace/", 0, 1 << 14, 1 << 24);
+// #ifdef DEBUG
+//     vcg16.check(1);
+// #else
+//     vcg16.check(1);
+// #endif
 
     return 0;
 }

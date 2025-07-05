@@ -6,6 +6,7 @@
 #include <vector>
 #include "goldilocks_quadratic_ext.h"
 #include "mle.h"
+#include "highdim_array.h"
 
 const Goldilocks::Element ROOTS[33] = {
     Goldilocks::fromU64(0x1),
@@ -69,6 +70,8 @@ Goldilocks2::Element random_ext();
 
 std::vector<Goldilocks2::Element> random_vec_ext(const size_t& n);
 
+void random_vec_ext(Goldilocks2::Element* arr, const size_t& n);
+
 std::vector<uint64_t> trange(const uint64_t& lbound, const uint64_t& ubound);
 
 void alert(const std::string& mes);
@@ -119,4 +122,19 @@ std::vector<Goldilocks2::Element> flatten(const std::vector<std::vector<Goldiloc
 std::vector<Goldilocks2::Element> flatten(const std::vector<std::vector<std::vector<Goldilocks2::Element>>>& vec);
 std::vector<Goldilocks2::Element> flatten(const std::vector<std::vector<std::vector<std::vector<Goldilocks2::Element>>>>& vec);
 
-
+template <typename T>
+std::vector<T> flatten_2d(const array_view<T>& vec, size_t padding, T pad_val = T()) {
+    if (vec.get_dims() != 2) {
+        throw std::invalid_argument("vec must be a 2D array");
+    }
+    size_t n1 = vec.shape(0), n2 = vec.shape(1);
+    size_t sz = (n1 + 2 * padding) * (n2 + 2 * padding);
+    size_t offset = n2 + 2 * padding;
+    std::vector<T> res(sz, pad_val);
+    for (size_t i = 0; i < n1; ++i) {
+        for (size_t j = 0; j < n2; ++j) {
+            res[(i + padding) * offset + (j + padding)] = vec(i, j);
+        }
+    }
+    return res;
+}

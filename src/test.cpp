@@ -237,7 +237,8 @@ bool test_conv_check() {
 void random_conv2(
     size_t C, size_t D, size_t n, size_t m,
     std::vector<std::vector<std::vector<Goldilocks2::Element>>>& X, // C x n x n
-    std::vector<std::vector<std::vector<std::vector<Goldilocks2::Element>>>>& W) {
+    std::vector<std::vector<std::vector<std::vector<Goldilocks2::Element>>>>& W
+    ) {
 
     X.resize(C, std::vector<std::vector<Goldilocks2::Element>>(n, std::vector<Goldilocks2::Element>(n)));
     W.resize(C, std::vector<std::vector<std::vector<Goldilocks2::Element>>>(D, std::vector<std::vector<Goldilocks2::Element>>(m, std::vector<Goldilocks2::Element>(m))));
@@ -293,6 +294,90 @@ bool test_conv2_check() {
     return true;
 }
 
+void random_conv2_padding(
+    size_t C, size_t D, size_t n, size_t m, size_t padding,
+    array_view<Goldilocks2::Element>& X,
+    array_view<Goldilocks2::Element>& W,
+    array_view<Goldilocks2::Element>& Y
+    ) {
+    size_t in = n + 2 * padding;
+    size_t on = n + 2 * padding - m + 1;
+
+    assert(X.shape(0) == C);
+    assert(X.shape(1) == n);
+    assert(X.shape(2) == n);
+    assert(W.shape(0) == C);
+    assert(W.shape(1) == D);
+    assert(W.shape(2) == m);
+    assert(W.shape(3) == m);
+    assert(Y.shape(0) == D);
+    assert(Y.shape(1) == on);
+    assert(Y.shape(2) == on);
+    
+    random_vec_ext(X.get_data(), X.size());
+    random_vec_ext(W.get_data(), W.size());
+
+    // Compute 2D convolution with padding
+    #pragma omp parallel for
+    for (int64_t d = 0; d < D; ++d) {
+        for (int64_t i = 0; i < on; ++i) {
+            for (int64_t j = 0; j < on; ++j) {
+                Goldilocks2::Element sum = Goldilocks2::zero();
+                for (int64_t c = 0; c < C; ++c) {
+                    for (int64_t ki = 0; ki < m; ++ki) {
+                        for (int64_t kj = 0; kj < m; ++kj) {
+                            int64_t x_i = i + ki;
+                            int64_t x_j = j + kj;
+                            if (x_i >= 0 && x_i < n && x_j >= 0 && x_j < n) {
+                                sum = sum + X(c, x_i, x_j) * W(c, d, ki, kj);
+                            }
+                        }
+                    }
+                }
+                Y(d, i, j) = sum;
+            }
+        }
+    }
+}
+
+bool test_conv2_check_padding() {
+    for (int cnt(0); cnt != CNT_TEST; ++cnt) {
+        srand(cnt);
+        size_t padding = 1;
+        size_t C = rand() % 10 + 1, D = rand() % 5 + 1, n = rand() % 10 + 4, m = 3;
+        size_t on = n + 2 * padding - m + 1;
+        // X: C x n x n, W: C x D x m x m, Y: D x on x on
+        std::vector<Goldilocks2::Element> X(C * n * n);
+        std::vector<Goldilocks2::Element> W(C * D * m * m);
+        std::vector<Goldilocks2::Element> Y(D * on * on);
+        array_view<Goldilocks2::Element> X_view(X.data(), {C, n, n});
+        array_view<Goldilocks2::Element> W_view(W.data(), {C, D, m, m});
+        array_view<Goldilocks2::Element> Y_view(Y.data(), {D, on, on});
+        
+        random_conv2_padding(C, D, n, m, padding, X_view, W_view, Y_view);
+
+        convProver prover(make_conv2_prover(C, D, n, m, padding, X_view, W_view, Y_view));
+        
+        // std::array<ligeropcs_ext, 3> pcs = prover.triple.commit(2);
+        // std::array<const oracle_ext*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
+        MultilinearPolynomial p1 = *prover.triple.X;
+        MLE_Convker p2 = *dynamic_cast<MLE_Convker*>(prover.triple.W.get());
+
+        // MultilinearPolynomial p2 = *prover.triple.W;
+        MultilinearPolynomial p3 = *prover.triple.Y;
+        std::array<const oracle_ext*, 3> oracle = { &p1, &p2, &p3 };
+
+        if (!prover.triple.check()) {
+            return false;
+        }
+
+        if (!convVerifier::execute_convcheck(prover, oracle, 32)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool run_test() {
     srand(79);
     if (!test_arithmetic()) {
@@ -325,6 +410,10 @@ bool run_test() {
     }
     if (!test_conv2_check()) {
         std::cout << "test_conv2_check failed" << std::endl;
+        return false;
+    }
+    if (!test_conv2_check_padding()) {
+        std::cout << "test_conv2_check_padding failed" << std::endl;
         return false;
     }
     std::cout << "All tests passed" << std::endl;
