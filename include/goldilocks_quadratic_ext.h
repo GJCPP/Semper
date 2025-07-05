@@ -266,12 +266,12 @@ public:
     }
 
     // ======== DIVSCALAR ========
-    static inline void divScalar(Element &result, const Element &a,const uint64_t b)
+    static inline void divScalar(Element &result, const Element &a,const int64_t b)
     {
         result[0] = Goldilocks::fromS64(Goldilocks::toS64(a[0]) / b);
         result[1] = Goldilocks::fromS64(Goldilocks::toS64(a[1]) / b);
     }
-    static inline Element divScalar(const Element &a,const uint64_t b)
+    static inline Element divScalar(const Element &a,const int64_t b)
     {
         Element result;
         divScalar(result, a, b);

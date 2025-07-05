@@ -981,31 +981,31 @@ bool check_softmax(
     for (size_t n = 0; n < N; ++n) {
         auto view_input_n = input[n];
         auto view_output_n = output[n];
-        std::vector<int64_t> scale_input(C);
-        std::vector<int64_t> exp_input(C);
-        int64_t max_input = Goldilocks2::toS64(view_input_n(0)) / scale;
+        std::vector<Goldilocks2::Element> scale_input(C);
+        std::vector<Goldilocks2::Element> exp_input(C);
+        Goldilocks2::Element max_input = Goldilocks2::divScalar(view_input_n(0), scale);
         for (size_t c = 0; c < C; ++c) {
-            scale_input[c] = Goldilocks2::toS64(view_input_n(c)) / scale; // small value
-            if (scale_input[c] > max_input) {
+            scale_input[c] = Goldilocks2::divScalar(view_input_n(c), scale); // small value
+            if (Goldilocks2::toS64(scale_input[c]) > Goldilocks2::toS64(max_input)) {
                 max_input = scale_input[c];
             }
         }
         for (size_t c = 0; c < C; ++c) {
-            exp_input[c] = Goldilocks2::toS64(e_pow_inv[max_input - scale_input[c]]);
+            exp_input[c] = e_pow_inv[Goldilocks2::toS64(max_input) - Goldilocks2::toS64(scale_input[c])];
         }
-        int64_t sum = 0;
+        Goldilocks2::Element sum = Goldilocks2::zero();
         for (size_t c = 0; c < C; ++c) {
             sum += exp_input[c];
         }
         for (size_t c = 0; c < C; ++c) {
-            exp_input[c] = exp_input[c] * scale / sum;
+            exp_input[c] = Goldilocks2::divScalar(exp_input[c] * Goldilocks2::fromS64(scale), Goldilocks2::toS64(sum));
         }
-        exp_input[Goldilocks2::toS64(label(n))] -= 1 * scale;
+        exp_input[Goldilocks2::toS64(label(n))] -= Goldilocks2::fromS64(scale);
         for (size_t c = 0; c < C; ++c) {
-            exp_input[c] = exp_input[c] / int64_t(N);
+            exp_input[c] = Goldilocks2::divScalar(exp_input[c], N);
         }
         for (size_t c = 0; c < C; ++c) {
-            if (std::abs(exp_input[c] - Goldilocks2::toS64(view_output_n(c))) > 1) {
+            if (std::abs(Goldilocks2::toS64(exp_input[c] - view_output_n(c))) > 1) {
                 ret = false;
                 #pragma omp critical
                 {
