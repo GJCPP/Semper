@@ -148,40 +148,53 @@ convProver make_conv2_prover(
     assert(Y.shape(1) == on);
     assert(Y.shape(2) == on);
 
+    size_t new_in = 1ull << find_ceiling_log2(in);
+    size_t new_padding = ((new_in - n) >> 1);
+    size_t new_on = new_in - m + 1;
+    size_t new_Y_len = new_in * new_in + m * new_in - 1;
+
     std::vector<std::vector<Goldilocks2::Element>> X_1d(C);
     std::vector<std::vector<bool>> Y_1d_visited(D);
     std::vector<std::vector<Goldilocks2::Element>> Y_1d(D); // D x Y_len
 
     #pragma omp parallel for
     for (size_t c = 0; c < C; ++c) {
-        X_1d[c] = flatten_2d(X[c], padding);
-        assert(X_1d[c].size() == in * in);
+        X_1d[c] = flatten_2d(X[c], new_padding);
+        assert(X_1d[c].size() == new_in * new_in);
     }
 
     #pragma omp parallel for
     for (size_t d = 0; d < D; ++d) {
-        Y_1d_visited[d].resize(Y_len);
-        Y_1d[d].resize(Y_len);
+        Y_1d_visited[d].resize(new_Y_len);
+        Y_1d[d].resize(new_Y_len);
     }
 
     // Fill Y_1d with Y
-    // #pragma omp parallel for
+    bool printed = false;
+    #pragma omp parallel for
     for (size_t d = 0; d < D; ++d) {
         for (size_t i = 0; i < on; ++i) {
             for (size_t j = 0; j < on; ++j) {
-                size_t deg = i * in + j + in * m + m;
-                assert(deg < Y_len);
+                size_t deg = i * new_in + j + (new_in + 1) * (m + new_padding - 1);
+                assert(deg < new_Y_len);
                 Y_1d[d][deg] = Y(d, i, j);
                 Y_1d_visited[d][deg] = true;
             }
         }
-        for (size_t i = 0; i < Y_len; ++i) {
+        for (size_t i = 0; i < new_Y_len; ++i) {
             if (Y_1d_visited[d][i]) continue;
             // Compute and fill Y_1d[d][i]
             for (size_t c = 0; c < C; ++c) {
                 for (size_t k = 0; k < m; ++k) {
                     for (size_t l = 0; l < m; ++l) {
-                        size_t delta = k * in + l;
+                        // Check if there will be intersection
+                        size_t x = i / new_in, y = i % new_in;
+                        if (x + m <= new_padding || x >= new_padding + in ||
+                            y + m <= new_padding || y >= new_padding + in) {
+                            continue;
+                        }
+
+                        size_t delta = k * new_in + l;
                         if (i - delta < X_1d[c].size()) {
                             Y_1d[d][i] += X_1d[c][i - delta] * W(c, d, m - k - 1, m - l - 1);
                         }
@@ -191,9 +204,9 @@ convProver make_conv2_prover(
         }
     }
 
-    return convProver(convTriple(C, in * in, D, in * m,
+    return convProver(convTriple(C, new_in * new_in, D, new_in * m,
         std::make_unique<MultilinearPolynomial>(std::move(X_1d)),
-        std::make_unique<MLE_Convker>(W, C, D, in, m),
+        std::make_unique<MLE_Convker>(W, C, D, new_in, m),
         std::make_unique<MultilinearPolynomial>(std::move(Y_1d))));
 }
 

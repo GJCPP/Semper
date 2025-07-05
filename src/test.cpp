@@ -261,39 +261,6 @@ void random_conv2(
     }
 }
 
-bool test_conv2_check() {
-    for (int cnt(0); cnt != CNT_TEST; ++cnt) {
-        srand(cnt);
-        size_t C = rand() % 10 + 1, D = rand() % 5 + 1, n = rand() % 10 + 4, m = 3;
-        
-        // X: C x n x n, W: C x D x m x m, Y: D x n x n
-        std::vector<std::vector<std::vector<Goldilocks2::Element>>> X;
-        std::vector<std::vector<std::vector<std::vector<Goldilocks2::Element>>>> W;
-        std::vector<std::vector<std::vector<Goldilocks2::Element>>> Y;
-        
-        random_conv2(C, D, n, m, X, W);
-
-        convProver prover(make_conv2_prover(C, D, n, m, X, W));
-        // std::array<ligeropcs_ext, 3> pcs = prover.triple.commit(2);
-        // std::array<const oracle_ext*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
-        MultilinearPolynomial p1 = *prover.triple.X;
-        MLE_Convker p2 = *dynamic_cast<MLE_Convker*>(prover.triple.W.get());
-
-        // MultilinearPolynomial p2 = *prover.triple.W;
-        MultilinearPolynomial p3 = *prover.triple.Y;
-        std::array<const oracle_ext*, 3> oracle = { &p1, &p2, &p3 };
-
-        if (!prover.triple.check()) {
-            return false;
-        }
-
-        if (!convVerifier::execute_convcheck(prover, oracle, 32)) {
-            return false;
-        }
-    }
-    return true;
-}
-
 void random_conv2_padding(
     size_t C, size_t D, size_t n, size_t m, size_t padding,
     array_view<Goldilocks2::Element>& X,
@@ -340,11 +307,11 @@ void random_conv2_padding(
     }
 }
 
-bool test_conv2_check_padding() {
+bool test_conv2_check() {
     for (int cnt(0); cnt != CNT_TEST; ++cnt) {
         srand(cnt);
         size_t padding = 1;
-        size_t C = rand() % 10 + 1, D = rand() % 5 + 1, n = rand() % 10 + 4, m = 3;
+        size_t C = rand() % 10 + 1, D = rand() % 5 + 1, n = 2 * (rand() % 10) + 6, m = 3;
         size_t on = n + 2 * padding - m + 1;
         // X: C x n x n, W: C x D x m x m, Y: D x on x on
         std::vector<Goldilocks2::Element> X(C * n * n);
@@ -438,10 +405,6 @@ bool run_test() {
     }
     if (!test_conv2_check()) {
         std::cout << "test_conv2_check failed" << std::endl;
-        return false;
-    }
-    if (!test_conv2_check_padding()) {
-        std::cout << "test_conv2_check_padding failed" << std::endl;
         return false;
     }
     if (!test_pad_check()) {
