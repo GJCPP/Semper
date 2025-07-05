@@ -11,6 +11,8 @@ convProver::convProver(convTriple&& triple)
 
 
 bool convTriple::check() const {
+    bool ret = true;
+    #pragma omp parallel for
     for (size_t d = 0; d < D; ++d) {
         std::vector<Goldilocks2::Element> res(N + K - 1);
         for (size_t c = 0; c < C; ++c) {
@@ -23,11 +25,11 @@ bool convTriple::check() const {
         }
         for (size_t n = 0; n < N + K - 1; ++n) {
             if (res[n] != Y->eval_hypercube((d << logNK1) | n)) {
-                return false;
+                ret = false;
             }
         }
     }
-    return true;
+    return ret;
 }
 
 p2Prover convProver::fix_beta_r_D(

@@ -323,8 +323,10 @@ bool test_conv2_check() {
         
         random_conv2_padding(C, D, n, m, padding, X_view, W_view, Y_view);
 
+
         convProver prover(make_conv2_prover(C, D, n, m, padding, X_view, W_view, Y_view));
-        
+
+
         // std::array<ligeropcs_ext, 3> pcs = prover.triple.commit(2);
         // std::array<const oracle_ext*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
         MultilinearPolynomial p1 = *prover.triple.X;
