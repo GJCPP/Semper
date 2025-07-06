@@ -1,3 +1,4 @@
+#include <chrono>
 
 #include "VCG16.h"
 
@@ -14,6 +15,9 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value)
     #pragma omp parallel for
     for (size_t i = 0; i < keys.size(); ++i) {
         std::string key = keys[i];
+
+        std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+
         cnpy::NpyArray *value = values[i];
         size_t num_vals = value->num_vals;
         data[key] = std::make_unique<Goldilocks2::Element[]>(num_vals);
@@ -22,9 +26,27 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value)
             ptr[i] = Goldilocks2::fromS64(value->data<int64_t>()[i]);
         }
         data_shape[key] = value->shape;
+        array_view<Goldilocks2::Element> arr(ptr, value->shape);
+        mle[key] = std::make_shared<MultilinearPolynomial>(arr);
+        pcs[key] = std::make_shared<ligeropcs_ext>(ligero_commit_ext(*mle[key], 2));
+        #pragma omp critical
+        {
+            std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
+            std::cout << "Key " << key << " of size ";
+            for (size_t j = 0; j < values[i]->shape.size(); ++j) {
+                if (j > 0) std::cout << "x";
+                std::cout << values[i]->shape[j];
+            }
+            std::cout << " took " << duration.count() / 1000000.0 << " s" << std::endl;
+        }
     }
+    std::cout << "Done processing keys." << std::endl;
     data[{}] = nullptr;
     data_shape[{}] = {};
+    mle[{}] = nullptr;
+    pcs[{}] = nullptr;
+
     minibatch = data_shape["a_q0"][0];
     img_per_batch = data_shape["a_q0"][1];
 
@@ -380,6 +402,21 @@ void VCG16::add_layer(layer_type type,
     info.d_output = array_view<Goldilocks2::Element>(data[d_output].get(), data_shape[d_output]);
     info.d_weight = array_view<Goldilocks2::Element>(data[d_weight].get(), data_shape[d_weight]);
     info.aux = array_view<Goldilocks2::Element>(data[aux].get(), data_shape[aux]);
+
+    info.mle_input = mle[input];
+    info.mle_output = mle[output];
+    info.mle_weight = mle[weight];
+    info.mle_d_input = mle[d_input];
+    info.mle_d_output = mle[d_output];
+    info.mle_d_weight = mle[d_weight];
+    
+    info.pcs_input = pcs[input];
+    info.pcs_output = pcs[output];
+    info.pcs_weight = pcs[weight];
+    info.pcs_d_input = pcs[d_input];
+    info.pcs_d_output = pcs[d_output];
+    info.pcs_d_weight = pcs[d_weight];
+
     layers.push_back(info);
 }
 

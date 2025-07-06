@@ -82,13 +82,20 @@ int main() {
 
     // bench_logup(1ull << 10);
     //bench_logup(1ull << 28);
-    run_test();
+    // run_test();
 
-//     VCG16 vcg16("/home/gaojc/Desktop/logup-main/training_trace/", 0, 1 << 14, 1 << 24);
+
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    VCG16 vcg16("/home/gaojc/Desktop/logup-main/training_trace/", 0, 1 << 14, 1 << 24);
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
+    std::cout << "Loading and committing took " << duration.count() / 1000000.0 << " s" << std::endl;
+
+
 // #ifdef DEBUG
-//     vcg16.check(1);
+//     vcg16.check(100);
 // #else
-//     vcg16.check(1);
+//     vcg16.check(1000);
 // #endif
 
     return 0;

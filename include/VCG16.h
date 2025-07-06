@@ -1,6 +1,7 @@
 #pragma once
 #include <format>
 #include <random>
+#include "ligero.h"
 #include "goldilocks_quadratic_ext.h"
 #include "data_loader.h"
 
@@ -18,6 +19,14 @@ public:
         array_view<Goldilocks2::Element> weight, d_weight;
         array_view<Goldilocks2::Element> output, d_output; // Must be the input of the next layer
         array_view<Goldilocks2::Element> aux; // auxiliary data for checking
+
+        std::shared_ptr<MultilinearPolynomial> mle_input, mle_output,
+                                            mle_weight, mle_d_weight,
+                                            mle_d_input, mle_d_output;
+                                            
+        std::shared_ptr<ligeropcs_ext> pcs_input, pcs_output,
+                                        pcs_weight, pcs_d_weight,
+                                        pcs_d_input, pcs_d_output;
     };
     VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value);
 
@@ -43,6 +52,8 @@ protected:
     
     std::map<std::string, std::unique_ptr<Goldilocks2::Element[]>> data;
     std::map<std::string, std::vector<size_t>> data_shape;
+    std::map<std::string, std::shared_ptr<MultilinearPolynomial>> mle;
+    std::map<std::string, std::shared_ptr<ligeropcs_ext>> pcs;
 
     array_view<Goldilocks2::Element> input_data, input_label;
 
