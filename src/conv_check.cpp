@@ -173,11 +173,11 @@ convProver make_conv2_prover(
 
     // Fill Y_1d with Y
     bool printed = false;
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (size_t d = 0; d < D; ++d) {
         for (size_t i = 0; i < on; ++i) {
             for (size_t j = 0; j < on; ++j) {
-                size_t deg = i * new_in + j + (new_in + 1) * (m + new_padding - 1);
+                size_t deg = i * new_in + j + (new_in + 1) * (m + new_padding - padding - 1);
                 assert(deg < new_Y_len);
                 Y_1d[d][deg] = Y(d, i, j);
                 Y_1d_visited[d][deg] = true;
@@ -185,16 +185,20 @@ convProver make_conv2_prover(
         }
         for (size_t i = 0; i < new_Y_len; ++i) {
             if (Y_1d_visited[d][i]) continue;
+
+            // Check if there will be intersection
+            size_t start = i + 1 + new_in - m;
+            size_t x = start / new_in, y = start % new_in;
+            if (x < new_padding || x > new_padding + n + m ||
+                (y + m < new_padding && (y - m + new_in) % new_in > new_padding + n) ||
+                (y > new_padding + n && (y + m) % new_in < new_padding)) {
+                continue;
+            }
+
             // Compute and fill Y_1d[d][i]
             for (size_t c = 0; c < C; ++c) {
                 for (size_t k = 0; k < m; ++k) {
                     for (size_t l = 0; l < m; ++l) {
-                        // Check if there will be intersection
-                        size_t x = i / new_in, y = i % new_in;
-                        if (x + m <= new_padding || x >= new_padding + in ||
-                            y + m <= new_padding || y >= new_padding + in) {
-                            continue;
-                        }
 
                         size_t delta = k * new_in + l;
                         if (i - delta < X_1d[c].size()) {

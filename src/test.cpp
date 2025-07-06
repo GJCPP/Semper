@@ -293,8 +293,8 @@ void random_conv2_padding(
                 for (int64_t c = 0; c < C; ++c) {
                     for (int64_t ki = 0; ki < m; ++ki) {
                         for (int64_t kj = 0; kj < m; ++kj) {
-                            int64_t x_i = i + ki;
-                            int64_t x_j = j + kj;
+                            int64_t x_i = i + ki - padding;
+                            int64_t x_j = j + kj - padding;
                             if (x_i >= 0 && x_i < n && x_j >= 0 && x_j < n) {
                                 sum = sum + X(c, x_i, x_j) * W(c, d, ki, kj);
                             }
@@ -310,8 +310,8 @@ void random_conv2_padding(
 bool test_conv2_check() {
     for (int cnt(0); cnt != CNT_TEST; ++cnt) {
         srand(cnt);
-        size_t padding = 1;
-        size_t C = rand() % 10 + 1, D = rand() % 5 + 1, n = 2 * (rand() % 10) + 6, m = 3;
+        size_t padding = rand() % 4;
+        size_t C = rand() % 10 + 1, D = rand() % 5 + 1, n = 2 * (rand() % 20) + 6, m = rand() % 3 + 2;
         size_t on = n + 2 * padding - m + 1;
         // X: C x n x n, W: C x D x m x m, Y: D x on x on
         std::vector<Goldilocks2::Element> X(C * n * n);
@@ -337,6 +337,7 @@ bool test_conv2_check() {
         std::array<const oracle_ext*, 3> oracle = { &p1, &p2, &p3 };
 
         if (!prover.triple.check()) {
+            std::cout << "convTriple check failed" << std::endl;
             return false;
         }
 

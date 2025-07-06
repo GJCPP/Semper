@@ -37,7 +37,7 @@ public:
 
 protected:
     size_t C, D, n, m;
-    int logC, logD, lognm, logmm;
+    int logC, logD, logn, logm;
     bool expanded;
 
     void expand();
