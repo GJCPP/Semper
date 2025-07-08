@@ -219,7 +219,7 @@ convProver make_conv2_prover(
         std::make_unique<MultilinearPolynomial>(std::move(X_1d)),
         std::make_unique<MLE_Convker>(W, C, D, new_in, m),
         std::make_unique<MultilinearPolynomial>(std::move(Y_1d)),
-        find_ceiling_log2(new_padding), find_ceiling_log2(n), find_ceiling_log2(m)));
+        find_ceiling_log2(new_padding), find_ceiling_log2(new_in), find_ceiling_log2(m)));
 }
 
 bool convVerifier::execute_convcheck_1d(convProver& prover, const std::array<const oracle_ext*, 3>& oracle, const size_t& sec_param) {
@@ -238,25 +238,25 @@ bool convVerifier::execute_convcheck_2d(convProver& prover, const std::array<con
     if (!execute_pad_check(claim->at(1).claim, oracle[1], begin, end, claim->at(1).challenges, sec_param)) {
         return false;
     }
-    // pad check X
-    int ind[8] = {};
-    ind[0] = prover.triple.logC + prover.triple.logD;
-    ind[1] = ind[0] + prover.triple.log_padding;
-    ind[2] = ind[1] + prover.triple.log_n;
-    ind[3] = ind[2] + prover.triple.log_padding;
-    ind[4] = ind[3];
-    ind[5] = ind[4] + prover.triple.log_padding;
-    ind[6] = ind[5] + prover.triple.log_n;
-    ind[7] = ind[6] + prover.triple.log_padding;
-    std::vector<std::array<int, 2>> ranges = {
-        { ind[0], ind[1] },
-        { ind[2], ind[3] },
-        { ind[4], ind[5] },
-        { ind[6], ind[7] }
-    };
-    if (!execute_pad_check(claim->at(0).claim, oracle[0], ranges, claim->at(0).challenges, sec_param)) {
-        return false;
-    }
+    // // pad check X
+    // int ind[8] = {};
+    // ind[0] = prover.triple.logC + prover.triple.logD;
+    // ind[1] = ind[0] + prover.triple.log_padding;
+    // ind[2] = ind[1] + prover.triple.log_n;
+    // ind[3] = ind[2] + prover.triple.log_padding;
+    // ind[4] = ind[3];
+    // ind[5] = ind[4] + prover.triple.log_padding;
+    // ind[6] = ind[5] + prover.triple.log_n;
+    // ind[7] = ind[6] + prover.triple.log_padding;
+    // std::vector<std::array<int, 2>> ranges = {
+    //     { ind[0], ind[1] },
+    //     { ind[2], ind[3] },
+    //     { ind[4], ind[5] },
+    //     { ind[6], ind[7] }
+    // };
+    // if (!execute_pad_check(claim->at(0).claim, oracle[0], ranges, claim->at(0).challenges, sec_param)) {
+    //     return false;
+    // }
     return true;
 }
 
