@@ -30,18 +30,20 @@ std::vector<Goldilocks2::Element> rsencode(const std::vector<Goldilocks2::Elemen
     return eval_with_ntt(data, data.size() * rho_inv);
 }
 
-ligeroProver_base::ligeroProver_base(const MultilinearPolynomial& w, const uint64_t& rho_inv) :rho_inv(rho_inv) {
-    size_t l = w.get_num_vars();
+ligeroProver_base::ligeroProver_base(const MultilinearPolynomial& w, const uint64_t& rho_inv)
+    : rho_inv(rho_inv)
+{
+    const std::vector<Goldilocks2::Element>& eval_table = w.get_eval_table();
+    size_t l = find_ceiling_log2(eval_table.size());
 
     // 2^l = a * b
     a = 1ull << (l >> 1);       //floor(l/2)
     b = a << (l & 1);           //ceil(l/2)
     M.resize(1ull << l, Goldilocks::zero());
     codelen = b * rho_inv;
-    for (size_t i = 0; i < (1 << l); ++i) {
-        M[i] = w[i][0];
+    for (size_t i = 0; i < eval_table.size(); ++i) {
+        M[i] = eval_table[i][0];
     }
-
     for (size_t i = 0; i < a; ++i) {
         std::vector<Goldilocks::Element> dataline(b);
         for (size_t j = 0; j < b; ++j) {
@@ -50,6 +52,7 @@ ligeroProver_base::ligeroProver_base(const MultilinearPolynomial& w, const uint6
         codewords.push_back(rsencode(dataline, rho_inv));
     }
     mt_t = MerkleTree_base(codewords);
+    mle = &w;
 }
 
 
@@ -137,26 +140,9 @@ ligeropcs_base ligeroProver_base::commit() const {
 
 
 
-ligeroProver_ext::ligeroProver_ext(const MultilinearPolynomial& w, const uint64_t& rho_inv) :rho_inv(rho_inv) {
-    // evals = w.get_eval_table();
-    // std::vector<Goldilocks2::Element> evals = w.get_eval_table();
-    size_t l = w.get_num_vars();
-    M.resize(1ull << l, Goldilocks2::zero());
-    // 2^l = a * b
-    a = 1ull << (l >> 1);       //floor(l/2)
-    b = a << (l & 1);           //ceil(l/2)
-    codelen = b * rho_inv;
-    for (size_t i = 0; i < (1 << l); ++i) {
-        M[i] = w.eval_hypercube(i);
-    }
-    for (size_t i = 0; i < a; ++i) {
-        std::vector<Goldilocks2::Element> dataline(b);
-        for (size_t j = 0; j < b; ++j) {
-            dataline[j] = M[i * b + j];
-        }
-        codewords.push_back(rsencode(dataline, rho_inv));
-    }
-    mt_t = MerkleTree_ext(codewords);
+ligeroProver_ext::ligeroProver_ext(const MultilinearPolynomial& w, const uint64_t& rho_inv)
+    : ligeroProver_ext(w.get_eval_table(), rho_inv) {
+    mle = &w;
 }
 
 ligeroProver_ext::ligeroProver_ext(const std::vector<Goldilocks2::Element>& w, const uint64_t& rho_inv) :M(w), rho_inv(rho_inv) {
@@ -200,6 +186,23 @@ std::vector<MerkleTree_ext::MTPayload> ligeroProver_ext::open_cols(const std::ve
         payloads.push_back(mt_t.MerkleOpen(e));
     }
     return payloads;
+}
+
+bool ligeroProver_base::check_open(
+    const ligeropcs_base *pcs,
+    const std::vector<Goldilocks2::Element>& challenges,
+    const Goldilocks2::Element& claim,
+    const size_t& sec_param) const {
+    return mle->check_open(pcs, challenges, claim, sec_param);
+}
+
+bool ligeroProver_ext::check_open(
+    const ligeropcs_ext *pcs,
+    const std::vector<Goldilocks2::Element>& challenges,
+    const Goldilocks2::Element& claim,
+    const size_t& sec_param) const {
+    // throw std::runtime_error("ligeroProver_ext::check_open is not supported. You should not commit mle in ext field.");
+    return mle->check_open(pcs, challenges, claim, sec_param);
 }
 
 ligeropcs_ext ligeroProver_ext::commit() const {
@@ -407,6 +410,16 @@ size_t ligeroVerifier::calculate_t(
 
 ligeropcs_base::ligeropcs_base(const MerkleDef::Digest& mthash, const std::shared_ptr<ligeroProver_base>& prover, const size_t& num_rows, const size_t& num_cols)
     : mthash(mthash), prover(prover), num_rows(num_rows), num_cols(num_cols) {
+}
+
+bool ligeropcs_base::check_open(const std::vector<Goldilocks2::Element>& challenges, const Goldilocks2::Element& claim, const size_t& sec_param) const
+{
+    return prover->check_open(this, challenges, claim, sec_param);
+}
+
+bool ligeropcs_ext::check_open(const std::vector<Goldilocks2::Element>& challenges, const Goldilocks2::Element& claim, const size_t& sec_param) const
+{
+    return prover->check_open(this, challenges, claim, sec_param);
 }
 
 Goldilocks2::Element ligeropcs_base::open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const {

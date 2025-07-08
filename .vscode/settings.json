@@ -81,7 +81,8 @@
         "bitset": "cpp",
         "complex": "cpp",
         "charconv": "cpp",
-        "format": "cpp"
+        "format": "cpp",
+        "regex": "cpp"
     },
     "C_Cpp.default.compilerPath": "/usr/bin/clang++-14"
 }

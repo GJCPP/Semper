@@ -31,8 +31,7 @@ public:
 
 class p2Verifier {
 public:
-    static bool execute_sumcheck(p2Prover& pr, const std::array<const oracle_base*, 2>& oracle, const size_t& sec_param);
-    static bool execute_sumcheck(p2Prover& pr, const std::array<const oracle_ext*, 2>& oracle, const size_t& sec_param);
+    static bool execute_sumcheck(p2Prover& pr, const std::array<const oracle*, 2>& oracle, const size_t& sec_param);
 
     // Return nullopt for failure.
     static std::optional<challenge_claim> partial_sumcheck(p2Prover& pr, const size_t& sec_param);

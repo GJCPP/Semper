@@ -11,21 +11,24 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include_directories(include)
 include_directories(goldilocks/src)
 
-set(CNPY_SOURCE_DIR ${CMAKE_BINARY_DIR}/_deps/cnpy-src)
+# Use cnpy directory under source tree
+set(CNPY_SOURCE_DIR ${CMAKE_SOURCE_DIR}/cnpy)
+set(CNPY_BINARY_DIR ${CMAKE_BINARY_DIR}/cnpy-build)
 
-# Check if the cnpy folder exists — otherwise clone it
-if(NOT EXISTS ${CNPY_SOURCE_DIR})
-    message(STATUS "Cloning cnpy...")
-    FetchContent_Declare(
-        cnpy
-        GIT_REPOSITORY https://github.com/rogersce/cnpy.git
-        GIT_TAG master
+# Only clone if not already present
+if(NOT EXISTS ${CNPY_SOURCE_DIR}/CMakeLists.txt)
+    message(STATUS "Cloning cnpy into ${CNPY_SOURCE_DIR}")
+    execute_process(
+        COMMAND git clone git@github.com:rogersce/cnpy.git ${CNPY_SOURCE_DIR}
+        RESULT_VARIABLE GIT_CLONE_RESULT
     )
-    FetchContent_MakeAvailable(cnpy)
-else()
-    # cnpy already downloaded previously
-    add_subdirectory(${CNPY_SOURCE_DIR} ${CMAKE_BINARY_DIR}/_deps/cnpy-build)
+    if(NOT GIT_CLONE_RESULT EQUAL 0)
+        message(FATAL_ERROR "Failed to clone cnpy from GitHub")
+    endif()
 endif()
+
+# Now build it as part of your project
+add_subdirectory(${CNPY_SOURCE_DIR} ${CNPY_BINARY_DIR})
 include_directories(${CNPY_SOURCE_DIR})
 
 # build goldilocks.a

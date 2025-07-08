@@ -33,8 +33,7 @@ class p3Verifier{
 public:
     // should be replaced with a pcs
     // typedef std::array<ligeropcs, 3> Oracle;
-    static bool execute_sumcheck(p3Prover& pr, const std::array<const oracle_base*, 3>& oracle, const size_t& sec_param);
-    static bool execute_sumcheck(p3Prover& pr, const std::array<const oracle_ext*, 3>& oracle, const size_t& sec_param);
+    static bool execute_sumcheck(p3Prover& pr, const std::array<const oracle*, 3>& oracle, const size_t& sec_param);
 
     // customized sumcheck for \Sigma eq * frac * (gamma - p1 - lambda * p2)
     static bool execute_logup_sumcheck(

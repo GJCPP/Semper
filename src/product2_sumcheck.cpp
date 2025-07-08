@@ -85,7 +85,7 @@ inline void p2Verifier::interpolate_2(Goldilocks2::Element& fr, const Goldilocks
     fr = a * r * r + b * r + c;
 }
 
-bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<const oracle_base*, 2>& oracle, const size_t& sec_param) {
+bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<const oracle*, 2>& oracle, const size_t& sec_param) {
 
     Goldilocks2::Element sum = pr.get_sum();
     size_t nrnd = pr.get_rounds();
@@ -94,48 +94,6 @@ bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<const oracle_ba
     // s_{i - 1}
     std::array<Goldilocks2::Element, 3> si1;
     for (size_t round = 1; round <= nrnd; ++round) {
-        // s_i
-        std::array<Goldilocks2::Element, 3> si;
-        si = pr.send_message(round, challenges);
-        // s(0) + s(1)
-        Goldilocks2::Element ss = si[0] + si[1];
-        if (round == 1) {
-            if (!(ss == sum)) return false;
-        }
-        else {
-            Goldilocks2::Element sr;
-            Goldilocks2::Element r = challenges[round - 2];
-            interpolate_2(sr, r, si1[0], si1[1], si1[2]);
-            if (!(sr == ss)) return false;
-
-            // final check
-            if (round == nrnd) {
-                challenges.push_back(challenge());
-
-                Goldilocks2::Element f_r = oracle[0]->open(challenges, sec_param) * oracle[1]->open(challenges, sec_param);
-                Goldilocks2::Element slrl;
-                Goldilocks2::Element rl = challenges[round - 1];
-                interpolate_2(slrl, rl, si[0], si[1], si[2]);
-                if (!(slrl == f_r)) return false;
-            }
-        }
-
-        challenges.push_back(challenge());
-        // goto next round
-        si1 = si;
-    }
-    return true;
-}
-
-bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<const oracle_ext*, 2>& oracle, const size_t& sec_param) {
-
-    Goldilocks2::Element sum = pr.get_sum();
-    size_t nrnd = pr.get_rounds();
-    std::vector<Goldilocks2::Element> challenges;
-
-    // s_{i - 1}
-    std::array<Goldilocks2::Element, 3> si1;
-    for (int round = 1; round <= nrnd; ++round) {
         // s_i
         std::array<Goldilocks2::Element, 3> si;
         si = pr.send_message(round, challenges);

@@ -2,7 +2,7 @@
 
 bool execute_pad_check(
     Goldilocks2::Element claimed_Xr,
-    const oracle_ext* oracle,
+    const oracle* oracle,
     int begin,
     int end,
     const std::vector<Goldilocks2::Element>& r,
@@ -30,7 +30,7 @@ bool execute_pad_check(
 
 bool execute_pad_check(
     Goldilocks2::Element claimed_Xr,
-    const oracle_ext* oracle,
+    const oracle* oracle,
     const std::vector<std::array<int, 2>>& ranges,
     const std::vector<Goldilocks2::Element>& r,
     const size_t sec_param) {

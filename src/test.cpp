@@ -68,7 +68,7 @@ bool test_product3_sumcheck() {
         // Run product3 sumcheck
         p3Prover prover(poly1, poly2, poly3);
         p3Verifier verifier;
-        std::array<const oracle_ext*, 3> oracle = { &pcs1, &pcs2, &pcs3 };
+        std::array<const oracle*, 3> oracle = { &pcs1, &pcs2, &pcs3 };
         if (!verifier.execute_sumcheck(prover, oracle, sec_param)) {
             return false;
         }
@@ -92,7 +92,7 @@ bool test_product2_sumcheck() {
         // Run product3 sumcheck
         p2Prover prover(std::make_unique<MultilinearPolynomial>(poly1), std::make_unique<MultilinearPolynomial>(poly2));
         p2Verifier verifier;
-        std::array<const oracle_ext*, 2> oracle = { &pcs1, &pcs2 };
+        std::array<const oracle*, 2> oracle = { &pcs1, &pcs2 };
         if (!verifier.execute_sumcheck(prover, oracle, sec_param)) {
             return false;
         }
@@ -110,7 +110,7 @@ bool test_product2_sumcheck() {
         // Run product3 sumcheck
         p2Prover prover(std::make_unique<MultilinearPolynomial>(poly1), std::make_unique<MLE_Pow>(poly2));
         p2Verifier verifier;
-        std::array<const oracle_ext*, 2> oracle = { &pcs1, &poly2 };
+        std::array<const oracle*, 2> oracle = { &pcs1, &poly2 };
         if (!verifier.execute_sumcheck(prover, oracle, sec_param)) {
             return false;
         }
@@ -221,7 +221,7 @@ bool test_conv_check() {
         convTriple triple(X, W, Y);
         convProver prover(triple);
         std::array<ligeropcs_ext, 3> pcs = triple.commit(2);
-        std::array<const oracle_ext*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
+        std::array<const oracle*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
 
         if (!triple.check()) {
             return false;
@@ -328,14 +328,14 @@ bool test_conv2_check() {
 
 
         // std::array<ligeropcs_ext, 3> pcs = prover.triple.commit(2);
-        // std::array<const oracle_ext*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
+        // std::array<const oracle*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
         MultilinearPolynomial p1 = *prover.triple.X;
         MLE_Convker p2 = *dynamic_cast<MLE_Convker*>(prover.triple.W.get());
 
         // MultilinearPolynomial p2 = *prover.triple.W;
         MultilinearPolynomial p3 = *prover.triple.Y;
         std::array<ligeropcs_ext, 3> pcs = { ligero_commit_ext(p1, 2), ligero_commit_ext(p2, 2), ligero_commit_ext(p3, 2) };
-        std::array<const oracle_ext*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
+        std::array<const oracle*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
 
         // if (!prover.triple.check()) {
         //     std::cout << "convTriple check failed" << std::endl;

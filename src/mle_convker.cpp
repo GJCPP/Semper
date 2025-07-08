@@ -1,4 +1,6 @@
 #include "mle_convker.h"
+#include "ligero.h"
+#include "pad_check.h"
 
 MLE_Convker::MLE_Convker(const std::vector<std::vector<std::vector<std::vector<Goldilocks2::Element>>>>& kernel, size_t C, size_t D, size_t n, size_t m)
     : C(C), D(D), n(n), m(m), expanded(false) {
@@ -175,4 +177,26 @@ Goldilocks2::Element MLE_Convker::evaluate(const std::vector<Goldilocks2::Elemen
         copy.fix(0, e);
     }
     return copy.evaluations[0];
+}
+
+bool MLE_Convker::check_open(
+    const ligeropcs_base* pcs,
+    const std::vector<Goldilocks2::Element>& challenges,
+    const Goldilocks2::Element& claim,
+    const size_t& sec_param) const {
+
+    int begin = logC + logD + logm;
+    int end = begin + logn - logm;
+    return execute_pad_check(claim, pcs, begin, end, challenges, sec_param);
+}
+
+bool MLE_Convker::check_open(
+    const ligeropcs_ext* pcs,
+    const std::vector<Goldilocks2::Element>& challenges,
+    const Goldilocks2::Element& claim,
+    const size_t& sec_param) const {
+
+    int begin = logC + logD + logm;
+    int end = begin + logn - logm;
+    return execute_pad_check(claim, pcs, begin, end, challenges, sec_param);
 }

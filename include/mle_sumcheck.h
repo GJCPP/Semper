@@ -24,8 +24,7 @@ private:
 
 class sVerifier{
 public:
-    static bool execute_sumcheck(sProver& pr, const oracle_base& oracle, const size_t& sec_param);
-    static bool execute_sumcheck(sProver& pr, const oracle_ext& oracle, const size_t& sec_param);
+    static bool execute_sumcheck(sProver& pr, const oracle& oracle, const size_t& sec_param);
 
     // Return nullopt for failure.
     static bool partial_sumcheck(sProver& pr, std::vector<Goldilocks2::Element>& challenges, Goldilocks2::Element& claim, const size_t& sec_param);

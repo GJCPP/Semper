@@ -1,5 +1,6 @@
 #include "mle.h"
 #include "util.h"
+#include "ligero.h"
 #include <string>
 #include <cassert>
 
@@ -215,4 +216,27 @@ MultilinearPolynomial MultilinearPolynomial::sum_over_lowbits_with_power(size_t 
         }
     }
     return MultilinearPolynomial(evs);
+}
+
+const std::vector<Goldilocks2::Element>& MultilinearPolynomial::get_eval_table() const {
+    return evaluations;
+}
+
+bool MultilinearPolynomial::check_open(
+    const ligeropcs_base *pcs,
+    const std::vector<Goldilocks2::Element>& challenges,
+    const Goldilocks2::Element& claim,
+    const size_t& sec_param) const {
+ 
+    return claim == pcs->open(challenges, sec_param);
+}
+
+
+bool MultilinearPolynomial::check_open(
+    const ligeropcs_ext *pcs,
+    const std::vector<Goldilocks2::Element>& challenges,
+    const Goldilocks2::Element& claim,
+    const size_t& sec_param) const {
+ 
+    return claim == pcs->open(challenges, sec_param);
 }

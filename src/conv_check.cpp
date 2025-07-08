@@ -222,20 +222,18 @@ convProver make_conv2_prover(
         find_ceiling_log2(new_padding), find_ceiling_log2(new_in), find_ceiling_log2(m)));
 }
 
-bool convVerifier::execute_convcheck_1d(convProver& prover, const std::array<const oracle_ext*, 3>& oracle, const size_t& sec_param) {
+bool convVerifier::execute_convcheck_1d(convProver& prover, const std::array<const oracle*, 3>& oracle, const size_t& sec_param) {
     auto claim = execute_convcheck(prover, oracle, sec_param);
     if (!claim) return false;
     return claim->at(0).claim == oracle[0]->open(claim->at(0).challenges, sec_param) &&
            claim->at(1).claim == oracle[1]->open(claim->at(1).challenges, sec_param);
 }
 
-bool convVerifier::execute_convcheck_2d(convProver& prover, const std::array<const oracle_ext*, 3>& oracle, const size_t& sec_param) {
+bool convVerifier::execute_convcheck_2d(convProver& prover, const std::array<const oracle*, 3>& oracle, const size_t& sec_param) {
     auto claim = execute_convcheck(prover, oracle, sec_param);
     if (!claim) return false;
     // pad check W
-    int begin = prover.triple.logC + prover.triple.logD + prover.triple.log_m;
-    int end = begin + prover.triple.log_n - prover.triple.log_m;
-    if (!execute_pad_check(claim->at(1).claim, oracle[1], begin, end, claim->at(1).challenges, sec_param)) {
+    if (!dynamic_cast<const commitment*>(oracle[1])->check_open(claim->at(1).challenges, claim->at(1).claim, sec_param)) {
         return false;
     }
     // // pad check X
@@ -262,7 +260,7 @@ bool convVerifier::execute_convcheck_2d(convProver& prover, const std::array<con
 
 std::optional<std::array<challenge_claim, 2>> convVerifier::execute_convcheck(
     convProver& prover,
-    const std::array<const oracle_ext*, 3>& oracle,
+    const std::array<const oracle*, 3>& oracle,
     const size_t& sec_param) {
 
     // Step 1: Verifier samples beta and r_D

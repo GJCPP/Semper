@@ -79,12 +79,12 @@ protected:
 
 class convVerifier {
 public:
-    static bool execute_convcheck_1d(convProver& prover, const std::array<const oracle_ext*, 3>& oracle, const size_t& sec_param);
-    static bool execute_convcheck_2d(convProver& prover, const std::array<const oracle_ext*, 3>& oracle, const size_t& sec_param);
+    static bool execute_convcheck_1d(convProver& prover, const std::array<const oracle*, 3>& oracle, const size_t& sec_param);
+    static bool execute_convcheck_2d(convProver& prover, const std::array<const oracle*, 3>& oracle, const size_t& sec_param);
 protected:
     static std::optional<std::array<challenge_claim, 2>> execute_convcheck(
                                                             convProver& prover,
-                                                            const std::array<const oracle_ext*, 3>& oracle,
+                                                            const std::array<const oracle*, 3>& oracle,
                                                             const size_t& sec_param);
 };
 

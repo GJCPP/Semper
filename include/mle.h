@@ -9,8 +9,11 @@
 
 #include "array_view.h"
 
+class ligeropcs_base;
+class ligeropcs_ext;
+
 // store a multilinear polynomial in a vector of evaluations
-class MultilinearPolynomial : public oracle_ext {
+class MultilinearPolynomial : public oracle {
 public:
     MultilinearPolynomial() : num_vars(0) {}
     MultilinearPolynomial(size_t num_vars, bool init=true);
@@ -59,6 +62,21 @@ public:
 
     // Power over the last len bits
     virtual MultilinearPolynomial sum_over_lowbits_with_power(size_t len, Goldilocks2::Element beta) const;
+
+    const std::vector<Goldilocks2::Element>& get_eval_table() const;
+
+    virtual bool check_open(
+        const ligeropcs_base *pcs,
+        const std::vector<Goldilocks2::Element>& challenges,
+        const Goldilocks2::Element& claim,
+        const size_t& sec_param) const;
+
+        
+    virtual bool check_open(
+        const ligeropcs_ext *pcs,
+        const std::vector<Goldilocks2::Element>& challenges,
+        const Goldilocks2::Element& claim,
+        const size_t& sec_param) const;
 
 protected:
     // evaliations over the hypercube
