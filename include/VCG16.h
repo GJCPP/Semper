@@ -24,7 +24,7 @@ public:
                                             mle_weight, mle_d_weight,
                                             mle_d_input, mle_d_output;
                                             
-        std::shared_ptr<ligeropcs_ext> pcs_input, pcs_output,
+        std::shared_ptr<ligeropcs_base> pcs_input, pcs_output,
                                         pcs_weight, pcs_d_weight,
                                         pcs_d_input, pcs_d_output;
     };
@@ -53,7 +53,7 @@ protected:
     std::map<std::string, std::unique_ptr<Goldilocks2::Element[]>> data;
     std::map<std::string, std::vector<size_t>> data_shape;
     std::map<std::string, std::shared_ptr<MultilinearPolynomial>> mle;
-    std::map<std::string, std::shared_ptr<ligeropcs_ext>> pcs;
+    std::map<std::string, std::shared_ptr<ligeropcs_base>> pcs;
 
     array_view<Goldilocks2::Element> input_data, input_label;
 

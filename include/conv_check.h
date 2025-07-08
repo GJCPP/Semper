@@ -27,7 +27,8 @@ public:
     convTriple(size_t C, size_t N, size_t D, size_t K,
         std::unique_ptr<MultilinearPolynomial> X,
         std::unique_ptr<MultilinearPolynomial> W,
-        std::unique_ptr<MultilinearPolynomial> Y);
+        std::unique_ptr<MultilinearPolynomial> Y,
+        int log_padding = 0, int log_n = 0, int log_m = 0);
 
     
 
@@ -41,6 +42,8 @@ public:
 protected:
     size_t C, N, D, K;
     int logC, logN, logD, logK, logNK1;
+    // aux info for 2d conv
+    int log_padding, log_n, log_m;
 };
 
 /*
@@ -71,11 +74,18 @@ public:
 protected:
     // std::unique_ptr<MultilinearPolynomial> X_prime, W_prime;
     Goldilocks2::Element beta;
+
 };
 
 class convVerifier {
 public:
-    static bool execute_convcheck(convProver& prover, const std::array<const oracle_ext*, 3>& oracle, const size_t& sec_param);
+    static bool execute_convcheck_1d(convProver& prover, const std::array<const oracle_ext*, 3>& oracle, const size_t& sec_param);
+    static bool execute_convcheck_2d(convProver& prover, const std::array<const oracle_ext*, 3>& oracle, const size_t& sec_param);
+protected:
+    static std::optional<std::array<challenge_claim, 2>> execute_convcheck(
+                                                            convProver& prover,
+                                                            const std::array<const oracle_ext*, 3>& oracle,
+                                                            const size_t& sec_param);
 };
 
 // Flatten the tensor and create a convProver
@@ -95,5 +105,6 @@ convProver make_conv2_prover(
     size_t C, size_t D, size_t n, size_t m, size_t padding,
     const array_view<Goldilocks2::Element>& X, // in_channels x n x n
     const array_view<Goldilocks2::Element>& W, // in_channels x out_channels x m x m
-    const array_view<Goldilocks2::Element>& Y); // out_channels x (n + 2 * padding - m + 1) x (n + 2 * padding - m + 1)
+    const array_view<Goldilocks2::Element>& Y // out_channels x (n + 2 * padding - m + 1) x (n + 2 * padding - m + 1)
+);
 

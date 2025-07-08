@@ -6,6 +6,8 @@
 #include "util.h"
 #include "mle.h"
 #include "mle_eq.h"
+
+
 // The MLE that encapsulates the 2D conv kernel
 class MLE_Convker : public MultilinearPolynomial {
 public:
@@ -34,6 +36,8 @@ public:
     // Goldilocks2::Element evaluate(const std::vector<Goldilocks2::Element>& input) const override;
 
     void iterate_nonzero(const std::function<void(size_t)> f, size_t offset) const override;
+
+    void get_pad_range(int& begin, int& end) const;
 
 protected:
     size_t C, D, n, m;

@@ -1,5 +1,6 @@
 #include "conv_check.h"
 #include "mle_pow.h"
+#include "pad_check.h"
 
 convProver::convProver(const convTriple& triple)
     : triple(triple) {
@@ -139,6 +140,8 @@ convProver make_conv2_prover(
     size_t on = in - m + 1;
     size_t Y_len = in * in + m * in - 1;
 
+    assert(is_power_of_2(n));
+
     assert(X.shape(0) == C);
     assert(X.shape(1) == n);
     assert(X.shape(2) == n);
@@ -154,6 +157,8 @@ convProver make_conv2_prover(
     size_t new_padding = ((new_in - n) >> 1);
     size_t new_on = new_in - m + 1;
     size_t new_Y_len = new_in * new_in + m * new_in - 1;
+
+    assert(is_power_of_2(new_padding) || new_padding == 0);
 
     std::vector<std::vector<Goldilocks2::Element>> X_1d(C);
     std::vector<std::vector<bool>> Y_1d_visited(D);
@@ -213,10 +218,49 @@ convProver make_conv2_prover(
     return convProver(convTriple(C, new_in * new_in, D, new_in * m,
         std::make_unique<MultilinearPolynomial>(std::move(X_1d)),
         std::make_unique<MLE_Convker>(W, C, D, new_in, m),
-        std::make_unique<MultilinearPolynomial>(std::move(Y_1d))));
+        std::make_unique<MultilinearPolynomial>(std::move(Y_1d)),
+        find_ceiling_log2(new_padding), find_ceiling_log2(n), find_ceiling_log2(m)));
 }
 
-bool convVerifier::execute_convcheck(
+bool convVerifier::execute_convcheck_1d(convProver& prover, const std::array<const oracle_ext*, 3>& oracle, const size_t& sec_param) {
+    auto claim = execute_convcheck(prover, oracle, sec_param);
+    if (!claim) return false;
+    return claim->at(0).claim == oracle[0]->open(claim->at(0).challenges, sec_param) &&
+           claim->at(1).claim == oracle[1]->open(claim->at(1).challenges, sec_param);
+}
+
+bool convVerifier::execute_convcheck_2d(convProver& prover, const std::array<const oracle_ext*, 3>& oracle, const size_t& sec_param) {
+    auto claim = execute_convcheck(prover, oracle, sec_param);
+    if (!claim) return false;
+    // pad check W
+    int begin = prover.triple.logC + prover.triple.logD + prover.triple.log_m;
+    int end = begin + prover.triple.log_n - prover.triple.log_m;
+    if (!execute_pad_check(claim->at(1).claim, oracle[1], begin, end, claim->at(1).challenges, sec_param)) {
+        return false;
+    }
+    // pad check X
+    int ind[8] = {};
+    ind[0] = prover.triple.logC + prover.triple.logD;
+    ind[1] = ind[0] + prover.triple.log_padding;
+    ind[2] = ind[1] + prover.triple.log_n;
+    ind[3] = ind[2] + prover.triple.log_padding;
+    ind[4] = ind[3];
+    ind[5] = ind[4] + prover.triple.log_padding;
+    ind[6] = ind[5] + prover.triple.log_n;
+    ind[7] = ind[6] + prover.triple.log_padding;
+    std::vector<std::array<int, 2>> ranges = {
+        { ind[0], ind[1] },
+        { ind[2], ind[3] },
+        { ind[4], ind[5] },
+        { ind[6], ind[7] }
+    };
+    if (!execute_pad_check(claim->at(0).claim, oracle[0], ranges, claim->at(0).challenges, sec_param)) {
+        return false;
+    }
+    return true;
+}
+
+std::optional<std::array<challenge_claim, 2>> convVerifier::execute_convcheck(
     convProver& prover,
     const std::array<const oracle_ext*, 3>& oracle,
     const size_t& sec_param) {
@@ -230,17 +274,18 @@ bool convVerifier::execute_convcheck(
     Goldilocks2::Element rhs = rhs_prover.get_sum();
     MLE_Pow rhs_beta(beta, prover.triple.logNK1, prover.triple.N + prover.triple.K - 2);
     std::optional<challenge_claim> claim = p2Verifier::partial_sumcheck(rhs_prover, rhs, sec_param);
-    if (!claim) return false;
+    if (!claim) return std::nullopt;
     auto query_Y = combine_challenges(r_D, claim->challenges);
+
     if (claim->claim != oracle[2]->open(query_Y, sec_param) * rhs_beta.evaluate(claim->challenges)) {
-        return false;
+        return std::nullopt;
     }
 
     // Step 3: Prover proves the LHS = RHS
     // Step 3.1: Prove \sum_c X'(c) * W'(c), end with r_C
     auto lhs_prover = prover.shrink_XW();
     auto claim_xw = p2Verifier::partial_sumcheck(lhs_prover, rhs, sec_param);
-    if (!claim_xw) return false;
+    if (!claim_xw) return std::nullopt;
     auto r_C = std::move(claim_xw->challenges);
     
     // Step 3.2: Prover claims x and w, proves separately X'(r_C) = \sum_n X(r_C, n) \beta^n
@@ -248,13 +293,13 @@ bool convVerifier::execute_convcheck(
     auto [X_prover, W_prover] = prover.fix_r_C(r_C);
     Goldilocks2::Element x_val = X_prover.get_sum(), w_val = W_prover.get_sum();
     if (x_val * w_val != claim_xw->claim) {
-        return false;
+        return std::nullopt;
     }
     auto claim_x = p2Verifier::partial_sumcheck(X_prover, x_val, sec_param);
-    if (!claim_x) return false;
+    if (!claim_x) return std::nullopt;
     auto& r_N = claim_x->challenges;
     auto claim_w = p2Verifier::partial_sumcheck(W_prover, w_val, sec_param);
-    if (!claim_w) return false;
+    if (!claim_w) return std::nullopt;
     auto& r_K = claim_w->challenges;
 
     // Step 4: Query the oracle
@@ -265,11 +310,10 @@ bool convVerifier::execute_convcheck(
     MLE_Pow beta_X(beta, prover.triple.logN, prover.triple.N - 1);
     MLE_Pow beta_W(beta, prover.triple.logK, prover.triple.K - 1); // beta^r_K
 
-    if (oracle[0]->open(query_X, sec_param) * beta_X.evaluate(r_N) != claim_x->claim ||
-        oracle[1]->open(query_W, sec_param) * beta_W.evaluate(r_K) != claim_w->claim) {
-        return false;
-    }
-    return true;
+    std::array<challenge_claim, 2> ret;
+    ret[0] = { query_X, claim_x->claim / beta_X.evaluate(r_N) };
+    ret[1] = { query_W, claim_w->claim / beta_W.evaluate(r_K) };
+    return ret;
 }
 
 
@@ -330,8 +374,9 @@ convTriple::convTriple(
     size_t C, size_t N, size_t D, size_t K,
     std::unique_ptr<MultilinearPolynomial> _X,
     std::unique_ptr<MultilinearPolynomial> _W,
-    std::unique_ptr<MultilinearPolynomial> _Y)
-    : C(C), N(N), D(D), K(K), 
+    std::unique_ptr<MultilinearPolynomial> _Y,
+    int log_padding, int log_n, int log_m)
+    : C(C), N(N), D(D), K(K), log_padding(log_padding), log_n(log_n), log_m(log_m),
       X(std::move(_X)), 
       W(std::move(_W)), 
       Y(std::move(_Y)) {

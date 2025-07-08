@@ -162,6 +162,11 @@ void MLE_Convker::iterate_nonzero(const std::function<void(size_t)> f, size_t of
     }
 }
 
+void MLE_Convker::get_pad_range(int& begin, int& end) const {
+    begin = logC + logD;
+    end = begin + logn - logm;
+}
+
 Goldilocks2::Element MLE_Convker::evaluate(const std::vector<Goldilocks2::Element>& input) const {
     assert(!expanded);
     assert(input.size() == num_vars);

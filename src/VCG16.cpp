@@ -28,7 +28,7 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value)
         data_shape[key] = value->shape;
         array_view<Goldilocks2::Element> arr(ptr, value->shape);
         mle[key] = std::make_shared<MultilinearPolynomial>(arr);
-        pcs[key] = std::make_shared<ligeropcs_ext>(ligero_commit_ext(*mle[key], 2));
+        pcs[key] = std::make_shared<ligeropcs_base>(ligero_commit_base(*mle[key], 2));
         #pragma omp critical
         {
             std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();

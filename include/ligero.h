@@ -6,7 +6,6 @@
 #include <random>
 #include "mle.h"
 #include "merkle.h"
-#include "oracle.h"
 
 #define FIELD_BITS 2 * 64
 class ligeroProver_base;

@@ -377,6 +377,8 @@ def train_manual():
 
         for x, y in loader:
             cnt+=1
+            if cnt == 2:
+                break
             # Save input data and labels
             epoch_data.append({
                 'input': x.numpy(),

@@ -6,6 +6,7 @@
 #include <functional>
 #include "goldilocks_quadratic_ext.h"
 #include "oracle.h"
+
 #include "array_view.h"
 
 // store a multilinear polynomial in a vector of evaluations
@@ -62,5 +63,6 @@ public:
 protected:
     // evaliations over the hypercube
     std::vector<Goldilocks2::Element> evaluations;
+
     size_t num_vars;
 };

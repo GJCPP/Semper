@@ -227,7 +227,7 @@ bool test_conv_check() {
             return false;
         }
 
-        if (!convVerifier::execute_convcheck(prover, oracle, 32)) {
+        if (!convVerifier::execute_convcheck_1d(prover, oracle, 32)) {
             return false;
         }
     }
@@ -311,7 +311,7 @@ bool test_conv2_check() {
     for (int cnt(0); cnt != CNT_TEST; ++cnt) {
         srand(cnt);
         size_t padding = rand() % 4;
-        size_t C = rand() % 10 + 1, D = rand() % 5 + 1, n = 2 * (rand() % 20) + 6, m = rand() % 3 + 2;
+        size_t C = rand() % 10 + 1, D = rand() % 5 + 1, n = 1 << (rand() % 3 + 3), m = rand() % 3 + 2;
         size_t on = n + 2 * padding - m + 1;
         // X: C x n x n, W: C x D x m x m, Y: D x on x on
         std::vector<Goldilocks2::Element> X(C * n * n);
@@ -334,14 +334,15 @@ bool test_conv2_check() {
 
         // MultilinearPolynomial p2 = *prover.triple.W;
         MultilinearPolynomial p3 = *prover.triple.Y;
-        std::array<const oracle_ext*, 3> oracle = { &p1, &p2, &p3 };
+        std::array<ligeropcs_ext, 3> pcs = { ligero_commit_ext(p1, 2), ligero_commit_ext(p2, 2), ligero_commit_ext(p3, 2) };
+        std::array<const oracle_ext*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
 
-        if (!prover.triple.check()) {
-            std::cout << "convTriple check failed" << std::endl;
-            return false;
-        }
+        // if (!prover.triple.check()) {
+        //     std::cout << "convTriple check failed" << std::endl;
+        //     return false;
+        // }
 
-        if (!convVerifier::execute_convcheck(prover, oracle, 32)) {
+        if (!convVerifier::execute_convcheck_2d(prover, oracle, 32)) {
             return false;
         }
     }

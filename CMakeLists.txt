@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
+include(FetchContent)
+
 project(LogUP LANGUAGES CXX)
 
 # set(CMAKE_CXX_COMPILER g++-13)
@@ -9,7 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include_directories(include)
 include_directories(goldilocks/src)
 
-set(CNPY_SOURCE_DIR ${CMAKE_BINARY_DIR}/cnpy)
+set(CNPY_SOURCE_DIR ${CMAKE_BINARY_DIR}/_deps/cnpy-src)
 
 # Check if the cnpy folder exists — otherwise clone it
 if(NOT EXISTS ${CNPY_SOURCE_DIR})
@@ -64,7 +66,8 @@ target_compile_options(bench PRIVATE
     $<$<CONFIG:Release>:-Wall -O2 -mavx2 -fopenmp>
     $<$<CONFIG:Debug>:-Wall -g -DDEBUG -mavx2 -fopenmp>)
 
-# Use "cmake -D CMAKE_BUILD_TYPE=Debug .." to build in debug mode
+# Use "cmake -DCMAKE_CXX_COMPILER=g++-13 -DCMAKE_BUILD_TYPE=Debug .." to build in debug mode
+# Use "cmake -DCMAKE_CXX_COMPILER=g++-13 -DCMAKE_BUILD_TYPE=Release .." to build in release mode
 
 target_link_libraries(bench PRIVATE cnpy pthread gmp ssl crypto goldilocks)
 
@@ -72,5 +75,5 @@ target_link_libraries(bench PRIVATE cnpy pthread gmp ssl crypto goldilocks)
 add_custom_target(run
     COMMAND bench
     DEPENDS bench
-    COMMENT "Running benchmark"
+    COMMENT "Running ben"
 )
