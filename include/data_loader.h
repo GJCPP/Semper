@@ -3,7 +3,8 @@
 #include <vector>
 #include <format>
 #include <random>
-#include <cnpy.h>
+
+#include "cnpy.h"
 
 #include "array_view.h"
 
