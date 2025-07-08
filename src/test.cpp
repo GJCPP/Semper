@@ -329,7 +329,7 @@ bool test_conv2_check() {
 
         // std::array<ligeropcs_ext, 3> pcs = prover.triple.commit(2);
         // std::array<const oracle*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
-        MultilinearPolynomial p1 = *prover.triple.X;
+        MultilinearPolynomial p1(X);
         MLE_Convker p2 = *dynamic_cast<MLE_Convker*>(prover.triple.W.get());
 
         // MultilinearPolynomial p2 = *prover.triple.W;

@@ -219,7 +219,7 @@ convProver make_conv2_prover(
         std::make_unique<MultilinearPolynomial>(std::move(X_1d)),
         std::make_unique<MLE_Convker>(W, C, D, new_in, m),
         std::make_unique<MultilinearPolynomial>(std::move(Y_1d)),
-        find_ceiling_log2(new_padding), find_ceiling_log2(new_in), find_ceiling_log2(m)));
+        new_padding != 0, find_ceiling_log2(new_in), find_ceiling_log2(m)));
 }
 
 bool convVerifier::execute_convcheck_1d(convProver& prover, const std::array<const oracle*, 3>& oracle, const size_t& sec_param) {
@@ -236,26 +236,43 @@ bool convVerifier::execute_convcheck_2d(convProver& prover, const std::array<con
     if (!dynamic_cast<const commitment*>(oracle[1])->check_open(claim->at(1).challenges, claim->at(1).claim, sec_param)) {
         return false;
     }
-    // // pad check X
-    // int ind[8] = {};
-    // ind[0] = prover.triple.logC + prover.triple.logD;
-    // ind[1] = ind[0] + prover.triple.log_padding;
-    // ind[2] = ind[1] + prover.triple.log_n;
-    // ind[3] = ind[2] + prover.triple.log_padding;
-    // ind[4] = ind[3];
-    // ind[5] = ind[4] + prover.triple.log_padding;
-    // ind[6] = ind[5] + prover.triple.log_n;
-    // ind[7] = ind[6] + prover.triple.log_padding;
-    // std::vector<std::array<int, 2>> ranges = {
-    //     { ind[0], ind[1] },
-    //     { ind[2], ind[3] },
-    //     { ind[4], ind[5] },
-    //     { ind[6], ind[7] }
-    // };
-    // if (!execute_pad_check(claim->at(0).claim, oracle[0], ranges, claim->at(0).challenges, sec_param)) {
-    //     return false;
-    // }
-    return true;
+    // check pad X
+    if (prover.triple.padding == false) { // No padding
+        return oracle[0]->open(claim->at(0).challenges, sec_param) == claim->at(0).claim;
+    }
+
+    const Goldilocks2::Element zero = Goldilocks2::zero(), one = Goldilocks2::one();
+    size_t logC = prover.triple.logC;
+    size_t logn = prover.triple.log_n;
+    std::vector<Goldilocks2::Element>& r = claim->at(0).challenges;
+    std::vector<Goldilocks2::Element> prefix(r.begin(), r.begin() + logC);
+    if (prover.triple.C == 1)
+        prefix.clear();
+    size_t beg_x = logC + 2, end_x = logC + logn;
+    size_t beg_y = end_x + 2, end_y = end_x + logn;
+    Goldilocks2::Element x_val[2] = {r[beg_x - 2], r[beg_x - 1]};
+    Goldilocks2::Element y_val[2] = {r[beg_y - 2], r[beg_y - 1]};
+    std::vector<Goldilocks2::Element> x(r.begin() + beg_x - 1, r.begin() + end_x);
+    std::vector<Goldilocks2::Element> y(r.begin() + beg_y - 1, r.begin() + end_y);
+    Goldilocks2::Element A[2][2], res = Goldilocks2::zero();
+    for (int i = 0; i < 2; ++i) {
+        for (int j = 0; j < 2; ++j) {
+            x[0] = i ? one : zero;
+            y[0] = j ? one : zero;
+            A[i][j] = oracle[0]->open(combine_challenges(prefix, x, y), sec_param);
+            res += A[i][j] * 
+                    (i ? x_val[0] * (one - x_val[1]) : (one - x_val[0]) * x_val[1]) *
+                    (j ? y_val[0] * (one - y_val[1]) : (one - y_val[0]) * y_val[1]);
+            // 0 -> 01, 1 -> 10
+        }
+    }
+    if (prover.triple.C == 1) {
+        res *= one - r[0];
+    }
+    if (res != claim->at(0).claim) {
+        throw;
+    }
+    return res == claim->at(0).claim;
 }
 
 std::optional<std::array<challenge_claim, 2>> convVerifier::execute_convcheck(
@@ -373,8 +390,8 @@ convTriple::convTriple(
     std::unique_ptr<MultilinearPolynomial> _X,
     std::unique_ptr<MultilinearPolynomial> _W,
     std::unique_ptr<MultilinearPolynomial> _Y,
-    int log_padding, int log_n, int log_m)
-    : C(C), N(N), D(D), K(K), log_padding(log_padding), log_n(log_n), log_m(log_m),
+    bool padding, int log_n, int log_m)
+    : C(C), N(N), D(D), K(K), padding(padding), log_n(log_n), log_m(log_m),
       X(std::move(_X)), 
       W(std::move(_W)), 
       Y(std::move(_Y)) {

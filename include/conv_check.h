@@ -28,7 +28,7 @@ public:
         std::unique_ptr<MultilinearPolynomial> X,
         std::unique_ptr<MultilinearPolynomial> W,
         std::unique_ptr<MultilinearPolynomial> Y,
-        int log_padding = 0, int log_n = 0, int log_m = 0);
+        bool padding = false, int log_n = 0, int log_m = 0);
 
     
 
@@ -43,7 +43,8 @@ protected:
     size_t C, N, D, K;
     int logC, logN, logD, logK, logNK1;
     // aux info for 2d conv
-    int log_padding, log_n, log_m;
+    bool padding;
+    int log_n, log_m;
 };
 
 /*
