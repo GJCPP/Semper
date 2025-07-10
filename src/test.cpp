@@ -338,10 +338,13 @@ bool test_conv2_check() {
 
         
         MLE_Convker p2 = *dynamic_cast<MLE_Convker*>(prover.triple.W.get());
-        // MultilinearPolynomial p2 = *prover.triple.W;
+        auto copy_W = W_view;
+        copy_W.reverse(2);
+        copy_W.reverse(3);
+        MultilinearPolynomial _p2(copy_W);
         MultilinearPolynomial p3 = *prover.triple.Y;
 
-        std::array<ligeropcs_ext, 3> pcs = { ligero_commit_ext(p1, 2), ligeropcs_ext(pcs_w, p2), ligero_commit_ext(p3, 2) };
+        std::array<ligeropcs_ext, 3> pcs = { ligero_commit_ext(p1, 2), ligero_commit_ext(_p2, 2), ligero_commit_ext(p3, 2) };
         std::array<const oracle*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
 
         // if (!prover.triple.check()) {
@@ -349,7 +352,7 @@ bool test_conv2_check() {
         //     return false;
         // }
 
-        if (!convVerifier::execute_convcheck_2d(prover, oracle, 32)) {
+        if (!convVerifier::execute_convcheck_2d(prover, oracle, { &p1, &p2, &p3 }, 32)) {
             return false;
         }
     }

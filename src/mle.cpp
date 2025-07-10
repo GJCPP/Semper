@@ -54,51 +54,51 @@ MultilinearPolynomial::MultilinearPolynomial(const std::vector<uint64_t>& val_ta
 
 MultilinearPolynomial::MultilinearPolynomial(const array_view<Goldilocks2::Element>& val_table)
     : num_vars(0) {
-    int n = val_table.get_dims();
-    std::vector<size_t> dims(n + 1), logdims(n + 1), pow_dims(n + 1);
-    for (size_t i = 1; i <= n; ++i) {
+    int dim = val_table.get_dims();
+    std::vector<size_t> dims(dim + 1), upper_dims(dim + 1);
+    for (size_t i = 1; i <= dim; ++i) {
         dims[i] = val_table.shape(i - 1);
-        logdims[i] = find_ceiling_log2(dims[i]);
-        num_vars += logdims[i];
-        pow_dims[i] = 1ull << logdims[i];
+        int bit = find_ceiling_log2(dims[i]);
+        upper_dims[i] = 1ull << bit;
+        num_vars += bit;
     }
     evaluations.resize(1ull << num_vars);
-    std::vector<size_t> offset(n + 1), ind(n + 1);
-    size_t sz = evaluations.size(), last_sz = dims.back();
-    
-    assert(val_table.offset(n - 1) == 1);
-    size_t i = 0;
-    while (true) {
-        assert(offset.back() < val_table.size());
-        assert(i < sz);
-        evaluations[i] = val_table.get(offset.back());
-        ++ind.back();
-        int high = n;
-        bool out_flag = false;
-        do {
-            high = n;
-            out_flag = false;
-            while (high > 0 && ind[high] == pow_dims[high]) {
-                ind[high] = 0;
-                --high;
-                ++ind[high];
-            }
-            ++i;
-            if (high && ind[high] >= dims[high]) {
-                out_flag = true;
-                ++ind.back();
-            }
-        } while (out_flag);
-
+    size_t N = (1ull << num_vars), next = 0;
+    std::vector<size_t> ind(dim + 1), jump(dim + 1);
+    std::vector<array_view<Goldilocks2::Element>> views(dim);
+    views[0] = val_table;
+    for (size_t i = 1; i < dim; ++i) {
+        views[i] = views[i - 1][0];
+    }
+    jump[dim] = 1;
+    for (int i = dim - 1; i >= 0; --i) {
+        jump[i] = jump[i + 1] * upper_dims[i + 1];
+    }
+    while (next < N) {
+        for (size_t i = 0; i < dims.back(); ++i) {
+            evaluations[next++] = views.back()(i);
+        }
+        ind.back() = dims.back();
+        int high = dim;
+        
+        while (high > 0 && ind[high] >= upper_dims[high]) {
+            ind[high] = 0;
+            --high;
+            ++ind[high];
+        }
+        while (high > 0 && ind[high] >= dims[high]) {
+            ind[high] = 0;
+            next += jump[high] * (upper_dims[high] - dims[high]);
+            --high;
+            ++ind[high];
+        }
         if (high == 0) {
             break;
         }
-
-        for (int j = high; j <= n; ++j) {
-            offset[j] = offset[j - 1] + ind[j] * val_table.offset(j - 1);
+        for (size_t i = high; i < dim; ++i) {
+            views[i] = views[i - 1][ind[i]];
         }
     }
-    evaluations_view = array_view<Goldilocks2::Element>(evaluations.data(), std::vector<size_t>(pow_dims.begin() + 1, pow_dims.end()));
 }
 
 void MultilinearPolynomial::set_value(const std::string& mask, const Goldilocks2::Element& c) {
@@ -237,48 +237,12 @@ const std::vector<Goldilocks2::Element>& MultilinearPolynomial::get_eval_table()
     return evaluations;
 }
 
-bool MultilinearPolynomial::check_open(
-    const ligeropcs_base *pcs,
-    const std::vector<Goldilocks2::Element>& challenges,
-    const Goldilocks2::Element& claim,
-    const size_t& sec_param) const {
- 
-    return claim == pcs->open(get_open_r(challenges), sec_param);
-}
-
-
-bool MultilinearPolynomial::check_open(
-    const ligeropcs_ext *pcs,
-    const std::vector<Goldilocks2::Element>& challenges,
-    const Goldilocks2::Element& claim,
-    const size_t& sec_param) const {
- 
-    return claim == pcs->open(get_open_r(challenges), sec_param);
-}
-
-std::vector<Goldilocks2::Element> MultilinearPolynomial::get_open_r(const std::vector<Goldilocks2::Element>& challenges) const {
-
-    int dims = evaluations_view.get_dims();
-    std::vector<Goldilocks2::Element> r;
-    std::vector<int> start(dims + 1);
-    for (int i = 0; i < dims; ++i) {
-        start[evaluations_view.get_order(i) + 1] = find_ceiling_log2(evaluations_view.shape(i));
-    }
-    for (int i = 1; i <= dims; ++i) {
-        start[i] += start[i - 1];
-    }
-    Goldilocks2::Element one = Goldilocks2::one();
-    for (int i = 0; i < dims; ++i) {
-        int ind = evaluations_view.get_order(i);
-        int begin = start[ind], end = start[ind + 1];
-        bool reversed = evaluations_view.is_reversed(i);
-        for (int j = begin; j < end; ++j) {
-            if (reversed) {
-                r.push_back(one - challenges[j]);
-            } else {
-                r.push_back(challenges[j]);
-            }
-        }
-    }
-    return r;
+mle_aux_info MultilinearPolynomial::process_challenges(
+    const std::vector<Goldilocks2::Element>& challenges) const {
+    // Basic implementation: just return the challenges as reshaped challenges
+    // Subclasses can override this for more sophisticated processing
+    mle_aux_info aux;
+    aux.r = challenges;
+    aux.comp = Goldilocks2::one();
+    return aux;
 }

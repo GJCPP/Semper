@@ -6,19 +6,17 @@
 #include <random>
 #include "mle.h"
 #include "merkle.h"
+#include "oracle.h"
 
 #define FIELD_BITS 2 * 64
 class ligeroProver_base;
 class ligeroProver_ext;
 
-class ligeropcs_base : public commitment {
+class ligeropcs_base : public oracle {
 public:
     ligeropcs_base(const MerkleDef::Digest& mthash, const std::shared_ptr<ligeroProver_base>& prover, const size_t& num_rows, const size_t& num_cols);
 
-    ligeropcs_base(const ligeropcs_base& pcs, const MultilinearPolynomial& mle);
-
     MerkleDef::Digest mthash;
-    // const ligeroProver& prover;
     std::shared_ptr<ligeroProver_base> prover;
     size_t num_rows;
     size_t num_cols;
@@ -26,36 +24,21 @@ public:
     // committed mle
     const MultilinearPolynomial *mle;
 
-    Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const override;
-
-    bool check_open(
-        const std::vector<Goldilocks2::Element>& challenges,
-        const Goldilocks2::Element& claim,
-        const size_t& sec_param) const override;
+    // Only provide basic commitment operations
+    Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const;
 };
 
-class ligeropcs_ext : public commitment {
+class ligeropcs_ext : public oracle {
 public:
     ligeropcs_ext(const MerkleDef::Digest& mthash, const std::shared_ptr<ligeroProver_ext>& prover, const size_t& num_rows, const size_t& num_cols);
-    
-    ligeropcs_ext(const ligeropcs_ext& pcs, const MultilinearPolynomial& mle);
-
 
     MerkleDef::Digest mthash;
-    // const ligeroProver& prover;
     std::shared_ptr<ligeroProver_ext> prover;
     size_t num_rows;
     size_t num_cols;
 
-    // committed mle
-    const MultilinearPolynomial *mle;
-
-    Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const override;    
-
-    bool check_open(
-        const std::vector<Goldilocks2::Element>& challenges,
-        const Goldilocks2::Element& claim,
-        const size_t& sec_param) const override;
+    // Only provide basic commitment operations
+    Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const;
 };
 
 class ligeroProver_base {

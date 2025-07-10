@@ -6,7 +6,7 @@
 
 /*
  * Base class for oracle for quadratic extension field
- * To be inherited by the ligero (if it's a commitment) or the mle (if it's a known polynomial)
+ * To be inherited by the mle (if it's a known polynomial)
 */
 class oracle {
 public:
@@ -19,10 +19,9 @@ public:
     Goldilocks2::Element claim;
 };
 
-class commitment : public oracle {
-public:
-    virtual bool check_open(
-        const std::vector<Goldilocks2::Element>& challenges,
-        const Goldilocks2::Element& claim,
-        const size_t& sec_param) const = 0;
+// Auxiliary information returned by MLE challenge processing
+struct mle_aux_info {
+    std::vector<Goldilocks2::Element> r;
+    // Additional auxiliary data can be added here as needed
+    Goldilocks2::Element comp; // compensation x open_val = claim
 };

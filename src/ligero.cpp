@@ -17,14 +17,12 @@ std::vector<Goldilocks::Element> rsencode(const std::vector<Goldilocks::Element>
 ligeropcs_base ligero_commit_base(const MultilinearPolynomial& w, const uint64_t& rho_inv) {
     auto prover = std::make_shared<ligeroProver_base>(w, rho_inv);
     auto ret = prover->commit();
-    ret.mle = &w;
     return ret;
 }
 
 ligeropcs_ext ligero_commit_ext(const MultilinearPolynomial& w, const uint64_t& rho_inv) {
     auto prover = std::make_shared<ligeroProver_ext>(w, rho_inv);
     auto ret = prover->commit();
-    ret.mle = &w;
     return ret;
 }
 
@@ -190,6 +188,8 @@ std::vector<MerkleTree_ext::MTPayload> ligeroProver_ext::open_cols(const std::ve
     }
     return payloads;
 }
+
+
 
 ligeropcs_ext ligeroProver_ext::commit() const {
     return { mt_t.MerkleCommit(), std::make_shared<ligeroProver_ext>(*this), a, b };
@@ -398,30 +398,12 @@ ligeropcs_base::ligeropcs_base(const MerkleDef::Digest& mthash, const std::share
     : mthash(mthash), prover(prover), num_rows(num_rows), num_cols(num_cols) {
 }
 
-ligeropcs_base::ligeropcs_base(const ligeropcs_base& pcs, const MultilinearPolynomial& mle)
-    : mthash(pcs.mthash), prover(pcs.prover), num_rows(pcs.num_rows), num_cols(pcs.num_cols), mle(&mle) {
-}
-
-bool ligeropcs_base::check_open(const std::vector<Goldilocks2::Element>& challenges, const Goldilocks2::Element& claim, const size_t& sec_param) const
-{
-    return mle->check_open(this, challenges, claim, sec_param);
-}
-
-bool ligeropcs_ext::check_open(const std::vector<Goldilocks2::Element>& challenges, const Goldilocks2::Element& claim, const size_t& sec_param) const
-{
-    return mle->check_open(this, challenges, claim, sec_param);
-}
-
 Goldilocks2::Element ligeropcs_base::open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const {
     return ligeroVerifier::open(*this, z, sec_param);
 }
 
 ligeropcs_ext::ligeropcs_ext(const MerkleDef::Digest& mthash, const std::shared_ptr<ligeroProver_ext>& prover, const size_t& num_rows, const size_t& num_cols)
     : mthash(mthash), prover(prover), num_rows(num_rows), num_cols(num_cols) {
-}
-
-ligeropcs_ext::ligeropcs_ext(const ligeropcs_ext& pcs, const MultilinearPolynomial& mle)
-    : mthash(pcs.mthash), prover(pcs.prover), num_rows(pcs.num_rows), num_cols(pcs.num_cols), mle(&mle) {
 }
 
 Goldilocks2::Element ligeropcs_ext::open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const {

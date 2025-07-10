@@ -167,8 +167,32 @@ void MLE_Convker::iterate_nonzero(const std::function<void(size_t)> f, size_t of
 }
 
 void MLE_Convker::get_pad_range(int& begin, int& end) const {
-    begin = logC + logD;
+    begin = logC + logD + logm;
     end = begin + logn - logm;
+}
+
+mle_aux_info MLE_Convker::process_challenges(
+    const std::vector<Goldilocks2::Element>& challenges) const {
+    mle_aux_info aux;
+    
+    // For convolution kernel, we need to handle padding ranges
+    int begin = logC + logD + logm;
+    int end = begin + logn - logm;
+    
+    // The reshaped challenges exclude the padding range
+    aux.r.reserve(challenges.size() - (end - begin));
+    
+    Goldilocks2::Element one = Goldilocks2::one();
+    Goldilocks2::Element factor = one;
+    for (int i = 0; i < static_cast<int>(challenges.size()); ++i) {
+        if (i < begin || i >= end) {
+            aux.r.push_back(challenges[i]);
+        } else {
+            factor = factor * (one - challenges[i]);
+        }
+    }
+    aux.comp = factor;
+    return aux;
 }
 
 Goldilocks2::Element MLE_Convker::evaluate(const std::vector<Goldilocks2::Element>& input) const {
@@ -181,30 +205,4 @@ Goldilocks2::Element MLE_Convker::evaluate(const std::vector<Goldilocks2::Elemen
     return copy.evaluations[0];
 }
 
-bool MLE_Convker::check_open(
-    const ligeropcs_base* pcs,
-    const std::vector<Goldilocks2::Element>& challenges,
-    const Goldilocks2::Element& claim,
-    const size_t& sec_param) const {
 
-    int begin = logC + logD + logm;
-    int end = begin + logn - logm;
-    auto cha_claim = execute_pad_check(claim, begin, end, challenges, sec_param);
-
-    auto r = get_open_r(cha_claim.challenges);
-    return cha_claim.claim == pcs->open(r, sec_param);
-}
-
-bool MLE_Convker::check_open(
-    const ligeropcs_ext* pcs,
-    const std::vector<Goldilocks2::Element>& challenges,
-    const Goldilocks2::Element& claim,
-    const size_t& sec_param) const {
-
-    int begin = logC + logD + logm;
-    int end = begin + logn - logm;
-    auto cha_claim = execute_pad_check(claim, begin, end, challenges, sec_param);
-
-    auto r = get_open_r(cha_claim.challenges);
-    return cha_claim.claim == pcs->open(r, sec_param);
-}

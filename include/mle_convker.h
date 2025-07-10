@@ -39,17 +39,10 @@ public:
 
     void get_pad_range(int& begin, int& end) const;
 
-    bool check_open(
-        const ligeropcs_base *pcs,
-        const std::vector<Goldilocks2::Element>& challenges,
-        const Goldilocks2::Element& claim,
-        const size_t& sec_param) const override;
+    // Override the new challenge processing method
+    mle_aux_info process_challenges(
+        const std::vector<Goldilocks2::Element>& challenges) const override;
 
-    bool check_open(
-        const ligeropcs_ext *pcs,
-        const std::vector<Goldilocks2::Element>& challenges,
-        const Goldilocks2::Element& claim,
-        const size_t& sec_param) const override;
 protected:
     size_t C, D, n, m;
     int logC, logD, logn, logm;

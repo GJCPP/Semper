@@ -9,9 +9,6 @@
 
 #include "array_view.h"
 
-class ligeropcs_base;
-class ligeropcs_ext;
-
 // store a multilinear polynomial in a vector of evaluations
 class MultilinearPolynomial : public oracle {
 public:
@@ -65,20 +62,11 @@ public:
 
     const std::vector<Goldilocks2::Element>& get_eval_table() const;
 
-    virtual bool check_open(
-        const ligeropcs_base *pcs,
-        const std::vector<Goldilocks2::Element>& challenges,
-        const Goldilocks2::Element& claim,
-        const size_t& sec_param) const;
-
-    virtual bool check_open(
-        const ligeropcs_ext *pcs,
-        const std::vector<Goldilocks2::Element>& challenges,
-        const Goldilocks2::Element& claim,
-        const size_t& sec_param) const;
+    // New method to process challenges and return auxiliary information
+    virtual mle_aux_info process_challenges(
+        const std::vector<Goldilocks2::Element>& challenges) const;
 
 protected:
-    virtual std::vector<Goldilocks2::Element> get_open_r(const std::vector<Goldilocks2::Element>& challenges) const;
 
     // evaliations over the hypercube
     std::vector<Goldilocks2::Element> evaluations;
