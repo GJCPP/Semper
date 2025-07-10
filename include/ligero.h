@@ -15,6 +15,7 @@ class ligeropcs_base : public commitment {
 public:
     ligeropcs_base(const MerkleDef::Digest& mthash, const std::shared_ptr<ligeroProver_base>& prover, const size_t& num_rows, const size_t& num_cols);
 
+    ligeropcs_base(const ligeropcs_base& pcs, const MultilinearPolynomial& mle);
 
     MerkleDef::Digest mthash;
     // const ligeroProver& prover;
@@ -22,7 +23,11 @@ public:
     size_t num_rows;
     size_t num_cols;
 
+    // committed mle
+    const MultilinearPolynomial *mle;
+
     Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const override;
+
     bool check_open(
         const std::vector<Goldilocks2::Element>& challenges,
         const Goldilocks2::Element& claim,
@@ -32,6 +37,8 @@ public:
 class ligeropcs_ext : public commitment {
 public:
     ligeropcs_ext(const MerkleDef::Digest& mthash, const std::shared_ptr<ligeroProver_ext>& prover, const size_t& num_rows, const size_t& num_cols);
+    
+    ligeropcs_ext(const ligeropcs_ext& pcs, const MultilinearPolynomial& mle);
 
 
     MerkleDef::Digest mthash;
@@ -39,6 +46,9 @@ public:
     std::shared_ptr<ligeroProver_ext> prover;
     size_t num_rows;
     size_t num_cols;
+
+    // committed mle
+    const MultilinearPolynomial *mle;
 
     Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const override;    
 
@@ -62,11 +72,6 @@ public:
     std::vector<Goldilocks2::Element> lincomb(const std::vector<Goldilocks2::Element>& r) const;
     std::vector<MerkleTree_base::MTPayload> open_cols(const std::vector<size_t>& indexes) const;
 
-    bool check_open(
-        const ligeropcs_base* pcs,
-        const std::vector<Goldilocks2::Element>& challenges,
-        const Goldilocks2::Element& claim,
-        const size_t& sec_param) const;
 private:
     // mle is a multilinear polynomial whose evaluations over the hypercube are all base field elements 
     // MultilinearPolynomial mle;
@@ -96,12 +101,6 @@ public:
     std::vector<Goldilocks2::Element> lincomb(const std::vector<Goldilocks2::Element>& r) const;
     std::vector<MerkleTree_ext::MTPayload> open_cols(const std::vector<size_t>& indexes) const;
 
-    bool check_open(
-        const ligeropcs_ext *pcs,
-        const std::vector<Goldilocks2::Element>& challenges,
-        const Goldilocks2::Element& claim,
-        const size_t& sec_param) const;
-
 private:
     // MultilinearPolynomial mle;
 
@@ -111,8 +110,6 @@ private:
     std::vector<Goldilocks2::Element> M;
     // encoded matrix
     std::vector<std::vector<Goldilocks2::Element>> codewords;
-    // committed mle
-    const MultilinearPolynomial *mle;
     // merkle hash tree of codewords
     MerkleTree_ext mt_t;
 };

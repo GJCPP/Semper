@@ -1,5 +1,7 @@
 #pragma once
 
+#define DEBUG
+
 #include "goldilocks_base_field.hpp"
 #include "goldilocks_quadratic_ext.h"
 #include "mle.h"

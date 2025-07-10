@@ -14,9 +14,9 @@ class array_view {
 public:
     friend std::ostream& operator<< <T>(std::ostream& os, const array_view<T>& arr);
 
-    array_view() : data(nullptr), data_shape({}), index_offset({}), dims(0), data_size(0), reversed({}) {}
+    array_view() : data(nullptr), data_shape({}), index_offset({}), dims(0), data_size(0), reversed({}), order({}) {}
 
-    array_view(T* _data, const std::vector<size_t>& _shape, const std::vector<size_t>& _offset = {}, const std::vector<bool>& _reversed = {}) 
+    array_view(T* _data, const std::vector<size_t>& _shape, const std::vector<size_t>& _offset = {}, const std::vector<bool>& _reversed = {}, const std::vector<int>& _order = {}) 
         : data(_data), data_shape(_shape), index_offset(_shape.size()), dims(_shape.size()), data_size(1) {
         for (size_t i = 0; i < _shape.size(); ++i) {
             data_size *= _shape[i];
@@ -30,6 +30,14 @@ public:
             reversed = std::vector<bool>(_shape.size(), false);
         } else {
             reversed = _reversed;
+        }
+        if (_order.size() == 0) {
+            order = std::vector<int>(_shape.size());
+            for (int i = 0; i < _shape.size(); ++i) {
+                order[i] = i;
+            }
+        } else {
+            order = _order;
         }
     }
 
@@ -56,17 +64,22 @@ public:
         data_shape = new_shape;
         index_offset = new_offset;
         reversed = new_reversed;
+        order = ind;
     }
 
     void swap_dim(int i, int j) {
         if (i < 0 || j < 0 || i >= dims || j >= dims) {
             throw std::runtime_error("array_view::swap_dim: Index out of bounds");
         }
+
         std::swap(data_shape[i], data_shape[j]);
         std::swap(index_offset[i], index_offset[j]);
+        std::swap(order[i], order[j]);
+
         bool tmp_reversed = reversed[i];
         reversed[i] = reversed[j];
         reversed[j] = tmp_reversed;
+
     }
 
     void reverse(int i) {
@@ -110,13 +123,19 @@ public:
         std::vector<size_t> new_shape(data_shape.begin() + 1, data_shape.end());
         std::vector<size_t> new_offset(index_offset.begin() + 1, index_offset.end());
         std::vector<bool> new_reversed(reversed.begin() + 1, reversed.end());
+        std::vector<int> new_order(order.begin() + 1, order.end());
+        for (int& ord : new_order) {
+            if (ord > order[0]) {
+                --ord;
+            }
+        }
         if (index >= data_shape[0]) {
             throw std::runtime_error("array_view: Index out of bounds");
         }
         if (reversed[0]) {
             index = data_shape[0] - 1 - index;
         }
-        return array_view<T>(data + index * index_offset[0], new_shape, new_offset, new_reversed);
+        return array_view<T>(data + index * index_offset[0], new_shape, new_offset, new_reversed, new_order);
     }
 
     template<typename... Args>
@@ -135,6 +154,14 @@ public:
 
     size_t shape(int i) const {
         return data_shape[i];
+    }
+
+    int get_order(int i) const {
+        return order[i];
+    }
+
+    bool is_reversed(int i) const { 
+        return reversed[i];
     }
 
     std::vector<size_t> get_shape() const {
@@ -168,6 +195,10 @@ public:
         return data;
     }
 
+    bool empty() const {
+        return data_size == 0;
+    }
+
 protected:
     void init_offset() {
         if (dims == 0) {
@@ -181,6 +212,7 @@ protected:
     int dims;
     T* data;
     size_t data_size;
+    std::vector<int> order;
     std::vector<size_t> data_shape;
     std::vector<size_t> index_offset;
     std::vector<bool> reversed; // whether the index is reversed

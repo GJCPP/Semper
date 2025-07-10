@@ -273,8 +273,8 @@ void random_conv2_padding(
     assert(X.shape(0) == C);
     assert(X.shape(1) == n);
     assert(X.shape(2) == n);
-    assert(W.shape(0) == C);
-    assert(W.shape(1) == D);
+    assert(W.shape(0) == D); // D
+    assert(W.shape(1) == C);
     assert(W.shape(2) == m);
     assert(W.shape(3) == m);
     assert(Y.shape(0) == D);
@@ -296,7 +296,7 @@ void random_conv2_padding(
                             int64_t x_i = i + ki - padding;
                             int64_t x_j = j + kj - padding;
                             if (x_i >= 0 && x_i < n && x_j >= 0 && x_j < n) {
-                                sum = sum + X(c, x_i, x_j) * W(c, d, ki, kj);
+                                sum = sum + X(c, x_i, x_j) * W(d, c, ki, kj);
                             }
                         }
                     }
@@ -315,26 +315,33 @@ bool test_conv2_check() {
         size_t on = n + 2 * padding - m + 1;
         // X: C x n x n, W: C x D x m x m, Y: D x on x on
         std::vector<Goldilocks2::Element> X(C * n * n);
-        std::vector<Goldilocks2::Element> W(C * D * m * m);
+        std::vector<Goldilocks2::Element> W(D * C * m * m);
         std::vector<Goldilocks2::Element> Y(D * on * on);
         array_view<Goldilocks2::Element> X_view(X.data(), {C, n, n});
-        array_view<Goldilocks2::Element> W_view(W.data(), {C, D, m, m});
+        array_view<Goldilocks2::Element> W_view(W.data(), {D, C, m, m});
         array_view<Goldilocks2::Element> Y_view(Y.data(), {D, on, on});
+
         
         random_conv2_padding(C, D, n, m, padding, X_view, W_view, Y_view);
+        
 
+        MultilinearPolynomial p_w(W_view);
+        ligeropcs_ext pcs_w = ligero_commit_ext(p_w, 2); // commit as D C m m
 
+        W_view.swap_dim(0, 1); // C D m m
         convProver prover(make_conv2_prover(C, D, n, m, padding, X_view, W_view, Y_view));
 
 
         // std::array<ligeropcs_ext, 3> pcs = prover.triple.commit(2);
         // std::array<const oracle*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
         MultilinearPolynomial p1(X);
-        MLE_Convker p2 = *dynamic_cast<MLE_Convker*>(prover.triple.W.get());
 
+        
+        MLE_Convker p2 = *dynamic_cast<MLE_Convker*>(prover.triple.W.get());
         // MultilinearPolynomial p2 = *prover.triple.W;
         MultilinearPolynomial p3 = *prover.triple.Y;
-        std::array<ligeropcs_ext, 3> pcs = { ligero_commit_ext(p1, 2), ligero_commit_ext(p2, 2), ligero_commit_ext(p3, 2) };
+
+        std::array<ligeropcs_ext, 3> pcs = { ligero_commit_ext(p1, 2), ligeropcs_ext(pcs_w, p2), ligero_commit_ext(p3, 2) };
         std::array<const oracle*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
 
         // if (!prover.triple.check()) {
@@ -351,7 +358,7 @@ bool test_conv2_check() {
 
 bool test_pad_check() {
     for (int cnt(0); cnt != CNT_TEST; ++cnt) {
-        size_t n = rand() % 20 + 2, m = rand() % 20 + 1;
+        size_t n = rand() % 20 + 2, m = rand() % 20 + 2;
         std::vector<Goldilocks2::Element> r = random_vec_ext(n * m);
         array_view<Goldilocks2::Element> r_view(r.data(), {n, m});
         MultilinearPolynomial X(r_view);
@@ -369,7 +376,8 @@ bool test_pad_check() {
         int begin = find_ceiling_log2(n), end = find_ceiling_log2(n * pad_row) - find_ceiling_log2(m);
         auto challenge = random_vec_ext(X_pad.get_num_vars());
         Goldilocks2::Element claimed_Xr = X_pad.evaluate(challenge);
-        if (!execute_pad_check(claimed_Xr, &pcs, begin, end, challenge, 32)) {
+        auto cha_claim = execute_pad_check(claimed_Xr, begin, end, challenge, 32);
+        if (cha_claim.claim != pcs.open(cha_claim.challenges, 32)) {
             return false;
         }
     }

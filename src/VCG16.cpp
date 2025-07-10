@@ -1,6 +1,10 @@
 #include <chrono>
 
+#include "header"
+
 #include "VCG16.h"
+#include "VCG16_check.h"
+#include "VCG16_prove.h"
 
 VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value)
     : epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * max_val) {
@@ -11,7 +15,18 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value)
         keys.push_back(key);
         values.push_back(&value);
     }
-    
+
+    minibatch = filedata["a_q0"].shape[0];
+    img_per_batch = filedata["a_q0"].shape[1];
+
+    for (size_t i = 0; i < keys.size(); ++i) {
+        const std::string& key = keys[i];
+        mle[key] = {};
+        pcs[key] = {};
+        data[key] = nullptr;
+        data_shape[key] = {};
+    }
+
     #pragma omp parallel for
     for (size_t i = 0; i < keys.size(); ++i) {
         std::string key = keys[i];
@@ -26,29 +41,15 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value)
             ptr[i] = Goldilocks2::fromS64(value->data<int64_t>()[i]);
         }
         data_shape[key] = value->shape;
-        array_view<Goldilocks2::Element> arr(ptr, value->shape);
-        mle[key] = std::make_shared<MultilinearPolynomial>(arr);
-        pcs[key] = std::make_shared<ligeropcs_base>(ligero_commit_base(*mle[key], 2));
-        #pragma omp critical
-        {
-            std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
-            std::cout << "Key " << key << " of size ";
-            for (size_t j = 0; j < values[i]->shape.size(); ++j) {
-                if (j > 0) std::cout << "x";
-                std::cout << values[i]->shape[j];
-            }
-            std::cout << " took " << duration.count() / 1000000.0 << " s" << std::endl;
-        }
+
+        mle[key] = {};
+        pcs[key] = {};
     }
     std::cout << "Done processing keys." << std::endl;
     data[{}] = nullptr;
     data_shape[{}] = {};
-    mle[{}] = nullptr;
-    pcs[{}] = nullptr;
-
-    minibatch = data_shape["a_q0"][0];
-    img_per_batch = data_shape["a_q0"][1];
+    mle[{}] = {};
+    pcs[{}] = {};
 
     input_data = array_view<Goldilocks2::Element>(data["a_q0"].get(), data_shape["a_q0"]);
     input_label = array_view<Goldilocks2::Element>(data["a_q0_label"].get(), data_shape["a_q0_label"]);
@@ -64,7 +65,7 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value)
             else {
                 input_name = std::format("a_q{}", lid - 1);
             }
-            add_layer(layer_type::conv,
+            add_layer(layer_type::conv, minibatch,
                 std::format("conv_{}", lid),
                 input_name,
                 std::format("z_q{}", lid),
@@ -72,7 +73,7 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value)
                 std::format("grad_{}", input_name),
                 std::format("grad_z_q{}", lid),
                 std::format("dW_conv_q{}", lid));
-            add_layer(layer_type::relu,
+            add_layer(layer_type::relu, minibatch,
                 std::format("relu_{}", lid),
                 std::format("z_q{}", lid),
                 std::format("a_q{}", lid),
@@ -81,7 +82,7 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value)
                 std::format("grad_a_q{}", lid),
                 {});
         }
-        add_layer(layer_type::pool,
+        add_layer(layer_type::pool, minibatch,
             std::format("pool_{}", ind_pool),
             std::format("a_q{}", layer.back()),
             std::format("pool_q{}", ind_pool),
@@ -92,7 +93,7 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value)
             std::format("pool_idx_q{}", ind_pool));
         ++ind_pool;
     }
-    add_layer(layer_type::flat,
+    add_layer(layer_type::flat, minibatch,
         "flat",
         std::format("pool_q{}", ind_pool - 1),
         "flat_q",
@@ -102,7 +103,7 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value)
         {});
     for (int layer = 1; layer <= 3; ++layer) {
         std::string input_name = layer == 1 ? "flat_q" : std::format("a{}_q", layer - 1);
-        add_layer(layer_type::full,
+        add_layer(layer_type::full, minibatch,
             std::format("full_{}", layer),
             input_name,
             std::format("z{}_q", layer),
@@ -111,7 +112,7 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value)
             std::format("grad_z{}_q", layer),
             std::format("dW_fc{}_q", layer));
         if (layer < 3) {
-            add_layer(layer_type::relu,
+            add_layer(layer_type::relu, minibatch,
                 std::format("fc_relu_{}", layer),
                 std::format("z{}_q", layer),
                 std::format("a{}_q", layer),
@@ -121,7 +122,7 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value)
                 {});
         }
     }
-    add_layer(layer_type::softmax,
+    add_layer(layer_type::softmax, minibatch,
         "softmax",
         "z3_q", // input
         "probs_q", // output
@@ -154,19 +155,21 @@ bool VCG16::check(size_t n_samples) const {
             case layer_type::conv:
                 // Check range
                 std::cout << "Checking range." << std::endl;
-                pass &= check_range(layer.input, max_val);
-                pass &= check_range(layer.weight, max_val);
-                pass &= check_range(layer.output, sqr_val);
-                pass &= check_range(layer.d_input, sqr_val);
-                pass &= check_range(layer.d_output, max_val);
-                pass &= check_range(layer.d_weight, max_val);
+                for (int i = 0; i < minibatch; ++i) {
+                    pass &= check_range(layer.input[i], max_val);
+                    pass &= check_range(layer.weight[i], max_val);
+                    pass &= check_range(layer.output[i], sqr_val);
+                    pass &= check_range(layer.d_input[i], sqr_val);
+                    pass &= check_range(layer.d_output[i], max_val);
+                    pass &= check_range(layer.d_weight[i], max_val);
+                }
                 if (!pass) {
                     std::cout << "❌ Layer " << layer.name << " failed. (range)" << std::endl;
                     break;
                 }
 
                 // Check forward pass
-                for (size_t i = 0; i < layer.input.shape(0) && pass; ++i) { // mini-batch
+                for (size_t i = 0; i < minibatch && pass; ++i) { // mini-batch
                     std::cout << "Checking layer " << layer.name << " (forward) for mini-batch " << i << std::endl;
                     pass &= check_conv(layer.input[i], layer.weight[i], layer.output[i], 1, n_samples);
                 }
@@ -176,7 +179,7 @@ bool VCG16::check(size_t n_samples) const {
                 }
 
                 // Check backward pass, check d_weight
-                for (size_t i = 0; i < layer.input.shape(0) && pass; ++i) { // mini-batch
+                for (size_t i = 0; i < minibatch && pass; ++i) { // mini-batch
                     std::cout << "Checking layer " << layer.name << " (backward, d_weight) for mini-batch " << i << std::endl;
                     array_view<Goldilocks2::Element> input_i(layer.input[i]);
                     array_view<Goldilocks2::Element> d_output_i(layer.d_output[i]);
@@ -193,7 +196,7 @@ bool VCG16::check(size_t n_samples) const {
                 }
 
                 // Check backward pass, check d_input
-                for (size_t i = 0; i < layer.input.shape(0) && pass; ++i) { // mini-batch
+                for (size_t i = 0; i < minibatch && pass; ++i) { // mini-batch
                     std::cout << "Checking layer " << layer.name << " (backward, d_input) for mini-batch " << i << std::endl;
                     array_view<Goldilocks2::Element> d_input_i(layer.d_input[i]);
                     array_view<Goldilocks2::Element> d_output_i(layer.d_output[i]);
@@ -212,10 +215,12 @@ bool VCG16::check(size_t n_samples) const {
             case layer_type::relu:
                 //Check range
                 std::cout << "Checking range." << std::endl;
-                pass &= check_range(layer.input, sqr_val);
-                pass &= check_range(layer.output, max_val);
-                pass &= check_range(layer.d_input, max_val);
-                pass &= check_range(layer.d_output, sqr_val);
+                for (int i = 0; i < minibatch; ++i) {
+                    pass &= check_range(layer.input[i], sqr_val);
+                    pass &= check_range(layer.output[i], max_val);
+                    pass &= check_range(layer.d_input[i], max_val);
+                    pass &= check_range(layer.d_output[i], sqr_val);
+                }
                 if (!pass) {
                     std::cout << "❌ Layer " << layer.name << " failed. (range)" << std::endl;
                     break;
@@ -223,7 +228,9 @@ bool VCG16::check(size_t n_samples) const {
 
                 //Check forward pass
                 std::cout << "Checking layer " << layer.name << " (forward)" << std::endl;
-                pass &= check_relu(layer.input, layer.input, layer.output, scale, n_samples);
+                for (int i = 0; i < minibatch && pass; ++i) {
+                    pass &= check_relu(layer.input[i], layer.input[i], layer.output[i], scale, n_samples);
+                }
                 if (!pass) {
                     std::cout << "❌ Layer " << layer.name << " failed. (forward)" << std::endl;
                     break;
@@ -231,7 +238,9 @@ bool VCG16::check(size_t n_samples) const {
 
                 //Check backward pass
                 std::cout << "Checking layer " << layer.name << " (backward)" << std::endl;
-                pass &= check_relu(layer.input, layer.d_output, layer.d_input, scale, n_samples);
+                for (int i = 0; i < minibatch && pass; ++i) {
+                    pass &= check_relu(layer.input[i], layer.d_output[i], layer.d_input[i], scale, n_samples);
+                }
                 if (!pass) {
                     std::cout << "❌ Layer " << layer.name << " failed. (backward)" << std::endl;
                     break;
@@ -241,10 +250,12 @@ bool VCG16::check(size_t n_samples) const {
             case layer_type::pool:
                 //Check range
                 std::cout << "Checking range." << std::endl;
-                pass &= check_range(layer.input, max_val);
-                pass &= check_range(layer.output, max_val);
-                pass &= check_range(layer.d_input, sqr_val);
-                pass &= check_range(layer.d_output, sqr_val);
+                for (int i = 0; i < minibatch; ++i) {
+                    pass &= check_range(layer.input[i], max_val);
+                    pass &= check_range(layer.output[i], max_val);
+                    pass &= check_range(layer.d_input[i], sqr_val);
+                    pass &= check_range(layer.d_output[i], sqr_val);
+                }
                 if (!pass) {
                     std::cout << "❌ Layer " << layer.name << " failed. (range)" << std::endl;
                     break;
@@ -252,7 +263,7 @@ bool VCG16::check(size_t n_samples) const {
 
                 //Check forward pass
                 std::cout << "Checking layer " << layer.name << " (forward)" << std::endl;
-                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
+                for (int i = 0; i < minibatch && pass; ++i) {
                     std::cout << "Checking layer " << layer.name << " (forward) for mini-batch " << i << std::endl;
                     pass &= check_pool(layer.input[i], layer.output[i], layer.aux[i], 2, 2, false, n_samples);
                 }
@@ -265,7 +276,7 @@ bool VCG16::check(size_t n_samples) const {
                 
                 //Check backward pass
                 std::cout << "Checking layer " << layer.name << " (backward)" << std::endl;
-                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
+                for (int i = 0; i < minibatch && pass; ++i) {
                     std::cout << "Checking layer " << layer.name << " (backward) for mini-batch " << i << std::endl;
                     pass &= check_pool(layer.d_input[i], layer.d_output[i], layer.aux[i], 2, 2, true, n_samples);
                 }
@@ -278,10 +289,12 @@ bool VCG16::check(size_t n_samples) const {
             case layer_type::flat:
                 //Check range
                 std::cout << "Checking range." << std::endl;
-                pass &= check_range(layer.input, max_val);
-                pass &= check_range(layer.output, max_val);
-                pass &= check_range(layer.d_input, sqr_val);
-                pass &= check_range(layer.d_output, sqr_val);
+                for (int i = 0; i < minibatch; ++i) {
+                    pass &= check_range(layer.input[i], max_val);
+                    pass &= check_range(layer.output[i], max_val);
+                    pass &= check_range(layer.d_input[i], sqr_val);
+                    pass &= check_range(layer.d_output[i], sqr_val);
+                }
                 if (!pass) {
                     std::cout << "❌ Layer " << layer.name << " failed. (range)" << std::endl;
                     break;
@@ -289,7 +302,7 @@ bool VCG16::check(size_t n_samples) const {
 
                 //Check forward pass
                 std::cout << "Checking layer " << layer.name << " (forward)" << std::endl;
-                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
+                for (int i = 0; i < minibatch && pass; ++i) {
                     std::cout << "Checking layer " << layer.name << " (forward) for mini-batch " << i << std::endl;
                     pass &= check_flat(layer.input[i], layer.output[i], n_samples);
                 }
@@ -300,7 +313,7 @@ bool VCG16::check(size_t n_samples) const {
                 
                 //Check backward pass
                 std::cout << "Checking layer " << layer.name << " (backward)" << std::endl;
-                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
+                for (int i = 0; i < minibatch && pass; ++i) {
                     std::cout << "Checking layer " << layer.name << " (backward) for mini-batch " << i << std::endl;
                     pass &= check_flat(layer.d_input[i], layer.d_output[i], n_samples);
                 }
@@ -313,10 +326,12 @@ bool VCG16::check(size_t n_samples) const {
             case layer_type::full:
                 //Check range
                 std::cout << "Checking range." << std::endl;
-                pass &= check_range(layer.input, max_val);
-                pass &= check_range(layer.output, sqr_val);
-                pass &= check_range(layer.d_input, sqr_val);
-                pass &= check_range(layer.d_output, max_val);
+                for (int i = 0; i < minibatch; ++i) {
+                    pass &= check_range(layer.input[i], max_val);
+                    pass &= check_range(layer.output[i], sqr_val);
+                    pass &= check_range(layer.d_input[i], sqr_val);
+                    pass &= check_range(layer.d_output[i], max_val);
+                }
                 if (!pass) {
                     std::cout << "❌ Layer " << layer.name << " failed. (range)" << std::endl;
                     break;
@@ -324,14 +339,14 @@ bool VCG16::check(size_t n_samples) const {
 
                 //Check forward pass
                 std::cout << "Checking layer " << layer.name << " (forward)" << std::endl;
-                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
+                for (int i = 0; i < minibatch && pass; ++i) {
                     std::cout << "Checking layer " << layer.name << " (forward) for mini-batch " << i << std::endl;
                     pass &= check_full(layer.input[i], layer.weight[i], layer.output[i], n_samples);
                 }
                 
                 //Check backward pass, check d_weight
                 std::cout << "Checking layer " << layer.name << " (backward, d_weight)" << std::endl;
-                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
+                for (int i = 0; i < minibatch && pass; ++i) {
                     std::cout << "Checking layer " << layer.name << " (backward, d_weight) for mini-batch " << i << std::endl;
                     array_view<Goldilocks2::Element> input_i(layer.input[i]);
                     input_i.swap_dim(0, 1); // Transpose input to [C, N]
@@ -340,7 +355,7 @@ bool VCG16::check(size_t n_samples) const {
 
                 //Check backward pass, check d_input
                 std::cout << "Checking layer " << layer.name << " (backward, d_input)" << std::endl;
-                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
+                for (int i = 0; i < minibatch && pass; ++i) {
                     std::cout << "Checking layer " << layer.name << " (backward, d_input) for mini-batch " << i << std::endl;
                     array_view<Goldilocks2::Element> weight_i(layer.weight[i]);
                     weight_i.swap_dim(0, 1); // Transpose weight to [OC, C]
@@ -351,9 +366,11 @@ bool VCG16::check(size_t n_samples) const {
             case layer_type::softmax:
                 //Check range
                 std::cout << "Checking range." << std::endl;
-                pass &= check_range(layer.input, sqr_val);
-                pass &= check_range(layer.output, max_val);
-                pass &= check_range(layer.d_input, max_val);
+                for (int i = 0; i < minibatch; ++i) {
+                    pass &= check_range(layer.input[i], sqr_val);
+                    pass &= check_range(layer.output[i], max_val);
+                    pass &= check_range(layer.d_input[i], max_val);
+                }
                 if (!pass) {
                     std::cout << "❌ Layer " << layer.name << " failed. (range)" << std::endl;
                     break;
@@ -361,7 +378,7 @@ bool VCG16::check(size_t n_samples) const {
 
                 //Check softmax
                 std::cout << "Checking layer " << layer.name << std::endl;
-                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
+                for (int i = 0; i < minibatch && pass; ++i) {
                     std::cout << "Checking layer " << layer.name << " (forward) for mini-batch " << i << std::endl;
                     pass &= check_softmax(layer.input[i], layer.output[i], layer.aux[i], e_pow_inv, scale);
                 }
@@ -383,7 +400,54 @@ bool VCG16::check(size_t n_samples) const {
     return true;
 }
 
-void VCG16::add_layer(layer_type type,
+bool VCG16::prove(int sec_param) {
+    bool ret = true;
+    for (auto layer : layers) {
+        init_layer_mle_pcs(layer);
+        bool pass = true;
+        std::cout << "Proving layer " << layer.name << std::endl;
+        switch (layer.type) {
+        case layer_type::conv:
+            std::cout << "Proving layer " << layer.name << " (forward)" << std::endl;
+            for (int i = 0; i < minibatch; ++i) {
+                for (int j = 0; j < img_per_batch; ++j) {
+                    #ifndef DEBUG
+
+                    ret &= prove_conv(layer.input[i][j], layer.weight[i][j], layer.output[i][j], layer.pcs_input->at(i)[j].get(), layer.pcs_weight->at(i)[j].get(), layer.pcs_output->at(i)[j].get(), 1, sec_param);
+
+                    #else
+
+                    ret &= prove_conv(
+                        layer.input[i][j],
+                        layer.weight[i],
+                        layer.output[i][j],
+                        layer.get_pcs_input(i, j),
+                        layer.get_pcs_weight(i, 0),
+                        layer.get_pcs_output(i, j),
+                        1,
+                        sec_param);
+                        
+                    #endif
+                }
+                if (!ret) {
+                    std::cout << "❌ Layer " << layer.name << " failed. (forward)" << std::endl;
+                    break;
+                }
+            }
+            if (!ret) break;
+            break;
+        }
+        if (!ret) break;
+    }
+    if (ret) {
+        std::cout << "✅ All layers proved successfully." << std::endl;
+    } else {
+        std::cout << "❌ Some layers failed to prove." << std::endl;
+    }
+    return ret;
+}
+
+void VCG16::add_layer(layer_type type, int batches,
                       const std::string& name,
                       const std::string& input,
                       const std::string& output,
@@ -395,662 +459,161 @@ void VCG16::add_layer(layer_type type,
     layer_info info;
     info.type = type;
     info.name = name;
-    info.input = array_view<Goldilocks2::Element>(data[input].get(), data_shape[input]);
-    info.output = array_view<Goldilocks2::Element>(data[output].get(), data_shape[output]);
-    info.weight = array_view<Goldilocks2::Element>(data[weight].get(), data_shape[weight]);
-    info.d_input = array_view<Goldilocks2::Element>(data[d_input].get(), data_shape[d_input]);
-    info.d_output = array_view<Goldilocks2::Element>(data[d_output].get(), data_shape[d_output]);
-    info.d_weight = array_view<Goldilocks2::Element>(data[d_weight].get(), data_shape[d_weight]);
-    info.aux = array_view<Goldilocks2::Element>(data[aux].get(), data_shape[aux]);
 
-    info.mle_input = mle[input];
-    info.mle_output = mle[output];
-    info.mle_weight = mle[weight];
-    info.mle_d_input = mle[d_input];
-    info.mle_d_output = mle[d_output];
-    info.mle_d_weight = mle[d_weight];
+    std::vector<array_view<Goldilocks2::Element>> *arrs[] = {
+        &info.input,
+        &info.output,
+        &info.weight,
+        &info.d_input,
+        &info.d_output,
+        &info.d_weight,
+        &info.aux
+    };
+    std::string *store_keys[7] = {&info.key_input, &info.key_output, &info.key_weight, &info.key_d_input, &info.key_d_output, &info.key_d_weight, &info.key_aux};
+    bool val[7];
+    const std::string *keys[7] = {&input, &output, &weight, &d_input, &d_output, &d_weight, &aux};
+    for (int i = 0; i < 7; ++i) {
+        val[i] = !keys[i]->empty();
+        *store_keys[i] = *keys[i];
+        if (val[i]) {
+            auto arr = array_view<Goldilocks2::Element>(data[*keys[i]].get(), data_shape[*keys[i]]);
+            for (int j = 0; j < batches; ++j) {
+                arrs[i]->push_back(arr[j]);
+            }
+        }
+    }
     
-    info.pcs_input = pcs[input];
-    info.pcs_output = pcs[output];
-    info.pcs_weight = pcs[weight];
-    info.pcs_d_input = pcs[d_input];
-    info.pcs_d_output = pcs[d_output];
-    info.pcs_d_weight = pcs[d_weight];
+    std::vector<std::vector<std::shared_ptr<MultilinearPolynomial>>> **mles[] = {
+        &info.mle_input,
+        &info.mle_output,
+        &info.mle_weight,
+        &info.mle_d_input,
+        &info.mle_d_output,
+        &info.mle_d_weight
+    };
+    std::vector<std::vector<std::shared_ptr<ligeropcs_base>>> **pcses[] = {
+        &info.pcs_input,
+        &info.pcs_output,
+        &info.pcs_weight,
+        &info.pcs_d_input,
+        &info.pcs_d_output,
+        &info.pcs_d_weight
+    };
+    for (int i = 0; i < 6; ++i) {
+        if (val[i]) {
+            *mles[i] = &mle[*keys[i]];
+            *pcses[i] = &pcs[*keys[i]];
+        }
+    }
 
     layers.push_back(info);
 }
 
-
-bool check_range(const array_view<Goldilocks2::Element>& input, int64_t max_value) {
-    bool ret = true;
-    size_t sz = input.size();
-    #pragma omp parallel for
-    for (size_t i = 0; i < sz; ++i) {
-        int64_t actual = Goldilocks2::toS64(input.get(i));
-        if (actual > max_value || -actual > max_value) {
-            ret = false;
-            #pragma omp critical
-            {
-                std::cout << "❌ Out of range at (i=" << i << "): value=" << actual << ", max_value=" << max_value << std::endl;
-            }
-        }
-    }
-    return ret;
+void VCG16::init_layer_mle_pcs(layer_info& info) {
+    if (!info.key_input.empty()) init_mle_pcs_input(info.key_input);
+    if (!info.key_weight.empty()) init_mle_pcs_weight(info.key_weight);
+    if (!info.key_output.empty()) init_mle_pcs_input(info.key_output);
+    if (!info.key_d_input.empty()) init_mle_pcs_input(info.key_d_input);
+    if (!info.key_d_output.empty()) init_mle_pcs_input(info.key_d_output);
+    if (!info.key_d_weight.empty()) init_mle_pcs_weight(info.key_d_weight);
 }
 
-bool check_conv(
-    const array_view<Goldilocks2::Element>& input, // [N, C, H, W]
-    const array_view<Goldilocks2::Element>& weights, // [OC, C, K, K]
-    const array_view<Goldilocks2::Element>& expected, // [N, OC, H + 2 * pad - K + 1, W + 2 * pad - K + 1]
-    size_t pad,
-    size_t n_samples
-) {
-    if (n_samples > 0) {
-        return random_check_conv(input, weights, expected, pad, n_samples);
-    }
-    size_t N = input.shape(0);
-    size_t C = input.shape(1);
-    size_t H = input.shape(2);
-    size_t W = input.shape(3);
-    size_t OC = weights.shape(0);
-    size_t K = weights.shape(2);
-    size_t OH = H + 2 * pad - K + 1;
-    size_t OW = W + 2 * pad - K + 1;
-    assert(input.get_dims() == 4);
-    assert(weights.get_dims() == 4);
-    assert(expected.get_dims() == 4);
-    assert(input.shape(0) == N);
-    assert(input.shape(1) == C);
-    assert(input.shape(2) == H);
-    assert(input.shape(3) == W);
-    assert(weights.shape(0) == OC);
-    assert(weights.shape(1) == C);
-    assert(weights.shape(2) == K);
-    assert(weights.shape(3) == K);
-    assert(expected.shape(0) == N);
-    assert(expected.shape(1) == OC);
-    assert(expected.shape(2) == OH);
-    assert(expected.shape(3) == OW);
-
-    bool ret = true;
-
-#pragma omp parallel for
-    for (size_t n = 0; n < N; ++n) {
-
-        auto view_input_n = input[n];
-        auto view_expected_n = expected[n];
-
-        for (size_t oc = 0; oc < OC && ret; ++oc) {
-
-            auto view_weights_oc = weights[oc];
-            auto view_expected_n_oc = view_expected_n[oc];
-
-            for (size_t i = 0; i < OH && ret; ++i) {
-
-                auto view_expected_n_oc_h = view_expected_n_oc[i];
-
-                for (size_t j = 0; j < OW && ret; ++j) {
-
-                    Goldilocks2::Element acc = Goldilocks2::zero();
-                    for (size_t c = 0; c < C && ret; ++c) {
-
-                        auto view_weights_oc_c = view_weights_oc[c];
-                        auto view_input_n_c = view_input_n[c];
-
-                        for (size_t ki = 0; ki < K && ret; ++ki) {
-                            for (size_t kj = 0; kj < K && ret; ++kj) {
-                                if (i + ki >= pad && i + ki < H + pad && j + kj >= pad && j + kj < W + pad) {
-                                    acc += view_input_n_c(i + ki - pad, j + kj - pad) * view_weights_oc_c(ki, kj);
-                                }
-                            }
-                        }
-                    }
-                    // acc = acc / scale; // downscale
-                    // if (acc < 0) acc = 0; // relu
-
-                    Goldilocks2::Element actual = view_expected_n_oc_h(j);
-                    if (actual != acc) {
-                        ret = false;
-                        std::cout << "❌ Mismatch at (n=" << n << ", oc=" << oc << ", i=" << i << ", j=" << j << "): manual=" << acc << ", expected=" << actual << std::endl;
-                    }
-                }
-            }
-        }
-    }
-    return ret;
-}
-
-bool random_check_conv(
-    const array_view<Goldilocks2::Element>& input, // [N, C, H, W]
-    const array_view<Goldilocks2::Element>& weights, // [OC, C, K, K]
-    const array_view<Goldilocks2::Element>& expected, // [N, OC, H + 2 * pad - K + 1, W + 2 * pad - K + 1]
-    size_t pad,
-    size_t n_samples
-) {
-    size_t N = input.shape(0);
-    size_t C = input.shape(1);
-    size_t H = input.shape(2);
-    size_t W = input.shape(3);
-    size_t K = weights.shape(2);
-    size_t OC = weights.shape(0);
-    size_t OH = H + 2 * pad - K + 1;
-    size_t OW = W + 2 * pad - K + 1;
-    assert(input.shape(0) == N);
-    assert(input.shape(1) == C);
-    assert(input.shape(2) == H);
-    assert(input.shape(3) == W);
-    assert(weights.shape(0) == OC);
-    assert(weights.shape(1) == C);
-    assert(weights.shape(2) == K);
-    assert(weights.shape(3) == K);
-    assert(expected.shape(0) == N);
-    assert(expected.shape(1) == OC);
-    assert(expected.shape(2) == OH);
-    assert(expected.shape(3) == OW);
-
-    bool ret = true;
-
-#pragma omp parallel for
-    for (size_t cnt = 0; cnt < n_samples; ++cnt) {
-        size_t n = rand() % N;
-        size_t oc = rand() % OC;
-        size_t i = rand() % OH;
-        size_t j = rand() % OW;
-        Goldilocks2::Element acc = Goldilocks2::zero();
-        for (size_t c = 0; c < C; ++c) {
-            for (size_t ki = 0; ki < K; ++ki) {
-                for (size_t kj = 0; kj < K; ++kj) {
-                    if (i + ki >= pad && i + ki < H + pad && j + kj >= pad && j + kj < W + pad) {
-                        acc += input(n, c, i + ki - pad, j + kj - pad) * weights(oc, c, ki, kj);
-                    }
-                }
-            }
-        }
-        // acc = acc / scale; // downscale
-        // if (acc < 0) acc = 0; // relu
-
-        Goldilocks2::Element actual = expected(n, oc, i, j);
-        if (actual != acc) {
-            std::cout << "❌ Mismatch at (n=" << n << ", oc=" << oc << ", i=" << i << ", j=" << j << "): manual=" << acc << ", expected=" << actual << std::endl;
-            ret = false;
-        }
-    }
-    return ret;
-}
-
-
-void add_conv(const array_view<Goldilocks2::Element>& input, const array_view<Goldilocks2::Element>& weights, array_view<Goldilocks2::Element>& output, size_t pad) {
-    
-    size_t H = input.shape(0);
-    size_t W = input.shape(1);
-    size_t K = weights.shape(0);
-    size_t OH = H + 2 * pad - K + 1;
-    size_t OW = W + 2 * pad - K + 1;
-    assert(input.get_dims() == 2);
-    assert(weights.get_dims() == 2);
-    assert(output.get_dims() == 2);
-    assert(input.shape(0) == H);
-    assert(input.shape(1) == W);
-    assert(weights.shape(0) == K);
-    assert(weights.shape(1) == K);
-    assert(output.shape(0) == OH);
-    assert(output.shape(1) == OW);
-
-// #pragma omp parallel for
-    for (size_t i = 0; i < OH; ++i) {
-        for (size_t j = 0; j < OW; ++j) {
-            Goldilocks2::Element acc = Goldilocks2::zero();
-            for (size_t ki = 0; ki < K; ++ki) {
-                for (size_t kj = 0; kj < K; ++kj) {
-                    if (i + ki >= pad && i + ki < H + pad && j + kj >= pad && j + kj < W + pad) {
-                        acc += input(i + ki - pad, j + kj - pad) * weights(ki, kj);
-                    }
-                }
-            }
-            output(i, j) += acc;
+void VCG16::init_mle_pcs_input(const std::string& key) {
+    array_view<Goldilocks2::Element> arr(data[key].get(), data_shape[key]);
+    assert(arr.shape(0) == minibatch);
+    assert(arr.shape(1) == img_per_batch);
+    auto& _mle = mle[key];
+    auto& _pcs = pcs[key];
+    if (!_mle.empty()) return;
+    for (int i = 0; i < minibatch; ++i) {
+        _mle.push_back({});
+        _pcs.push_back({});
+        for (int j = 0; j < img_per_batch; ++j) {
+            _mle.back().push_back(std::make_shared<MultilinearPolynomial>(arr[i][j]));
+            _pcs.back().push_back(std::make_shared<ligeropcs_base>(ligero_commit_base(*_mle.back().back(), 2)));
         }
     }
 }
 
-bool check_relu(
-    const array_view<Goldilocks2::Element>& sign,
-    const array_view<Goldilocks2::Element>& input, // [N, C, H, W]
-    const array_view<Goldilocks2::Element>& output, // [N, C, H, W]
-    int64_t scale,
-    size_t n_samples
-) {
-    if (n_samples > 0) {
-        return random_check_relu(sign, input, output, scale, n_samples);
+void VCG16::init_mle_pcs_weight(const std::string& key) {
+    array_view<Goldilocks2::Element> arr(data[key].get(), data_shape[key]);
+    assert(arr.shape(0) == minibatch);
+    auto& _mle = mle[key];
+    auto& _pcs = pcs[key];
+    if (!_mle.empty()) return;
+    for (int i = 0; i < minibatch; ++i) {
+        _mle.push_back({});
+        _pcs.push_back({});
+        _mle.back().push_back(std::make_shared<MultilinearPolynomial>(arr[i]));
+        _pcs.back().push_back(std::make_shared<ligeropcs_base>(ligero_commit_base(*_mle.back().back(), 2)));
     }
-    assert(input.size() == output.size());
-
-    bool ret = true;
-    size_t sz = input.size();
-    
-    #pragma omp parallel for
-    for (size_t i = 0; i < sz; ++i) {
-        Goldilocks2::Element s = sign.get(i);
-        Goldilocks2::Element actual = input.get(i);
-        Goldilocks2::Element expected = output.get(i);
-        if (Goldilocks2::isNeg(s)) actual = Goldilocks2::zero();
-        actual = Goldilocks2::fromS64(Goldilocks2::toS64(actual) / scale);
-        if (std::abs(Goldilocks2::toS64(actual - expected)) > 1) {
-            ret = false;
-            #pragma omp critical
-            {
-                std::cout << "❌ Mismatch at (i=" << i << "): manual=" << actual << ", expected=" << expected << std::endl;
-            }
-        }
-    }
-    return ret;
 }
 
-bool random_check_relu(
-    const array_view<Goldilocks2::Element>& sign,
-    const array_view<Goldilocks2::Element>& input, // [N, C, H, W]
-    const array_view<Goldilocks2::Element>& output, // [N, C, H, W]
-    int64_t scale,
-    size_t n_samples
-) {
-    bool ret = true;
-    size_t sz = input.size();
-    static thread_local std::mt19937 rng(std::random_device{}());
-
-    #pragma omp parallel for
-    for (size_t cnt = 0; cnt < n_samples; ++cnt) {
-        size_t i = std::uniform_int_distribution<size_t>(0, sz - 1)(rng);
-        Goldilocks2::Element s = sign.get(i);
-        Goldilocks2::Element actual = input.get(i);
-        Goldilocks2::Element expected = output.get(i);
-        if (Goldilocks2::isNeg(s)) actual = Goldilocks2::zero();
-        actual = Goldilocks2::fromS64(Goldilocks2::toS64(actual) / scale);
-        if (std::abs(Goldilocks2::toS64(actual - expected)) > 1) {
-            ret = false;
-            #pragma omp critical
-            {
-                std::cout << "❌ Mismatch at (i=" << i << "): manual=" << actual << ", expected=" << expected << std::endl;
+ligeropcs_base *VCG16::layer_info::get_pcs_input(size_t batch, size_t img) {
+    if (pcs_input->empty()) {
+        for (int i = 0; i < mle_input->size(); ++i) {
+            pcs_input->push_back({});
+            for (int j = 0; j < mle_input->at(i).size(); ++j) {
+                pcs_input->back().push_back(std::make_shared<ligeropcs_base>(ligero_commit_base(*mle_input->at(i)[j], 2)));
             }
         }
     }
-    return ret;
+    return pcs_input->at(batch)[img].get();
 }
 
-bool check_pool(
-    const array_view<Goldilocks2::Element>& input,
-    const array_view<Goldilocks2::Element>& output,
-    const array_view<Goldilocks2::Element>& idx,
-    size_t kernel_size,
-    size_t stride,
-    bool backward,
-    size_t n_samples
-) {
-    size_t N = input.shape(0);
-    size_t C = input.shape(1);
-    size_t H = input.shape(2);
-    size_t W = input.shape(3);
-    size_t OH = H / stride;
-    size_t OW = W / stride;
-    assert(input.get_dims() == 4);
-    assert(output.get_dims() == 4);
-    assert(output.shape(0) == N);
-    assert(output.shape(1) == C);
-    assert(output.shape(2) == OH);
-    assert(output.shape(3) == OW);
-    assert(idx.get_dims() == 4);
-    assert(idx.shape(0) == N);
-    assert(idx.shape(1) == C);
-    assert(idx.shape(2) == OH);
-    assert(idx.shape(3) == OW);
-    assert(H % stride == 0);
-    assert(W % stride == 0);
-
-    if (n_samples > 0) {
-        return random_check_pool(input, output, idx, kernel_size, stride, backward, n_samples);
-    }
-
-    bool ret = true;
-    #pragma omp parallel for
-    for (size_t n = 0; n < N; ++n) {
-
-        auto view_input_n = input[n];
-        auto view_output_n = output[n];
-        auto view_idx_n = idx[n];
-
-        for (size_t c = 0; c < C; ++c) {
-            
-            auto view_input_n_c = view_input_n[c];
-            auto view_output_n_c = view_output_n[c];
-            auto view_idx_n_c = view_idx_n[c];
-
-            for (size_t i = 0; i < OH; ++i) {
-                for (size_t j = 0; j < OW; ++j) {
-                    size_t index = view_idx_n_c(i, j)[0].fe;
-                    Goldilocks2::Element max_val = view_input_n_c.get(index);
-                    for (size_t ki = 0; ki < kernel_size; ++ki) {
-                        for (size_t kj = 0; kj < kernel_size; ++kj) {
-                            size_t x = i * stride + ki;
-                            size_t y = j * stride + kj;
-                            if (backward) {
-                                if (x * W + y != index && view_input_n_c(x, y) != Goldilocks2::zero()) {
-                                    ret = false;
-                                    #pragma omp critical
-                                    {
-                                        std::cout << "❌ Incorrect at (n=" << n << ", c=" << c << ", i=" << i << ", j=" << j << "): expect 0-grad,"
-                                                << ", but find " << view_input_n_c(x, y) << std::endl;
-                                    }
-                                }
-                            } else {
-                                if (view_input_n_c(x, y)[0].fe > max_val[0].fe) {
-                                    ret = false;
-                                    #pragma omp critical
-                                    {
-                                        std::cout << "❌ Incorrect at (n=" << n << ", c=" << c << ", i=" << i << ", j=" << j << "): expect max_val = " << max_val
-                                                << ", but find larger value " << view_input_n_c(x, y) << std::endl;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    if (max_val != view_output_n_c(i, j)) {
-                        ret = false;
-                        #pragma omp critical
-                        {
-                            std::cout << "❌ Mismatch at (n=" << n << ", c=" << c << ", i=" << i << ", j=" << j << "): manual=" << max_val << ", expected=" << view_output_n_c(i, j) << std::endl;
-                        }
-                    }
-                }
+ligeropcs_base *VCG16::layer_info::get_pcs_output(size_t batch, size_t img) {
+    if (pcs_output->empty()) {
+        for (int i = 0; i < mle_output->size(); ++i) {
+            pcs_output->push_back({});
+            for (int j = 0; j < mle_output->at(i).size(); ++j) {
+                pcs_output->back().push_back(std::make_shared<ligeropcs_base>(ligero_commit_base(*mle_output->at(i)[j], 2)));
             }
         }
     }
-    return ret;
+    return pcs_output->at(batch)[img].get();
 }
 
-bool random_check_pool(
-    const array_view<Goldilocks2::Element>& input,
-    const array_view<Goldilocks2::Element>& output,
-    const array_view<Goldilocks2::Element>& idx,
-    size_t kernel_size,
-    size_t stride,
-    bool backward,
-    size_t n_samples
-) {
-    size_t N = input.shape(0);
-    size_t C = input.shape(1);
-    size_t H = input.shape(2);
-    size_t W = input.shape(3);
-    size_t OH = H / stride;
-    size_t OW = W / stride;
-    bool ret = true;
-
-    #pragma omp parallel for
-    for (size_t cnt = 0; cnt < n_samples; ++cnt) {
-        size_t n = rand() % N;
-        size_t c = rand() % C;
-        size_t i = rand() % OH;
-        size_t j = rand() % OW;
-        size_t index = idx(n, c, i, j)[0].fe;
-        Goldilocks2::Element max_val = input[n][c].get(index);
-        if (max_val != output(n, c, i, j)) {
-            ret = false;
-            #pragma omp critical
-            {
-                std::cout << "❌ Mismatch at (n=" << n << ", c=" << c << ", i=" << i << ", j=" << j << "): manual=" << max_val << ", expected=" << output(n, c, i, j) << std::endl;
-            }
-        }
-        for (size_t ki = 0; ki < kernel_size; ++ki) {
-            for (size_t kj = 0; kj < kernel_size; ++kj) {
-                size_t x = i * stride + ki;
-                size_t y = j * stride + kj;
-        
-                if (backward) {
-                    if (x * W + y != index && input(n, c, x, y) != Goldilocks2::zero()) {
-                        ret = false;
-                        #pragma omp critical
-                        {
-                            std::cout << "❌ Incorrect at (n=" << n << ", c=" << c << ", i=" << i << ", j=" << j << "): expect 0-grad,"
-                                    << ", but find " << input(n, c, x, y) << std::endl;
-                        }
-                    }
-                } else {
-                    if (input(n, c, x, y)[0].fe > max_val[0].fe) {
-                        ret = false;
-                        #pragma omp critical
-                        {
-                            std::cout << "❌ Incorrect at (n=" << n << ", c=" << c << ", i=" << i << ", j=" << j << "): expect max_val = " << max_val
-                                    << ", but find larger value " << input(n, c, x, y) << std::endl;
-                        }
-                    }
-                }
-            }
+ligeropcs_base *VCG16::layer_info::get_pcs_weight(size_t batch, size_t img) {
+    if (pcs_weight->empty()) {
+        for (int i = 0; i < mle_weight->size(); ++i) {
+            pcs_weight->push_back({});
+            pcs_weight->back().push_back(std::make_shared<ligeropcs_base>(ligero_commit_base(*mle_weight->at(i)[0], 2)));
         }
     }
-    return ret;
+    return pcs_weight->at(batch)[0].get();
 }
 
-bool check_flat(
-    const array_view<Goldilocks2::Element>& input,
-    const array_view<Goldilocks2::Element>& output,
-    size_t n_samples) {
-
-    size_t N = input.shape(0);
-    size_t C = input.shape(1);
-    size_t H = input.shape(2);
-    size_t W = input.shape(3);
-    size_t OH = C * H * W;
-    assert(input.get_dims() == 4);
-    assert(output.get_dims() == 2);
-    assert(input.shape(0) == N);
-    assert(input.shape(1) == C);
-    assert(input.shape(2) == H);
-    assert(input.shape(3) == W);
-    assert(output.shape(0) == N);
-    assert(output.shape(1) == OH);
-
-    if (n_samples > 0) {
-        return random_check_flat(input, output, n_samples);
-    }
-
-    bool ret = true;
-    size_t sz = input.size();
-    #pragma omp parallel for
-    for (size_t n = 0; n < N; ++n) {
-
-        auto view_input_n = input[n];
-        auto view_output_n = output[n];
-
-        for (size_t c = 0; c < C; ++c) {
-
-            auto view_input_n_c = view_input_n[c];
-
-            for (size_t i = 0; i < H; ++i) {
-
-                auto view_input_n_c_i = view_input_n_c[i];
-
-                for (size_t j = 0; j < W; ++j) {
-                    size_t index = c * H * W + i * W + j;
-                    Goldilocks2::Element actual = view_input_n_c_i.get(j);
-                    Goldilocks2::Element expected = view_output_n.get(index);
-                    if (actual != expected) {
-                        ret = false;
-                        #pragma omp critical
-                        {
-                            std::cout << "❌ Mismatch at (n=" << n << ", c=" << c << ", i=" << i << ", j=" << j << "): manual=" << actual << ", expected=" << expected << std::endl;
-                        }
-                    }
-                }
-            }
+ligeropcs_base *VCG16::layer_info::get_pcs_d_weight(size_t batch, size_t img) {
+    if (pcs_d_weight->empty()) {
+        for (int i = 0; i < mle_d_weight->size(); ++i) {
+            pcs_d_weight->push_back({});
+            pcs_d_weight->back().push_back(std::make_shared<ligeropcs_base>(ligero_commit_base(*mle_d_weight->at(i)[0], 2)));
         }
     }
-    return ret;
+    return pcs_d_weight->at(batch)[0].get();
 }
 
-bool random_check_flat(
-    const array_view<Goldilocks2::Element>& input,
-    const array_view<Goldilocks2::Element>& output,
-    size_t n_samples) {
-
-    size_t N = input.shape(0);
-    size_t C = input.shape(1);
-    size_t H = input.shape(2);
-    size_t W = input.shape(3);
-    size_t OH = C * H * W;
-    bool ret = true;
-    static thread_local std::mt19937 rng(std::random_device{}());
-
-    #pragma omp parallel for
-    for (size_t cnt = 0; cnt < n_samples; ++cnt) {
-        size_t n = std::uniform_int_distribution<size_t>(0, N - 1)(rng);
-        size_t c = std::uniform_int_distribution<size_t>(0, C - 1)(rng);
-        size_t i = std::uniform_int_distribution<size_t>(0, H - 1)(rng);
-        size_t j = std::uniform_int_distribution<size_t>(0, W - 1)(rng);
-        size_t index = c * H * W + i * W + j;
-
-        Goldilocks2::Element actual = input(n, c, i, j);
-        Goldilocks2::Element expected = output(n, index);
-        if (actual != expected) {
-            ret = false;
-            #pragma omp critical
-            {
-                std::cout << "❌ Mismatch at (n=" << n << ", c=" << c << ", i=" << i << ", j=" << j << "): manual=" << actual << ", expected=" << expected << std::endl;
+ligeropcs_base *VCG16::layer_info::get_pcs_d_input(size_t batch, size_t img) {
+    if (pcs_d_input->empty()) {
+        for (int i = 0; i < mle_d_input->size(); ++i) {
+            pcs_d_input->push_back({});
+            for (int j = 0; j < mle_d_input->at(i).size(); ++j) {
+                pcs_d_input->back().push_back(std::make_shared<ligeropcs_base>(ligero_commit_base(*mle_d_input->at(i)[j], 2)));
             }
         }
     }
-    return ret;
+    return pcs_d_input->at(batch)[img].get();
 }
 
-bool check_full(
-    const array_view<Goldilocks2::Element>& input,
-    const array_view<Goldilocks2::Element>& weights,
-    const array_view<Goldilocks2::Element>& output,
-    size_t n_samples
-) {
-    size_t N = input.shape(0);
-    size_t C = input.shape(1);
-    size_t OC = output.shape(1);
-    assert(input.get_dims() == 2);
-    assert(weights.get_dims() == 2);
-    assert(output.get_dims() == 2);
-    assert(input.shape(0) == N);
-    assert(input.shape(1) == C);
-    assert(weights.shape(0) == C);
-    assert(weights.shape(1) == OC);
-    assert(output.shape(0) == N);
-    assert(output.shape(1) == OC);
-
-    if (n_samples > 0) {
-        return random_check_full(input, weights, output, n_samples);
-    }
-    bool ret = true;
-    #pragma omp parallel for
-    for (size_t n = 0; n < N; ++n) {
-        auto view_input_n = input[n];
-        auto view_weights_n = weights[n];
-        auto view_output_n = output[n];
-        for (size_t oc = 0; oc < OC; ++oc) {
-            Goldilocks2::Element actual = Goldilocks2::zero();
-            for (size_t c = 0; c < C; ++c) {
-                actual += view_input_n.get(c) * view_weights_n(c, oc);
-            }
-            Goldilocks2::Element expected = view_output_n.get(oc);
-            if (actual != expected) {
-                ret = false;
-                #pragma omp critical
-                {
-                    std::cout << "❌ Mismatch at (n=" << n << ", oc=" << oc << "): manual=" << actual << ", expected=" << expected << std::endl;
-                }
+ligeropcs_base *VCG16::layer_info::get_pcs_d_output(size_t batch, size_t img) {
+    if (pcs_d_output->empty()) {
+        for (int i = 0; i < mle_d_output->size(); ++i) {
+            pcs_d_output->push_back({});
+            for (int j = 0; j < mle_d_output->at(i).size(); ++j) {
+                pcs_d_output->back().push_back(std::make_shared<ligeropcs_base>(ligero_commit_base(*mle_d_output->at(i)[j], 2)));
             }
         }
     }
-    return ret;
+    return pcs_d_output->at(batch)[img].get();
 }
 
-bool random_check_full(
-    const array_view<Goldilocks2::Element>& input,
-    const array_view<Goldilocks2::Element>& weights,
-    const array_view<Goldilocks2::Element>& output,
-    size_t n_samples
-) {
-    size_t N = input.shape(0);
-    size_t C = input.shape(1);
-    size_t OC = output.shape(1);
-    bool ret = true;
-    static thread_local std::mt19937 rng(std::random_device{}());
-
-    // #pragma omp parallel for
-    for (size_t cnt = 0; cnt < n_samples; ++cnt) {
-        size_t n = std::uniform_int_distribution<size_t>(0, N - 1)(rng);
-        size_t c = std::uniform_int_distribution<size_t>(0, C - 1)(rng);
-        size_t oc = std::uniform_int_distribution<size_t>(0, OC - 1)(rng);
-        Goldilocks2::Element actual = Goldilocks2::zero();
-        for (size_t c = 0; c < C; ++c) {
-            actual += input(n, c) * weights(c, oc);
-        }
-        Goldilocks2::Element expected = output(n, oc);
-        if (actual != expected) {
-            ret = false;
-            #pragma omp critical
-            {
-                std::cout << "❌ Mismatch at (n=" << n << ", oc=" << oc << "): manual=" << actual << ", expected=" << expected << std::endl;
-            }
-        }
-    }
-    return ret;
-}
-
-bool check_softmax(
-    const array_view<Goldilocks2::Element>& input,
-    const array_view<Goldilocks2::Element>& output, // output = d_input
-    const array_view<Goldilocks2::Element>& label,
-    const std::vector<Goldilocks2::Element>& e_pow_inv,
-    int64_t scale) {
-
-    size_t N = input.shape(0);
-    size_t C = input.shape(1);
-    assert(input.get_dims() == 2);
-    assert(output.get_dims() == 2);
-    assert(input.shape(0) == N);
-    assert(input.shape(1) == C);
-    assert(output.shape(0) == N);
-    assert(output.shape(1) == C);
-
-    bool ret = true;
-    // #pragma omp parallel for
-    for (size_t n = 0; n < N; ++n) {
-        auto view_input_n = input[n];
-        auto view_output_n = output[n];
-        std::vector<Goldilocks2::Element> scale_input(C);
-        std::vector<Goldilocks2::Element> exp_input(C);
-        Goldilocks2::Element max_input = Goldilocks2::divScalar(view_input_n(0), scale);
-        for (size_t c = 0; c < C; ++c) {
-            scale_input[c] = Goldilocks2::divScalar(view_input_n(c), scale); // small value
-            if (Goldilocks2::toS64(scale_input[c]) > Goldilocks2::toS64(max_input)) {
-                max_input = scale_input[c];
-            }
-        }
-        for (size_t c = 0; c < C; ++c) {
-            exp_input[c] = e_pow_inv[Goldilocks2::toS64(max_input) - Goldilocks2::toS64(scale_input[c])];
-        }
-        Goldilocks2::Element sum = Goldilocks2::zero();
-        for (size_t c = 0; c < C; ++c) {
-            sum += exp_input[c];
-        }
-        for (size_t c = 0; c < C; ++c) {
-            exp_input[c] = Goldilocks2::divScalar(exp_input[c] * Goldilocks2::fromS64(scale), Goldilocks2::toS64(sum));
-        }
-        exp_input[Goldilocks2::toS64(label(n))] -= Goldilocks2::fromS64(scale);
-        for (size_t c = 0; c < C; ++c) {
-            exp_input[c] = Goldilocks2::divScalar(exp_input[c], N);
-        }
-        for (size_t c = 0; c < C; ++c) {
-            if (std::abs(Goldilocks2::toS64(exp_input[c] - view_output_n(c))) > 1) {
-                ret = false;
-                #pragma omp critical
-                {
-                    std::cout << "❌ Mismatch at (n=" << n << ", c=" << c << "): manual=" << exp_input[c] << ", expected=" << view_output_n(c) << std::endl;
-                }
-            }
-        }
-    }
-
-    return ret;
-}

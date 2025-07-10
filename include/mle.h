@@ -71,7 +71,6 @@ public:
         const Goldilocks2::Element& claim,
         const size_t& sec_param) const;
 
-        
     virtual bool check_open(
         const ligeropcs_ext *pcs,
         const std::vector<Goldilocks2::Element>& challenges,
@@ -79,8 +78,15 @@ public:
         const size_t& sec_param) const;
 
 protected:
+    virtual std::vector<Goldilocks2::Element> get_open_r(const std::vector<Goldilocks2::Element>& challenges) const;
+
     // evaliations over the hypercube
     std::vector<Goldilocks2::Element> evaluations;
+
+    array_view<Goldilocks2::Element> evaluations_view;
+    
+    // used to assist openning proof. with respect to pcs.
+    // array_view<Goldilocks2::Element> evaluations_view;
 
     size_t num_vars;
 };

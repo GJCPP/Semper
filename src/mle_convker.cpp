@@ -55,6 +55,8 @@ MLE_Convker::MLE_Convker(const array_view<Goldilocks2::Element>& kernel, size_t 
             }
         }
     }
+
+    evaluations_view = kernel;
 }
 
 Goldilocks2::Element MLE_Convker::eval_hypercube(size_t mask) const {
@@ -187,7 +189,10 @@ bool MLE_Convker::check_open(
 
     int begin = logC + logD + logm;
     int end = begin + logn - logm;
-    return execute_pad_check(claim, pcs, begin, end, challenges, sec_param);
+    auto cha_claim = execute_pad_check(claim, begin, end, challenges, sec_param);
+
+    auto r = get_open_r(cha_claim.challenges);
+    return cha_claim.claim == pcs->open(r, sec_param);
 }
 
 bool MLE_Convker::check_open(
@@ -198,5 +203,8 @@ bool MLE_Convker::check_open(
 
     int begin = logC + logD + logm;
     int end = begin + logn - logm;
-    return execute_pad_check(claim, pcs, begin, end, challenges, sec_param);
+    auto cha_claim = execute_pad_check(claim, begin, end, challenges, sec_param);
+
+    auto r = get_open_r(cha_claim.challenges);
+    return cha_claim.claim == pcs->open(r, sec_param);
 }

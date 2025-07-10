@@ -54,36 +54,51 @@ MultilinearPolynomial::MultilinearPolynomial(const std::vector<uint64_t>& val_ta
 
 MultilinearPolynomial::MultilinearPolynomial(const array_view<Goldilocks2::Element>& val_table)
     : num_vars(0) {
-    std::vector<size_t> dims(val_table.get_shape());
-    for (size_t i = 0; i < dims.size(); ++i) {
-        dims[i] = find_ceiling_log2(dims[i]);
-        num_vars += dims[i];
+    int n = val_table.get_dims();
+    std::vector<size_t> dims(n + 1), logdims(n + 1), pow_dims(n + 1);
+    for (size_t i = 1; i <= n; ++i) {
+        dims[i] = val_table.shape(i - 1);
+        logdims[i] = find_ceiling_log2(dims[i]);
+        num_vars += logdims[i];
+        pow_dims[i] = 1ull << logdims[i];
     }
     evaluations.resize(1ull << num_vars);
-    size_t N = (1ull << num_vars);
-    for (size_t i = 0; i < N; ++i) {
-        int left_bit = num_vars;
-        size_t ind = i;
-        int k = 0;
-        bool outofbound = false;
-        auto view = val_table;
-        while (view.get_dims() > 1) {
-            size_t j = (ind >> (left_bit - dims[k]));
-            if (j >= view.shape(0)) {
-                outofbound = true;
-                break;
+    std::vector<size_t> offset(n + 1), ind(n + 1);
+    size_t sz = evaluations.size(), last_sz = dims.back();
+    
+    assert(val_table.offset(n - 1) == 1);
+    size_t i = 0;
+    while (true) {
+        assert(offset.back() < val_table.size());
+        assert(i < sz);
+        evaluations[i] = val_table.get(offset.back());
+        ++ind.back();
+        int high = n;
+        bool out_flag = false;
+        do {
+            high = n;
+            out_flag = false;
+            while (high > 0 && ind[high] == pow_dims[high]) {
+                ind[high] = 0;
+                --high;
+                ++ind[high];
             }
-            view = view[j];
-            ind -= (j << (left_bit - dims[k]));
-            left_bit -= dims[k];
-            ++k;
+            ++i;
+            if (high && ind[high] >= dims[high]) {
+                out_flag = true;
+                ++ind.back();
+            }
+        } while (out_flag);
+
+        if (high == 0) {
+            break;
         }
-        if (outofbound || ind >= view.size()) {
-            evaluations[i] = Goldilocks2::zero();
-        } else {
-            evaluations[i] = view(ind);
+
+        for (int j = high; j <= n; ++j) {
+            offset[j] = offset[j - 1] + ind[j] * val_table.offset(j - 1);
         }
     }
+    evaluations_view = array_view<Goldilocks2::Element>(evaluations.data(), std::vector<size_t>(pow_dims.begin() + 1, pow_dims.end()));
 }
 
 void MultilinearPolynomial::set_value(const std::string& mask, const Goldilocks2::Element& c) {
@@ -228,7 +243,7 @@ bool MultilinearPolynomial::check_open(
     const Goldilocks2::Element& claim,
     const size_t& sec_param) const {
  
-    return claim == pcs->open(challenges, sec_param);
+    return claim == pcs->open(get_open_r(challenges), sec_param);
 }
 
 
@@ -238,5 +253,32 @@ bool MultilinearPolynomial::check_open(
     const Goldilocks2::Element& claim,
     const size_t& sec_param) const {
  
-    return claim == pcs->open(challenges, sec_param);
+    return claim == pcs->open(get_open_r(challenges), sec_param);
+}
+
+std::vector<Goldilocks2::Element> MultilinearPolynomial::get_open_r(const std::vector<Goldilocks2::Element>& challenges) const {
+
+    int dims = evaluations_view.get_dims();
+    std::vector<Goldilocks2::Element> r;
+    std::vector<int> start(dims + 1);
+    for (int i = 0; i < dims; ++i) {
+        start[evaluations_view.get_order(i) + 1] = find_ceiling_log2(evaluations_view.shape(i));
+    }
+    for (int i = 1; i <= dims; ++i) {
+        start[i] += start[i - 1];
+    }
+    Goldilocks2::Element one = Goldilocks2::one();
+    for (int i = 0; i < dims; ++i) {
+        int ind = evaluations_view.get_order(i);
+        int begin = start[ind], end = start[ind + 1];
+        bool reversed = evaluations_view.is_reversed(i);
+        for (int j = begin; j < end; ++j) {
+            if (reversed) {
+                r.push_back(one - challenges[j]);
+            } else {
+                r.push_back(challenges[j]);
+            }
+        }
+    }
+    return r;
 }
