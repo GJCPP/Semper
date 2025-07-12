@@ -308,11 +308,11 @@ void pad_weights(
         for (int64_t j = 0; j < on; ++j) {
             int64_t y = j - new_padding_X;
             if (pad_right_bottom && (x < -int64_t(padding_X) || y < -int64_t(padding_X)) ||
-                !pad_right_bottom && (x > int64_t(n) - int64_t(padding_X) || y > int64_t(n) - int64_t(padding_X))) {
+                !pad_right_bottom && (x + new_m > n + padding_X || y + new_m > n + padding_X)) {
 
                 for (int64_t d = 0; d < D; ++d) {
                     auto& y_val = Y_pad.view(d, i, j);
-                    auto W_view_d = W[d];
+                    auto W_view_d = W_pad.view[d];
 
                     assert(y_val == Goldilocks2::zero());
 
@@ -320,13 +320,13 @@ void pad_weights(
                         auto X_view_c = X[c];
                         auto W_view_d_c = W_view_d[c];
 
-                        for (int64_t k = 0; k < m; ++k) {
+                        for (int64_t k = 0; k < new_m; ++k) {
                             if (x + k < 0 || x + k >= n) continue; // out of X
 
                             auto X_view_c_k = X_view_c[x + k];
                             auto W_view_d_c_k = W_view_d_c[k];
 
-                            for (int64_t l = 0; l < m; ++l) {
+                            for (int64_t l = 0; l < new_m; ++l) {
                                 if (y + l < 0 || y + l >= n) continue; // out of X
 
                                 y_val += X_view_c_k(y + l) * W_view_d_c_k(l);

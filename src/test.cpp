@@ -406,7 +406,7 @@ bool test_pad_weights() {
         
         random_conv2_padding(C, D, n, m, padding, X_view, W_view, Y_view);
 
-        bool pad_right_bottom = true;//rand() % 2;
+        bool pad_right_bottom = rand() % 2 == 0;
         array<Goldilocks2::Element> W_pad, Y_pad;
         pad_weights(C, D, n, m, padding, X_view, W_view, Y_view, W_pad, Y_pad, m, padding, pad_right_bottom);
         
