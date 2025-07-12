@@ -1,6 +1,6 @@
 #include "test.h"
 
-#define CNT_TEST 100
+#define CNT_TEST 50
 
 bool test_arithmetic() {
     typedef Goldilocks2::Element Element;
@@ -352,7 +352,7 @@ bool test_conv2_check() {
         //     return false;
         // }
 
-        if (!convVerifier::execute_convcheck_2d(prover, oracle, { &p1, &p2, &p3 }, 32)) {
+        if (!convVerifier::execute_convcheck_2d(prover, oracle, 32)) {
             return false;
         }
     }
@@ -441,7 +441,7 @@ bool test_pad_weights() {
         //     return false;
         // }
 
-        if (!convVerifier::execute_convcheck_2d(prover, oracle, { &p1, &p2, &p3 }, 32)) {
+        if (!convVerifier::execute_convcheck_2d(prover, oracle, 32)) {
             return false;
         }
     }

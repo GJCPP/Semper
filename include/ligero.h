@@ -14,7 +14,10 @@ class ligeroProver_ext;
 
 class ligeropcs_base : public oracle {
 public:
+    ligeropcs_base() = default;
     ligeropcs_base(const MerkleDef::Digest& mthash, const std::shared_ptr<ligeroProver_base>& prover, const size_t& num_rows, const size_t& num_cols);
+
+    bool empty() const;
 
     MerkleDef::Digest mthash;
     std::shared_ptr<ligeroProver_base> prover;
@@ -27,7 +30,10 @@ public:
 
 class ligeropcs_ext : public oracle {
 public:
+    ligeropcs_ext() = default;
     ligeropcs_ext(const MerkleDef::Digest& mthash, const std::shared_ptr<ligeroProver_ext>& prover, const size_t& num_rows, const size_t& num_cols);
+
+    bool empty() const;
 
     MerkleDef::Digest mthash;
     std::shared_ptr<ligeroProver_ext> prover;

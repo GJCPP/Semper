@@ -4,8 +4,8 @@
 #include "VCG16_check.h"
 
 
-VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value)
-    : epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * max_val) {
+VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv)
+    : epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * max_val), rho_inv(rho_inv) {
     filedata = loadEpochData(data_dir, epoch);
     std::vector<std::string> keys;
     std::vector<cnpy::NpyArray*> values;
@@ -30,7 +30,11 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value)
         data_shape[key] = value->shape;
         array_view<Goldilocks2::Element> arr(ptr, value->shape);
         mle[key] = std::make_shared<MultilinearPolynomial>(arr);
-        pcs[key] = std::make_shared<ligeropcs_base>(ligero_commit_base(*mle[key], 2));
+#ifdef DEBUG
+        pcs[key] = std::make_shared<ligeropcs_base>();
+#else
+        pcs[key] = std::make_shared<ligeropcs_base>(ligero_commit_base(*mle[key], rho_inv));
+#endif
         #pragma omp critical
         {
             std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
@@ -422,4 +426,47 @@ void VCG16::add_layer(layer_type type,
     layers.push_back(info);
 }
 
+#ifdef DEBUG
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_input() {
+    if (pcs_input->empty()) {
+        *pcs_input = ligero_commit_base(*mle_input, 2);
+    }
+    return pcs_input;
+}
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_output() {
+    if (pcs_output->empty()) {
+        *pcs_output = ligero_commit_base(*mle_output, 2);
+    }
+    return pcs_output;
+}
+
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_weight() {
+    if (pcs_weight->empty()) {
+        *pcs_weight = ligero_commit_base(*mle_weight, 2);
+    }
+    return pcs_weight;
+}
+
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_input() {
+    if (pcs_d_input->empty()) {
+        *pcs_d_input = ligero_commit_base(*mle_d_input, 2);
+    }
+    return pcs_d_input;
+}
+
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_output() {
+    if (pcs_d_output->empty()) {
+        *pcs_d_output = ligero_commit_base(*mle_d_output, 2);
+    }
+    return pcs_d_output;
+}
+
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_weight() {
+    if (pcs_d_weight->empty()) {
+        *pcs_d_weight = ligero_commit_base(*mle_d_weight, 2);
+    }
+    return pcs_d_weight;
+}
+
+#endif
 

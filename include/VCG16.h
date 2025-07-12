@@ -3,6 +3,8 @@
 #include <format>
 #include <random>
 
+#include "header"
+
 #include "ligero.h"
 #include "goldilocks_quadratic_ext.h"
 #include "data_loader.h"
@@ -29,8 +31,17 @@ public:
         std::shared_ptr<ligeropcs_base> pcs_input, pcs_output,
                                         pcs_weight, pcs_d_weight,
                                         pcs_d_input, pcs_d_output;
+
+#ifdef DEBUG
+        std::shared_ptr<ligeropcs_base> get_pcs_input();
+        std::shared_ptr<ligeropcs_base> get_pcs_output();
+        std::shared_ptr<ligeropcs_base> get_pcs_weight();
+        std::shared_ptr<ligeropcs_base> get_pcs_d_weight();
+        std::shared_ptr<ligeropcs_base> get_pcs_d_input();
+        std::shared_ptr<ligeropcs_base> get_pcs_d_output();
+#endif
     };
-    VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value);
+    VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv);
 
     bool check(size_t n_samples = 0) const;
 
@@ -49,6 +60,7 @@ protected:
 
     int64_t scale, max_val, sqr_val;
     int epoch, minibatch, img_per_batch;
+    uint64_t rho_inv;
     
     cnpy::npz_t filedata; // responsible for releasing data
     

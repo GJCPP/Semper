@@ -3,6 +3,11 @@
 #include "array_view.h"
 #include "goldilocks_quadratic_ext.h"
 
+/*
+ * This file is for checking the correctness of the VCG16 computation.
+ * It has nothing to do with proving the VCG16 training.
+*/
+
 bool check_range(
     const array_view<Goldilocks2::Element>& input,
     int64_t max_value

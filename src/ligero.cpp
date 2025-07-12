@@ -398,6 +398,14 @@ ligeropcs_base::ligeropcs_base(const MerkleDef::Digest& mthash, const std::share
     : mthash(mthash), prover(prover), num_rows(num_rows), num_cols(num_cols) {
 }
 
+bool ligeropcs_base::empty() const {
+    return num_rows == 0;
+}
+
+bool ligeropcs_ext::empty() const {
+    return num_rows == 0;
+}
+
 Goldilocks2::Element ligeropcs_base::open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const {
     return ligeroVerifier::open(*this, z, sec_param);
 }

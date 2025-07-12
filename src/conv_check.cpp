@@ -349,13 +349,12 @@ bool convVerifier::execute_convcheck_1d(convProver& prover, const std::array<con
 bool convVerifier::execute_convcheck_2d(
     convProver& prover,
     const std::array<const oracle*, 3>& oracle,
-    const std::array<const MultilinearPolynomial*, 3>& mles,
     const size_t& sec_param) {
         
     auto claim = execute_convcheck(prover, oracle, sec_param);
     if (!claim) return false;
     // pad check W
-    auto aux_info = mles[1]->process_challenges(claim->at(1).challenges);
+    auto aux_info = prover.triple.W->process_challenges(claim->at(1).challenges);
     if (oracle[1]->open(aux_info.r, sec_param) * aux_info.comp != claim->at(1).claim) {
         return false;
     }
