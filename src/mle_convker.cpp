@@ -17,7 +17,7 @@ MLE_Convker::MLE_Convker(const std::vector<std::vector<std::vector<std::vector<G
     num_vars = logC + logD + logn + logm;
     evaluations.resize(1ull << (logC + logD + logm + logm), Goldilocks2::zero());
 
-    size_t off_c = (1 << logD + logm + logm), off_d = (1 << logm + logm);
+    size_t off_c = (1 << (logD + logm + logm)), off_d = (1 << (logm + logm));
     for (size_t c = 0; c < C; ++c) {
         for (size_t d = 0; d < D; ++d) {
             for (size_t i = 0; i < m; ++i) {

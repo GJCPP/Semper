@@ -1,6 +1,6 @@
 #include "test.h"
 
-#define CNT_TEST 20
+#define CNT_TEST 100
 
 bool test_arithmetic() {
     typedef Goldilocks2::Element Element;
@@ -388,6 +388,66 @@ bool test_pad_check() {
 }
 
 
+bool test_pad_weights() {
+    for (int cnt(0); cnt != CNT_TEST; ++cnt) {
+        srand(cnt);
+        // std::cout << "cnt: " << cnt << std::endl;
+        size_t padding = rand() % 4;
+        size_t C = rand() % 10 + 1, D = rand() % 5 + 1, n = 1 << (rand() % 3 + 3), m = rand() % 3 + 2;
+        size_t on = n + 2 * padding - m + 1;
+        // X: C x n x n, W: C x D x m x m, Y: D x on x on
+        std::vector<Goldilocks2::Element> X(C * n * n);
+        std::vector<Goldilocks2::Element> W(D * C * m * m);
+        std::vector<Goldilocks2::Element> Y(D * on * on);
+        array_view<Goldilocks2::Element> X_view(X.data(), {C, n, n});
+        array_view<Goldilocks2::Element> W_view(W.data(), {D, C, m, m});
+        array_view<Goldilocks2::Element> Y_view(Y.data(), {D, on, on});
+
+        
+        random_conv2_padding(C, D, n, m, padding, X_view, W_view, Y_view);
+
+        bool pad_right_bottom = true;//rand() % 2;
+        array<Goldilocks2::Element> W_pad, Y_pad;
+        pad_weights(C, D, n, m, padding, X_view, W_view, Y_view, W_pad, Y_pad, m, padding, pad_right_bottom);
+        
+
+        // MultilinearPolynomial p_w(W_pad.view);
+        // ligeropcs_ext pcs_w = ligero_commit_ext(p_w, 2); // commit as D C pad_m pad_m
+
+        W_pad.view.swap_dim(0, 1); // C D m m
+        convProver prover(make_conv2_prover(C, D, n, m, padding, X_view, W_pad.view, Y_pad.view));
+        // if (!prover.triple.check()) {
+        //     std::cout << "convTriple check failed" << std::endl;
+        //     return false;
+        // }
+
+        // std::array<ligeropcs_ext, 3> pcs = prover.triple.commit(2);
+        // std::array<const oracle*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
+        MultilinearPolynomial p1(X);
+
+        
+        MLE_Convker p2 = *dynamic_cast<MLE_Convker*>(prover.triple.W.get());
+        // auto copy_W = W_pad.view;
+        // copy_W.reverse(2);
+        // copy_W.reverse(3);
+        // MultilinearPolynomial _p2(copy_W);
+        MultilinearPolynomial p3 = *prover.triple.Y;
+
+        std::array<ligeropcs_ext, 3> pcs = { ligero_commit_ext(p1, 2), ligero_commit_ext(p2, 2), ligero_commit_ext(p3, 2) };
+        std::array<const oracle*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
+
+        // if (!prover.triple.check()) {
+        //     std::cout << "convTriple check failed" << std::endl;
+        //     return false;
+        // }
+
+        if (!convVerifier::execute_convcheck_2d(prover, oracle, { &p1, &p2, &p3 }, 32)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool run_test() {
     srand(79);
     if (!test_arithmetic()) {
@@ -424,6 +484,10 @@ bool run_test() {
     }
     if (!test_pad_check()) {
         std::cout << "test_pad_check failed" << std::endl;
+        return false;
+    }
+    if (!test_pad_weights()) {
+        std::cout << "test_pad_weights failed" << std::endl;
         return false;
     }
     std::cout << "All tests passed" << std::endl;

@@ -21,9 +21,6 @@ public:
     size_t num_rows;
     size_t num_cols;
 
-    // committed mle
-    const MultilinearPolynomial *mle;
-
     // Only provide basic commitment operations
     Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const;
 };

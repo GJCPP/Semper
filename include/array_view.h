@@ -10,14 +10,18 @@ template<typename T>
 std::ostream& operator<<(std::ostream& os, const array_view<T>& arr);
 
 template<typename T>
+class array;
+
+template<typename T>
 class array_view {
 public:
     friend std::ostream& operator<< <T>(std::ostream& os, const array_view<T>& arr);
+    friend class array<T>;
 
-    array_view() : data(nullptr), data_shape({}), index_offset({}), dims(0), data_size(0), reversed({}), order({}) {}
+    array_view() {}
 
     array_view(T* _data, const std::vector<size_t>& _shape, const std::vector<size_t>& _offset = {}, const std::vector<bool>& _reversed = {}, const std::vector<int>& _order = {}) 
-        : data(_data), data_shape(_shape), index_offset(_shape.size()), dims(_shape.size()), data_size(1) {
+        : data(_data), data_shape(_shape), dims(_shape.size()), data_size(1) {
         for (size_t i = 0; i < _shape.size(); ++i) {
             data_size *= _shape[i];
         }
@@ -33,7 +37,7 @@ public:
         }
         if (_order.size() == 0) {
             order = std::vector<int>(_shape.size());
-            for (int i = 0; i < _shape.size(); ++i) {
+            for (size_t i = 0; i < _shape.size(); ++i) {
                 order[i] = i;
             }
         } else {
@@ -91,7 +95,7 @@ public:
     }
 
     T& operator()(const std::vector<size_t>& indices) {
-        assert(indices.size() == dims);
+        assert(indices.size() == static_cast<size_t>(dims));
         size_t linear_index = 0;
         for (int i = 0; i < dims; ++i) {
             if (indices[i] < data_shape[i]) {
@@ -104,7 +108,7 @@ public:
     }
 
     const T& operator()(std::vector<size_t> indices) const {
-        assert(indices.size() == dims);
+        assert(indices.size() == static_cast<size_t>(dims));
         size_t linear_index = 0;
         for (int i = 0; i < dims; ++i) {
             if (indices[i] < data_shape[i]) {
@@ -204,6 +208,7 @@ protected:
         if (dims == 0) {
             return;
         }
+        index_offset.resize(dims);
         index_offset[dims - 1] = 1;
         for (int i = dims - 2; i >= 0; --i) {
             index_offset[i] = index_offset[i + 1] * data_shape[i + 1];
@@ -238,3 +243,32 @@ std::ostream& operator<<(std::ostream& os, const array_view<T>& arr) {
     os << "]";
     return os;
 }
+
+template <typename T>
+class array {
+public:
+    array() {}
+
+    array(const array_view<T>& view) {
+        data = std::vector<T>(view.size());
+        std::copy(view.data, view.data + view.size(), data.begin());
+        this->view = view;
+        this->view.data = data.data();
+    }
+
+    array(const std::vector<size_t>& shape) {
+        init(shape);
+    }
+
+    void init(const std::vector<size_t>& shape) {
+        size_t data_size = 1;
+        for (size_t i = 0; i < shape.size(); ++i) {
+            data_size *= shape[i];
+        }
+        data = std::vector<T>(data_size);
+        view = array_view<T>(data.data(), shape);
+    }
+
+    array_view<T> view;
+    std::vector<T> data;
+};

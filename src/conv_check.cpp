@@ -222,6 +222,123 @@ convProver make_conv2_prover(
         new_padding != 0, find_ceiling_log2(new_in), find_ceiling_log2(m)));
 }
 
+void pad_weights(
+    size_t C, size_t D, size_t n, size_t m, size_t padding_X,
+    const array_view<Goldilocks2::Element>& X,
+    const array_view<Goldilocks2::Element>& W,
+    const array_view<Goldilocks2::Element>& Y,
+    array<Goldilocks2::Element>& W_pad,
+    array<Goldilocks2::Element>& Y_pad,
+    size_t& new_m,
+    size_t& new_padding_X,
+    bool pad_right_bottom) {
+    
+    assert(X.shape(0) == C);
+    assert(X.shape(1) == n);
+    assert(X.shape(2) == n);
+    assert(W.shape(0) == D);
+    assert(W.shape(1) == C);
+    assert(W.shape(2) == m);
+    assert(W.shape(3) == m);
+    assert(Y.shape(0) == D);
+    assert(Y.shape(1) == n + 2 * padding_X - m + 1);
+    assert(Y.shape(2) == n + 2 * padding_X - m + 1);
+
+    if (is_power_of_2(m)) {
+        W_pad = W;
+        Y_pad = Y;
+        new_m = m;
+        new_padding_X = padding_X;
+        return;
+    }
+
+    new_m = 1ull << find_ceiling_log2(m);
+    size_t pad_m = new_m - m;
+    new_padding_X = padding_X + pad_m;
+    W_pad.init({D, C, new_m, new_m});
+    Y_pad.init({D, n + 2 * new_padding_X - new_m + 1, n + 2 * new_padding_X - new_m + 1});
+
+    for (size_t d = 0; d < D; ++d) {
+        auto W_view_d = W[d];
+        auto W_pad_view_d = W_pad.view[d];
+
+        for (size_t c = 0; c < C; ++c) {
+            auto W_view_c = W_view_d[c];
+            auto W_pad_view_c = W_pad_view_d[c];
+
+            for (size_t i = 0; i < m; ++i) {
+                auto W_view_i = W_view_c[i];
+                auto W_pad_view_i = pad_right_bottom ? W_pad_view_c[i] : W_pad_view_c[i + pad_m];
+
+                for (size_t j = 0; j < m; ++j) {
+                    if (pad_right_bottom) {
+                        W_pad_view_i(j) = W_view_i(j);
+                    } else {
+                        W_pad_view_i(j + pad_m) = W_view_i(j);
+                    }
+                }
+            }
+        }
+    }
+
+    int64_t y_sz = Y.shape(1);
+
+    for (size_t d = 0; d < D; ++d) {
+        auto Y_view_d = Y[d];
+        auto Y_pad_view_d = Y_pad.view[d];
+
+        for (size_t i = 0; i < y_sz; ++i) {
+            auto Y_view_i = Y_view_d[i];
+            auto Y_pad_view_i = pad_right_bottom ? Y_pad_view_d[i + pad_m] : Y_pad_view_d[i];
+
+            for (size_t j = 0; j < y_sz; ++j) {
+                if (pad_right_bottom) {
+                    Y_pad_view_i(j + pad_m) = Y_view_i(j);
+                } else {
+                    Y_pad_view_i(j) = Y_view_i(j);
+                }
+            }
+        }
+    }
+
+    size_t on = Y_pad.view.shape(1);
+    
+    for (int64_t i = 0; i < on; ++i) {
+        int64_t x = i - new_padding_X;
+        for (int64_t j = 0; j < on; ++j) {
+            int64_t y = j - new_padding_X;
+            if (pad_right_bottom && (x < -int64_t(padding_X) || y < -int64_t(padding_X)) ||
+                !pad_right_bottom && (x > int64_t(n) - int64_t(padding_X) || y > int64_t(n) - int64_t(padding_X))) {
+
+                for (int64_t d = 0; d < D; ++d) {
+                    auto& y_val = Y_pad.view(d, i, j);
+                    auto W_view_d = W[d];
+
+                    assert(y_val == Goldilocks2::zero());
+
+                    for (int64_t c = 0; c < C; ++c) {
+                        auto X_view_c = X[c];
+                        auto W_view_d_c = W_view_d[c];
+
+                        for (int64_t k = 0; k < m; ++k) {
+                            if (x + k < 0 || x + k >= n) continue; // out of X
+
+                            auto X_view_c_k = X_view_c[x + k];
+                            auto W_view_d_c_k = W_view_d_c[k];
+
+                            for (int64_t l = 0; l < m; ++l) {
+                                if (y + l < 0 || y + l >= n) continue; // out of X
+
+                                y_val += X_view_c_k(y + l) * W_view_d_c_k(l);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 bool convVerifier::execute_convcheck_1d(convProver& prover, const std::array<const oracle*, 3>& oracle, const size_t& sec_param) {
     auto claim = execute_convcheck(prover, oracle, sec_param);
     if (!claim) return false;
@@ -244,7 +361,15 @@ bool convVerifier::execute_convcheck_2d(
     }
     // check pad X
     if (prover.triple.padding == false) { // No padding
-        return oracle[0]->open(claim->at(0).challenges, sec_param) == claim->at(0).claim;
+        auto factor = Goldilocks2::one();
+        std::vector<Goldilocks2::Element> cha;
+        if (prover.triple.C == 1) {
+            factor -= claim->at(0).challenges[0];
+            cha = { claim->at(0).challenges.begin() + 1, claim->at(0).challenges.end() };
+        } else {
+            cha = claim->at(0).challenges;
+        }
+        return oracle[0]->open(cha, sec_param) * factor == claim->at(0).claim;
     }
 
     const Goldilocks2::Element zero = Goldilocks2::zero(), one = Goldilocks2::one();

@@ -109,3 +109,14 @@ convProver make_conv2_prover(
     const array_view<Goldilocks2::Element>& Y // out_channels x (n + 2 * padding - m + 1) x (n + 2 * padding - m + 1)
 );
 
+// If m is not power of 2, pad W to make it power of 2
+void pad_weights(
+    size_t C, size_t D, size_t n, size_t m, size_t padding_x,
+    const array_view<Goldilocks2::Element>& X,
+    const array_view<Goldilocks2::Element>& W,
+    const array_view<Goldilocks2::Element>& Y,
+    array<Goldilocks2::Element>& W_pad,
+    array<Goldilocks2::Element>& Y_pad,
+    size_t& new_m,
+    size_t& new_padding_x,
+    bool pad_right_bottom);
