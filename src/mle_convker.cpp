@@ -2,32 +2,6 @@
 #include "ligero.h"
 #include "pad_check.h"
 
-MLE_Convker::MLE_Convker(const std::vector<std::vector<std::vector<std::vector<Goldilocks2::Element>>>>& kernel, size_t C, size_t D, size_t n, size_t m)
-    : C(C), D(D), n(n), m(m), expanded(false) {
-
-    assert(kernel.size() == C && kernel[0].size() == D && kernel[0][0].size() == m && kernel[0][0][0].size() == m);
-    if (!is_power_of_2(n)) {
-        throw std::invalid_argument("MLE_Convker: n must be a power of 2");
-    }
-
-    logC = find_ceiling_log2(C);
-    logD = find_ceiling_log2(D);
-    logn = find_ceiling_log2(n);
-    logm = find_ceiling_log2(m);
-    num_vars = logC + logD + logn + logm;
-    evaluations.resize(1ull << (logC + logD + logm + logm), Goldilocks2::zero());
-
-    size_t off_c = (1 << (logD + logm + logm)), off_d = (1 << (logm + logm));
-    for (size_t c = 0; c < C; ++c) {
-        for (size_t d = 0; d < D; ++d) {
-            for (size_t i = 0; i < m; ++i) {
-                for (size_t j = 0; j < m; ++j) {
-                    evaluations[c * off_c + d * off_d + i * (1 << logm) + j] = kernel[c][d][m - i - 1][m - j - 1]; // Reverse the kernel
-                }
-            }
-        }
-    }
-}
 
 MLE_Convker::MLE_Convker(const array_view<Goldilocks2::Element>& kernel, size_t C, size_t D, size_t n, size_t m)
     : C(C), D(D), n(n), m(m), expanded(false) {
@@ -57,6 +31,8 @@ MLE_Convker::MLE_Convker(const array_view<Goldilocks2::Element>& kernel, size_t 
     }
 
     evaluations_view = kernel;
+    evaluations_view.reverse(2);
+    evaluations_view.reverse(3);
 }
 
 Goldilocks2::Element MLE_Convker::eval_hypercube(size_t mask) const {
@@ -175,11 +151,10 @@ mle_aux_info MLE_Convker::process_challenges(
     const std::vector<Goldilocks2::Element>& challenges) const {
     mle_aux_info aux;
     
-    // For convolution kernel, we need to handle padding ranges
+    // handle padding
     int begin = logC + logD + logm;
     int end = begin + logn - logm;
     
-    // The reshaped challenges exclude the padding range
     aux.r.reserve(challenges.size() - (end - begin));
     
     Goldilocks2::Element one = Goldilocks2::one();
@@ -191,7 +166,9 @@ mle_aux_info MLE_Convker::process_challenges(
             factor = factor * (one - challenges[i]);
         }
     }
-    aux.comp = factor;
+    mle_aux_info tem = MultilinearPolynomial::process_challenges(aux.r);
+    aux.comp = factor * tem.comp;
+    aux.r = tem.r;
     return aux;
 }
 

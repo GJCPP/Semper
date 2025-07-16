@@ -310,6 +310,7 @@ void random_conv2_padding(
 bool test_conv2_check() {
     for (int cnt(0); cnt != CNT_TEST; ++cnt) {
         srand(cnt);
+        std::cout << cnt << std::endl;
         size_t padding = rand() % 4;
         size_t C = rand() % 10 + 1, D = rand() % 5 + 1, n = 1 << (rand() % 3 + 3), m = rand() % 3 + 2;
         size_t on = n + 2 * padding - m + 1;
@@ -325,11 +326,15 @@ bool test_conv2_check() {
         random_conv2_padding(C, D, n, m, padding, X_view, W_view, Y_view);
         
 
-        MultilinearPolynomial p_w(W_view);
+        array<Goldilocks2::Element> W_pad, Y_pad;
+        pad_weights(C, D, n, m, padding, X_view, W_view, Y_view, W_pad, Y_pad, m, padding, true);
+        
+        MultilinearPolynomial p_w(W_pad);
+
         ligeropcs_ext pcs_w = ligero_commit_ext(p_w, 2); // commit as D C m m
 
-        W_view.swap_dim(0, 1); // C D m m
-        convProver prover(make_conv2_prover(C, D, n, m, padding, X_view, W_view, Y_view));
+        W_pad.view.swap_dim(0, 1); // C D m m
+        convProver prover(make_conv2_prover(C, D, n, m, padding, X_view, W_pad, Y_pad));
 
 
         // std::array<ligeropcs_ext, 3> pcs = prover.triple.commit(2);
@@ -337,14 +342,10 @@ bool test_conv2_check() {
         MultilinearPolynomial p1(X);
 
         
-        MLE_Convker p2 = *dynamic_cast<MLE_Convker*>(prover.triple.W.get());
-        auto copy_W = W_view;
-        copy_W.reverse(2);
-        copy_W.reverse(3);
-        MultilinearPolynomial _p2(copy_W);
+        // MLE_Convker p2 = *dynamic_cast<MLE_Convker*>(prover.triple.W.get());
         MultilinearPolynomial p3 = *prover.triple.Y;
 
-        std::array<ligeropcs_ext, 3> pcs = { ligero_commit_ext(p1, 2), ligero_commit_ext(_p2, 2), ligero_commit_ext(p3, 2) };
+        std::array<ligeropcs_ext, 3> pcs = { ligero_commit_ext(p1, 2), pcs_w, ligero_commit_ext(p3, 2) };
         std::array<const oracle*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
 
         // if (!prover.triple.check()) {
@@ -403,7 +404,8 @@ bool test_pad_weights() {
         array_view<Goldilocks2::Element> W_view(W.data(), {D, C, m, m});
         array_view<Goldilocks2::Element> Y_view(Y.data(), {D, on, on});
 
-        
+        auto pcs_w = ligero_commit_ext(W_view, 2);
+
         random_conv2_padding(C, D, n, m, padding, X_view, W_view, Y_view);
 
         bool pad_right_bottom = rand() % 2 == 0;

@@ -78,55 +78,6 @@ convProver make_conv_prover(
 }
 
 convProver make_conv2_prover(
-    size_t C, size_t D, size_t n, size_t m,
-    const std::vector<std::vector<std::vector<Goldilocks2::Element>>>& X, // in_channels x n x n
-    const std::vector<std::vector<std::vector<std::vector<Goldilocks2::Element>>>>& W) { // in_channels x out_channels x m x m
-
-    assert(X.size() == C);
-    assert(X[0].size() == n);
-    assert(X[0][0].size() == n);
-    assert(W.size() == C);
-    assert(W[0].size() == D);
-    assert(W[0][0].size() == m);
-    assert(W[0][0][0].size() == m);
-
-    std::vector<std::vector<Goldilocks2::Element>> X_1d(C);
-    std::vector<std::vector<std::vector<Goldilocks2::Element>>> W_1d(C);
-    std::vector<std::vector<Goldilocks2::Element>> Y_1d(D);
-
-    for (size_t c = 0; c < C; ++c) {
-        X_1d[c] = flatten(X[c]);
-        W_1d[c].resize(D);
-        for (size_t d = 0; d < D; ++d) {
-            for (size_t i = 0; i < m; ++i) {
-                for (size_t j = 0; j < m; ++j) {
-                    W_1d[c][d].push_back(W[c][d][m - i - 1][m - j - 1]);
-                }
-                W_1d[c][d].resize(n * (i + 1));
-            }
-        }
-    }
-    for (size_t d = 0; d < D; ++d) {
-        Y_1d[d].resize(n * n + n * m - 1);
-        for (size_t c = 0; c < C; ++c) {
-            auto temp = conv(X_1d[c], W_1d[c][d]);
-            assert(temp.size() == Y_1d[d].size());
-            for (size_t i = 0; i < temp.size(); ++i) {
-                Y_1d[d][i] += temp[i];
-            }
-        }
-    }
-
-    size_t N = n * n;
-    size_t K = n * m;
-
-    return convProver(convTriple(C, N, D, K,
-        std::make_unique<MultilinearPolynomial>(X_1d),
-        std::make_unique<MLE_Convker>(W, C, D, n, m),
-        std::make_unique<MultilinearPolynomial>(Y_1d)));
-}
-
-convProver make_conv2_prover(
     size_t C,
     size_t D,
     size_t n,
@@ -353,7 +304,7 @@ bool convVerifier::execute_convcheck_2d(
         
     auto claim = execute_convcheck(prover, oracle, sec_param);
     if (!claim) return false;
-    // pad check W
+    // pad check W  
     auto aux_info = prover.triple.W->process_challenges(claim->at(1).challenges);
     if (oracle[1]->open(aux_info.r, sec_param) * aux_info.comp != claim->at(1).claim) {
         return false;

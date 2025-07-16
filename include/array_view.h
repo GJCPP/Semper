@@ -183,6 +183,22 @@ public:
         return dims;
     }
 
+    std::vector<int>& get_order() {
+        return order;
+    }
+
+    const std::vector<int>& get_order() const {
+        return order;
+    }
+
+    std::vector<bool>& get_reversed() {
+        return reversed;
+    }
+
+    const std::vector<bool>& get_reversed() const {
+        return reversed;
+    }
+
     bool operator==(const array_view<T>& other) const {
         if (data_size != other.data_size) {
             throw std::runtime_error("array_view: Array sizes do not match");
@@ -205,6 +221,8 @@ public:
     bool empty() const {
         return data_size == 0;
     }
+
+
 
 protected:
     void init_offset() {
@@ -272,6 +290,11 @@ public:
         view = array_view<T>(data.data(), shape);
     }
 
+    operator array_view<T>() {
+        return view;
+    }
+
     array_view<T> view;
     std::vector<T> data;
 };
+

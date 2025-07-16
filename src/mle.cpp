@@ -239,10 +239,44 @@ const std::vector<Goldilocks2::Element>& MultilinearPolynomial::get_eval_table()
 
 mle_aux_info MultilinearPolynomial::process_challenges(
     const std::vector<Goldilocks2::Element>& challenges) const {
-    // Basic implementation: just return the challenges as reshaped challenges
-    // Subclasses can override this for more sophisticated processing
+
+    return ::process_challenges(evaluations_view.get_dims(), evaluations_view.get_shape(), evaluations_view.get_order(), evaluations_view.get_reversed(), challenges);
+}
+
+mle_aux_info process_challenges(
+    int n,
+    const std::vector<size_t>& shape,
+    const std::vector<int>& order,
+    const std::vector<bool>& reversed,
+    const std::vector<Goldilocks2::Element>& challenges) {
+    
+    
+    assert(shape.size() == n);
+    assert(order.size() == n);
+    assert(reversed.size() == n);
     mle_aux_info aux;
-    aux.r = challenges;
+
+    const Goldilocks2::Element one = Goldilocks2::one();
+    std::vector<size_t> start(n + 1);
+    for (int i = 0; i < n; ++i) {
+        start[i + 1] = find_ceiling_log2(shape[i]);
+    }
+    for (int i = 1; i <= n; ++i) {
+        start[i] += start[i - 1];
+    }
+    for (int i = 0; i < n; ++i) {
+        size_t ord = order[i];
+        size_t begin = start[ord], end = start[ord + 1];
+        bool rev = reversed[ord];
+        for (size_t j = begin; j < end; ++j) {
+            if (rev) {
+                aux.r.push_back(one - challenges[j]);
+            } else {
+                aux.r.push_back(challenges[j]);
+            }
+        }
+    }
+
     aux.comp = Goldilocks2::one();
     return aux;
 }

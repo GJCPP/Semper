@@ -78,3 +78,11 @@ protected:
 
     size_t num_vars;
 };
+
+mle_aux_info process_challenges(
+    int n,
+    const std::vector<size_t>& shape,
+    const std::vector<int>& order,
+    const std::vector<bool>& reversed,
+    const std::vector<Goldilocks2::Element>& challenges);
+    
