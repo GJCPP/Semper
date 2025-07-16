@@ -23,19 +23,21 @@ public:
 
     array_view() {}
 
-    array_view(T* _data, const std::vector<size_t>& _shape, const std::vector<size_t>& _offset = {}, const std::vector<bool>& _reversed = {}, const std::vector<int>& _order = {}) 
+    array_view(T* _data, const std::vector<size_t>& _shape, const std::vector<size_t>& _offset = {}, const std::vector<bool>& _reversed = {}, const std::vector<int>& _order = {})
         : data(_data), data_shape(_shape), dims(_shape.size()), data_size(1) {
         for (size_t i = 0; i < _shape.size(); ++i) {
             data_size *= _shape[i];
         }
         if (_offset.size() == 0) {
             init_offset();
-        } else {
+        }
+        else {
             index_offset = _offset;
         }
         if (_reversed.size() == 0) {
             reversed = std::vector<bool>(_shape.size(), false);
-        } else {
+        }
+        else {
             reversed = _reversed;
         }
         if (_order.size() == 0) {
@@ -43,7 +45,8 @@ public:
             for (size_t i = 0; i < _shape.size(); ++i) {
                 order[i] = i;
             }
-        } else {
+        }
+        else {
             order = _order;
         }
     }
@@ -103,7 +106,8 @@ public:
         for (int i = 0; i < dims; ++i) {
             if (indices[i] < data_shape[i]) {
                 linear_index += (reversed[i] ? data_shape[i] - 1 - indices[i] : indices[i]) * index_offset[i];
-            } else {
+            }
+            else {
                 throw std::runtime_error("array_view: Index out of bounds");
             }
         }
@@ -116,7 +120,8 @@ public:
         for (int i = 0; i < dims; ++i) {
             if (indices[i] < data_shape[i]) {
                 linear_index += (reversed[i] ? data_shape[i] - 1 - indices[i] : indices[i]) * index_offset[i];
-            } else {
+            }
+            else {
                 throw std::runtime_error("array_view: Index out of bounds");
             }
         }
@@ -148,14 +153,14 @@ public:
     template<typename... Args>
     T& operator()(Args... args) {
         assert(sizeof...(args) == dims);
-        std::vector<size_t> indices = {static_cast<size_t>(args)...};
+        std::vector<size_t> indices = { static_cast<size_t>(args)... };
         return (*this)(indices);
     }
 
     template<typename... Args>
     const T& operator()(Args... args) const {
         assert(sizeof...(args) == dims);
-        std::vector<size_t> indices = {static_cast<size_t>(args)...};
+        std::vector<size_t> indices = { static_cast<size_t>(args)... };
         return (*this)(indices);
     }
 
@@ -167,7 +172,7 @@ public:
         return order[i];
     }
 
-    bool is_reversed(int i) const { 
+    bool is_reversed(int i) const {
         return reversed[i];
     }
 
@@ -222,7 +227,13 @@ public:
         return data_size == 0;
     }
 
+    void mimic(const array_view<T>& arr) {
 
+        assert(dims == arr.dims);
+
+        reorder(arr.order);
+        reversed = arr.reversed;
+    }
 
 protected:
     void init_offset() {
@@ -252,7 +263,8 @@ std::ostream& operator<<(std::ostream& os, const array_view<T>& arr) {
         for (size_t i = 0; i < arr.data_size; ++i) {
             os << arr.data[i] << " ";
         }
-    } else {
+    }
+    else {
         for (size_t i = 0; i < arr.data_shape[0]; ++i) {
             os << arr[i];
             if (i < arr.data_shape[0] - 1) {
@@ -288,6 +300,43 @@ public:
         }
         data = std::vector<T>(data_size);
         view = array_view<T>(data.data(), shape);
+    }
+
+    void rearrange() {
+        std::vector<T> new_data(data.size());
+        std::vector<size_t> ind(view.dims);
+        array_view<T> new_view(new_data.data(), view.data_shape);
+        std::vector<array_view<T>> new_views(view.dims), views(view.dims);
+
+        new_views[0] = new_view;
+        views[0] = view;
+
+        for (int i = 1; i < view.dims; ++i) {
+            new_views[i] = new_views[i - 1][0];
+            views[i] = views[i - 1][0];
+        }
+
+        while (true) {
+            new_views.back()(ind.back()) = views.back()(ind.back());
+            ++ind.back();
+            int high = view.dims - 1;
+            while (high > 0 && ind[high] == view.data_shape[high]) {
+                ind[high] = 0;
+                --high;
+                ++ind[high];
+            }
+
+            if (ind[high] == view.data_shape[high]) break;
+            
+
+            for (int i = high + 1; i < view.dims; ++i) {
+                new_views[i] = new_views[i - 1][ind[i - 1]];
+                views[i] = views[i - 1][ind[i - 1]];
+            }
+        }
+        data = new_data;
+        view = new_view;
+        view.data = data.data();
     }
 
     operator array_view<T>() {

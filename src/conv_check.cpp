@@ -208,6 +208,9 @@ void pad_weights(
     new_padding_X = padding_X + pad_m;
     W_pad.init({D, C, new_m, new_m});
     Y_pad.init({D, n + 2 * new_padding_X - new_m + 1, n + 2 * new_padding_X - new_m + 1});
+    
+    W_pad.view.mimic(W);
+    Y_pad.view.mimic(Y);
 
     for (size_t d = 0; d < D; ++d) {
         auto W_view_d = W[d];
@@ -231,6 +234,7 @@ void pad_weights(
             }
         }
     }
+    
 
     int64_t y_sz = Y.shape(1);
 

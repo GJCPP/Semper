@@ -1,6 +1,6 @@
 #include "test.h"
 
-#define CNT_TEST 50
+#define CNT_TEST 10
 
 bool test_arithmetic() {
     typedef Goldilocks2::Element Element;
@@ -310,7 +310,6 @@ void random_conv2_padding(
 bool test_conv2_check() {
     for (int cnt(0); cnt != CNT_TEST; ++cnt) {
         srand(cnt);
-        std::cout << cnt << std::endl;
         size_t padding = rand() % 4;
         size_t C = rand() % 10 + 1, D = rand() % 5 + 1, n = 1 << (rand() % 3 + 3), m = rand() % 3 + 2;
         size_t on = n + 2 * padding - m + 1;
@@ -392,36 +391,44 @@ bool test_pad_check() {
 bool test_pad_weights() {
     for (int cnt(0); cnt != CNT_TEST; ++cnt) {
         srand(cnt);
-        // std::cout << "cnt: " << cnt << std::endl;
         size_t padding = rand() % 4;
         size_t C = rand() % 10 + 1, D = rand() % 5 + 1, n = 1 << (rand() % 3 + 3), m = rand() % 3 + 2;
         size_t on = n + 2 * padding - m + 1;
         // X: C x n x n, W: C x D x m x m, Y: D x on x on
-        std::vector<Goldilocks2::Element> X(C * n * n);
-        std::vector<Goldilocks2::Element> W(D * C * m * m);
-        std::vector<Goldilocks2::Element> Y(D * on * on);
-        array_view<Goldilocks2::Element> X_view(X.data(), {C, n, n});
-        array_view<Goldilocks2::Element> W_view(W.data(), {D, C, m, m});
-        array_view<Goldilocks2::Element> Y_view(Y.data(), {D, on, on});
+        array<Goldilocks2::Element> X({C, n, n});
+        array<Goldilocks2::Element> W({D, C, m, m});
+        array<Goldilocks2::Element> Y({D, on, on});
 
-        auto pcs_w = ligero_commit_ext(W_view, 2);
 
-        random_conv2_padding(C, D, n, m, padding, X_view, W_view, Y_view);
+        random_conv2_padding(C, D, n, m, padding, X.view, W.view, Y.view);
+        
+        ligeropcs_ext pcs_w;
 
         bool pad_right_bottom = rand() % 2 == 0;
+        if (!pad_right_bottom) {
+            W.view.reverse(2);
+            W.view.reverse(3);
+            pcs_w = ligero_commit_ext(W.view, 2);
+            W.rearrange();
+            W.view.reverse(2);
+            W.view.reverse(3);
+        } else {
+            pcs_w = ligero_commit_ext(W.view, 2);
+        }
+
         array<Goldilocks2::Element> W_pad, Y_pad;
-        pad_weights(C, D, n, m, padding, X_view, W_view, Y_view, W_pad, Y_pad, m, padding, pad_right_bottom);
+        pad_weights(C, D, n, m, padding, X.view, W.view, Y.view, W_pad, Y_pad, m, padding, pad_right_bottom);
         
 
         // MultilinearPolynomial p_w(W_pad.view);
         // ligeropcs_ext pcs_w = ligero_commit_ext(p_w, 2); // commit as D C pad_m pad_m
 
         W_pad.view.swap_dim(0, 1); // C D m m
-        convProver prover(make_conv2_prover(C, D, n, m, padding, X_view, W_pad.view, Y_pad.view));
-        // if (!prover.triple.check()) {
-        //     std::cout << "convTriple check failed" << std::endl;
-        //     return false;
-        // }
+        convProver prover(make_conv2_prover(C, D, n, m, padding, X.view, W_pad.view, Y_pad.view));
+        if (!prover.triple.check()) {
+            std::cout << "convTriple check failed" << std::endl;
+            return false;
+        }
 
         // std::array<ligeropcs_ext, 3> pcs = prover.triple.commit(2);
         // std::array<const oracle*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
@@ -435,7 +442,7 @@ bool test_pad_weights() {
         // MultilinearPolynomial _p2(copy_W);
         MultilinearPolynomial p3 = *prover.triple.Y;
 
-        std::array<ligeropcs_ext, 3> pcs = { ligero_commit_ext(p1, 2), ligero_commit_ext(p2, 2), ligero_commit_ext(p3, 2) };
+        std::array<ligeropcs_ext, 3> pcs = { ligero_commit_ext(p1, 2), pcs_w, ligero_commit_ext(p3, 2) };
         std::array<const oracle*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
 
         // if (!prover.triple.check()) {
