@@ -13,13 +13,13 @@
 class MultilinearPolynomial : public oracle {
 public:
     MultilinearPolynomial() : num_vars(0) {}
-    MultilinearPolynomial(size_t num_vars, bool init=true);
+    MultilinearPolynomial(int num_vars, bool init=true);
     MultilinearPolynomial(const std::vector<Goldilocks2::Element>& evaluations);
     MultilinearPolynomial(const std::vector<std::vector<Goldilocks2::Element>>& evaluations);
     MultilinearPolynomial(const std::vector<std::vector<std::vector<Goldilocks2::Element>>>& evaluations);
     MultilinearPolynomial(const std::vector<uint64_t>& val_table);
     MultilinearPolynomial(const array_view<Goldilocks2::Element>& evaluations);
-    size_t get_num_vars() const { return num_vars; }
+    int get_num_vars() const { return num_vars; }
 
     virtual std::unique_ptr<MultilinearPolynomial> clone() const {
         return std::make_unique<MultilinearPolynomial>(*this);
@@ -76,7 +76,7 @@ protected:
     // used to assist openning proof. with respect to pcs.
     // array_view<Goldilocks2::Element> evaluations_view;
 
-    size_t num_vars;
+    int num_vars;
 };
 
 mle_aux_info process_challenges(

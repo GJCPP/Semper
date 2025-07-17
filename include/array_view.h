@@ -24,7 +24,7 @@ public:
     array_view() {}
 
     array_view(T* _data, const std::vector<size_t>& _shape, const std::vector<size_t>& _offset = {}, const std::vector<bool>& _reversed = {}, const std::vector<int>& _order = {})
-        : data(_data), data_shape(_shape), dims(_shape.size()), data_size(1) {
+        : dims(_shape.size()), data(_data), data_size(1), data_shape(_shape) {
         for (size_t i = 0; i < _shape.size(); ++i) {
             data_size *= _shape[i];
         }
@@ -60,7 +60,7 @@ public:
     }
 
     void reorder(const std::vector<int>& ind) {
-        if (ind.size() != dims) {
+        if (ind.size() != static_cast<size_t>(dims)) {
             throw std::runtime_error("array_view: Indices size does not match");
         }
         std::vector<size_t> new_shape(dims);
@@ -114,7 +114,7 @@ public:
         return data[linear_index];
     }
 
-    const T& operator()(std::vector<size_t> indices) const {
+    const T& operator()(const std::vector<size_t>& indices) const {
         assert(indices.size() == static_cast<size_t>(dims));
         size_t linear_index = 0;
         for (int i = 0; i < dims; ++i) {
@@ -202,6 +202,10 @@ public:
 
     const std::vector<bool>& get_reversed() const {
         return reversed;
+    }
+
+    const std::vector<size_t>& get_offset() const {
+        return index_offset;
     }
 
     bool operator==(const array_view<T>& other) const {
@@ -341,6 +345,28 @@ public:
 
     operator array_view<T>() {
         return view;
+    }
+
+    T& operator()(const std::vector<size_t>& indices) {
+        return view(indices);
+    }
+
+    const T& operator()(const std::vector<size_t>& indices) const {
+        return view(indices);
+    }
+
+    template<typename... Args>
+    T& operator()(Args... args) {
+        assert(sizeof...(args) == view.dims);
+        std::vector<size_t> indices = { static_cast<size_t>(args)... };
+        return (*this)(indices);
+    }
+
+    template<typename... Args>
+    const T& operator()(Args... args) const {
+        assert(sizeof...(args) == view.dims);
+        std::vector<size_t> indices = { static_cast<size_t>(args)... };
+        return (*this)(indices);
     }
 
     array_view<T> view;

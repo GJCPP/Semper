@@ -1,10 +1,13 @@
+#include <cassert>
+
+#include <string>
+#include <chrono>
+
 #include "mle.h"
 #include "util.h"
 #include "ligero.h"
-#include <string>
-#include <cassert>
 
-MultilinearPolynomial::MultilinearPolynomial(size_t num_vars, bool init)
+MultilinearPolynomial::MultilinearPolynomial(int num_vars, bool init)
     : num_vars(num_vars) {
     if (init) {
         evaluations.resize(1ull << num_vars, Goldilocks2::zero());
@@ -54,52 +57,65 @@ MultilinearPolynomial::MultilinearPolynomial(const std::vector<uint64_t>& val_ta
 
 MultilinearPolynomial::MultilinearPolynomial(const array_view<Goldilocks2::Element>& val_table)
     : num_vars(0) {
-    int dim = val_table.get_dims();
-    std::vector<size_t> dims(dim + 1), upper_dims(dim + 1);
-    for (size_t i = 1; i <= dim; ++i) {
-        dims[i] = val_table.shape(i - 1);
+    auto start = std::chrono::high_resolution_clock::now();
+
+    const int dim = val_table.get_dims();
+    std::vector<size_t> dims(dim), log_upper_dims(dim);
+
+    size_t total_input_size = 1;
+    size_t total_output_size = 1;
+
+    // Compute dims, upper_dims, and num_vars
+    for (int i = 0; i < dim; ++i) {
+        dims[i] = val_table.shape(i);
         int bit = find_ceiling_log2(dims[i]);
-        upper_dims[i] = 1ull << bit;
+        log_upper_dims[i] = bit;
         num_vars += bit;
+        total_input_size *= dims[i];
+        total_output_size *= (1ull << bit);
     }
-    evaluations.resize(1ull << num_vars);
-    size_t N = (1ull << num_vars), next = 0;
-    std::vector<size_t> ind(dim + 1), jump(dim + 1);
-    std::vector<array_view<Goldilocks2::Element>> views(dim);
-    views[0] = val_table;
-    for (size_t i = 1; i < dim; ++i) {
-        views[i] = views[i - 1][0];
-    }
-    jump[dim] = 1;
-    for (int i = dim - 1; i >= 0; --i) {
-        jump[i] = jump[i + 1] * upper_dims[i + 1];
-    }
-    while (next < N) {
-        for (size_t i = 0; i < dims.back(); ++i) {
-            evaluations[next++] = views.back()(i);
+
+    evaluations.resize(total_output_size);
+
+    const Goldilocks2::Element* input_data = val_table.get_data();
+    Goldilocks2::Element* output_data = evaluations.data();
+
+    // Index vector for iteration
+    std::vector<size_t> ind(dim, 0);
+
+    for (size_t i = 0; i < total_output_size; ++i) {
+        bool in_bounds = true;
+        size_t input_offset = 0;
+
+        // Map flat index to multi-dimensional index (ind)
+        size_t tmp = i;
+        for (int d = dim - 1; d >= 0; --d) {
+            ind[d] = (tmp & ((1ull << log_upper_dims[d]) - 1));
+            if (ind[d] >= dims[d]) {
+                in_bounds = false;
+                break;
+            }
+            tmp >>= log_upper_dims[d];
         }
-        ind.back() = dims.back();
-        int high = dim;
-        
-        while (high > 0 && ind[high] >= upper_dims[high]) {
-            ind[high] = 0;
-            --high;
-            ++ind[high];
-        }
-        while (high > 0 && ind[high] >= dims[high]) {
-            ind[high] = 0;
-            next += jump[high] * (upper_dims[high] - dims[high]);
-            --high;
-            ++ind[high];
-        }
-        if (high == 0) {
-            break;
-        }
-        for (size_t i = high; i < dim; ++i) {
-            views[i] = views[i - 1][ind[i]];
+
+        // Copy or pad with zero
+        if (in_bounds) {
+            output_data[i] = val_table(ind);
+        } else {
+            output_data[i] = Goldilocks2::zero();
         }
     }
+
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end - start;
+
+    // std::cout << "MLE for shape ";
+    // for (auto d : dims) std::cout << d << " ";
+    // std::cout << "costs " << elapsed.count() << " seconds." << std::endl;
+
+    evaluations_view = val_table;
 }
+
 
 void MultilinearPolynomial::set_value(const std::string& mask, const Goldilocks2::Element& c) {
     evaluations[convert_mask_to_u64(mask, num_vars)] = c;
@@ -118,7 +134,7 @@ Goldilocks2::Element MultilinearPolynomial::evaluate(const std::vector<Goldilock
     // for denote purpose
     const std::vector<Goldilocks2::Element>& r = point;
     std::vector<Goldilocks2::Element> one_minus_r(num_vars);
-    for (size_t i = 0; i < num_vars; ++i) {
+    for (int i = 0; i < num_vars; ++i) {
         Goldilocks2::sub(one_minus_r[i], Goldilocks2::one(), r[i]);
     }
 
@@ -126,8 +142,8 @@ Goldilocks2::Element MultilinearPolynomial::evaluate(const std::vector<Goldilock
     std::vector<Goldilocks2::Element> lag_basis;
     lag_basis.resize(1ull << num_vars, Goldilocks2::one());
     // every round add a new bit to the highest digit, so the reversed ri should be utilized
-    for (uint64_t i = 0;i < num_vars; ++i) {
-        for (uint64_t j = 0;j < (1ull << i); ++j) {
+    for (int i = 0;i < num_vars; ++i) {
+        for (size_t j = 0; j < (1ull << i); ++j) {
             Goldilocks2::mul(lag_basis[j + (1ull << i)], lag_basis[j], r[num_vars - i - 1]);
             Goldilocks2::mul(lag_basis[j], lag_basis[j], one_minus_r[num_vars - i - 1]);
         }
@@ -199,7 +215,7 @@ void MultilinearPolynomial::fix(size_t pos, const Goldilocks2::Element& val) {
 }
 
 void MultilinearPolynomial::fix(size_t pos, const std::vector<Goldilocks2::Element>& val) {
-    assert(pos >= 0 && pos + val.size() <= num_vars);
+    assert(pos >= 0 && pos + val.size() <= size_t(num_vars));
     for (const Goldilocks2::Element& v : val) {
         fix(pos, v);
     }
@@ -251,9 +267,9 @@ mle_aux_info process_challenges(
     const std::vector<Goldilocks2::Element>& challenges) {
     
     
-    assert(shape.size() == n);
-    assert(order.size() == n);
-    assert(reversed.size() == n);
+    assert(shape.size() == size_t(n));
+    assert(order.size() == size_t(n));
+    assert(reversed.size() == size_t(n));
     mle_aux_info aux;
 
     const Goldilocks2::Element one = Goldilocks2::one();

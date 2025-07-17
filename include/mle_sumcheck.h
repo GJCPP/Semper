@@ -18,8 +18,8 @@ public:
     size_t get_rounds() const { return nrnd; }
 private:
     MultilinearPolynomial g;
-    Goldilocks2::Element sum;
     size_t nrnd;
+    Goldilocks2::Element sum;
 };
 
 class sVerifier{

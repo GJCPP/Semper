@@ -2,6 +2,7 @@
 
 #include "VCG16.h"
 #include "VCG16_check.h"
+#include "VCG16_proof.h"
 
 
 VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv)
@@ -18,8 +19,6 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, 
     for (size_t i = 0; i < keys.size(); ++i) {
         std::string key = keys[i];
 
-        std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-
         cnpy::NpyArray *value = values[i];
         size_t num_vals = value->num_vals;
         data[key] = std::make_unique<Goldilocks2::Element[]>(num_vals);
@@ -28,30 +27,13 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, 
             ptr[i] = Goldilocks2::fromS64(value->data<int64_t>()[i]);
         }
         data_shape[key] = value->shape;
-        array_view<Goldilocks2::Element> arr(ptr, value->shape);
-        mle[key] = std::make_shared<MultilinearPolynomial>(arr);
-#ifdef DEBUG
-        pcs[key] = std::make_shared<ligeropcs_base>();
-#else
-        pcs[key] = std::make_shared<ligeropcs_base>(ligero_commit_base(*mle[key], rho_inv));
-#endif
-        #pragma omp critical
-        {
-            std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
-            std::cout << "Key " << key << " of size ";
-            for (size_t j = 0; j < values[i]->shape.size(); ++j) {
-                if (j > 0) std::cout << "x";
-                std::cout << values[i]->shape[j];
-            }
-            std::cout << " took " << duration.count() / 1000000.0 << " s" << std::endl;
-        }
+        data_view[key] = array_view<Goldilocks2::Element>(ptr, value->shape);
     }
-    std::cout << "Done processing keys." << std::endl;
     data[{}] = nullptr;
     data_shape[{}] = {};
-    mle[{}] = nullptr;
-    pcs[{}] = nullptr;
+    data_view[{}] = {};
+    mle[{}] = {};
+    pcs[{}] = {};
 
     minibatch = data_shape["a_q0"][0];
     img_per_batch = data_shape["a_q0"][1];
@@ -258,7 +240,7 @@ bool VCG16::check(size_t n_samples) const {
 
                 //Check forward pass
                 std::cout << "Checking layer " << layer.name << " (forward)" << std::endl;
-                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
+                for (size_t i = 0; i < layer.input.shape(0) && pass; ++i) {
                     std::cout << "Checking layer " << layer.name << " (forward) for mini-batch " << i << std::endl;
                     pass &= check_pool(layer.input[i], layer.output[i], layer.aux[i], 2, 2, false, n_samples);
                 }
@@ -271,7 +253,7 @@ bool VCG16::check(size_t n_samples) const {
                 
                 //Check backward pass
                 std::cout << "Checking layer " << layer.name << " (backward)" << std::endl;
-                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
+                for (size_t i = 0; i < layer.input.shape(0) && pass; ++i) {
                     std::cout << "Checking layer " << layer.name << " (backward) for mini-batch " << i << std::endl;
                     pass &= check_pool(layer.d_input[i], layer.d_output[i], layer.aux[i], 2, 2, true, n_samples);
                 }
@@ -295,7 +277,7 @@ bool VCG16::check(size_t n_samples) const {
 
                 //Check forward pass
                 std::cout << "Checking layer " << layer.name << " (forward)" << std::endl;
-                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
+                for (size_t i = 0; i < layer.input.shape(0) && pass; ++i) {
                     std::cout << "Checking layer " << layer.name << " (forward) for mini-batch " << i << std::endl;
                     pass &= check_flat(layer.input[i], layer.output[i], n_samples);
                 }
@@ -306,7 +288,7 @@ bool VCG16::check(size_t n_samples) const {
                 
                 //Check backward pass
                 std::cout << "Checking layer " << layer.name << " (backward)" << std::endl;
-                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
+                for (size_t i = 0; i < layer.input.shape(0) && pass; ++i) {
                     std::cout << "Checking layer " << layer.name << " (backward) for mini-batch " << i << std::endl;
                     pass &= check_flat(layer.d_input[i], layer.d_output[i], n_samples);
                 }
@@ -330,14 +312,14 @@ bool VCG16::check(size_t n_samples) const {
 
                 //Check forward pass
                 std::cout << "Checking layer " << layer.name << " (forward)" << std::endl;
-                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
+                for (size_t i = 0; i < layer.input.shape(0) && pass; ++i) {
                     std::cout << "Checking layer " << layer.name << " (forward) for mini-batch " << i << std::endl;
                     pass &= check_full(layer.input[i], layer.weight[i], layer.output[i], n_samples);
                 }
                 
                 //Check backward pass, check d_weight
                 std::cout << "Checking layer " << layer.name << " (backward, d_weight)" << std::endl;
-                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
+                for (size_t i = 0; i < layer.input.shape(0) && pass; ++i) {
                     std::cout << "Checking layer " << layer.name << " (backward, d_weight) for mini-batch " << i << std::endl;
                     array_view<Goldilocks2::Element> input_i(layer.input[i]);
                     input_i.swap_dim(0, 1); // Transpose input to [C, N]
@@ -346,7 +328,7 @@ bool VCG16::check(size_t n_samples) const {
 
                 //Check backward pass, check d_input
                 std::cout << "Checking layer " << layer.name << " (backward, d_input)" << std::endl;
-                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
+                for (size_t i = 0; i < layer.input.shape(0) && pass; ++i) {
                     std::cout << "Checking layer " << layer.name << " (backward, d_input) for mini-batch " << i << std::endl;
                     array_view<Goldilocks2::Element> weight_i(layer.weight[i]);
                     weight_i.swap_dim(0, 1); // Transpose weight to [OC, C]
@@ -367,7 +349,7 @@ bool VCG16::check(size_t n_samples) const {
 
                 //Check softmax
                 std::cout << "Checking layer " << layer.name << std::endl;
-                for (int i = 0; i < layer.input.shape(0) && pass; ++i) {
+                for (size_t i = 0; i < layer.input.shape(0) && pass; ++i) {
                     std::cout << "Checking layer " << layer.name << " (forward) for mini-batch " << i << std::endl;
                     pass &= check_softmax(layer.input[i], layer.output[i], layer.aux[i], e_pow_inv, scale);
                 }
@@ -387,6 +369,24 @@ bool VCG16::check(size_t n_samples) const {
     }
     std::cout << "✅ All layers passed." << std::endl;
     return true;
+}
+
+bool VCG16::prove(size_t sec_param) {
+    for (auto& layer : layers) {
+        std::cout << "Proving layer " << layer.name << std::endl;
+        switch (layer.type) {
+            case layer_type::conv:
+                if (!prove_conv_layer(layer, rho_inv, sec_param)) {
+                    std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
+                    return false;
+                }
+                break;
+
+            default:
+                break;
+        }
+    }
+    return false;
 }
 
 void VCG16::add_layer(layer_type type,
@@ -409,6 +409,74 @@ void VCG16::add_layer(layer_type type,
     info.d_weight = array_view<Goldilocks2::Element>(data[d_weight].get(), data_shape[d_weight]);
     info.aux = array_view<Goldilocks2::Element>(data[aux].get(), data_shape[aux]);
 
+    
+    auto init_mle = [&](const std::string& key) {
+        auto& mle = this->mle[key];
+        mle = {};
+        mle.init({static_cast<size_t>(minibatch), static_cast<size_t>(img_per_batch)});
+        for (int i = 0; i < minibatch; ++i) {
+            for (int j = 0; j < img_per_batch; ++j) {
+                mle(i, j) = std::make_shared<MultilinearPolynomial>(data_view[key][i][j]);
+            }
+        }
+    };
+    auto init_mle_weight = [&](const std::string& key) {
+        auto& mle = this->mle[key];
+        mle = {};
+        mle.init({static_cast<size_t>(minibatch)});
+        for (int i = 0; i < minibatch; ++i) {
+            mle(i) = std::make_shared<MultilinearPolynomial>(data_view[key][i]);
+        }
+    };
+    if (mle.find(input) == mle.end()) init_mle(input);
+    if (mle.find(output) == mle.end()) init_mle(output);
+    if (mle.find(weight) == mle.end()) init_mle_weight(weight);
+    if (mle.find(d_input) == mle.end()) init_mle(d_input);
+    if (mle.find(d_output) == mle.end()) init_mle(d_output);
+    if (mle.find(d_weight) == mle.end()) init_mle_weight(d_weight);
+
+    auto init_pcs = [&](const std::string& key) {
+        auto& mle = this->mle[key];
+        auto& pcs = this->pcs[key];
+        pcs = {};
+        pcs.init({static_cast<size_t>(minibatch), static_cast<size_t>(img_per_batch)});
+#ifndef DEBUG
+        for (int i = 0; i < minibatch; ++i) {
+            for (int j = 0; j < img_per_batch; ++j) {
+                pcs(i, j) = std::make_shared<ligeropcs_base>(mle(i, j), rho_inv);
+            }
+        }
+#else
+        for (int i = 0; i < minibatch; ++i) {
+            for (int j = 0; j < img_per_batch; ++j) {
+                pcs(i, j) = std::make_shared<ligeropcs_base>();
+            }
+        }
+#endif
+    };
+    auto init_pcs_weight = [&](const std::string& key) {
+        auto& mle = this->mle[key];
+        auto& pcs = this->pcs[key];
+        pcs = {};
+        pcs.init({static_cast<size_t>(minibatch)});
+#ifndef DEBUG
+        for (int i = 0; i < minibatch; ++i) {
+            pcs(i) = std::make_shared<ligeropcs_base>(mle(i), rho_inv);
+        }
+#else
+        for (int i = 0; i < minibatch; ++i) {
+            pcs(i) = std::make_shared<ligeropcs_base>();
+        }
+#endif
+    };
+    if (pcs.find(input) == pcs.end()) init_pcs(input);
+    if (pcs.find(output) == pcs.end()) init_pcs(output);
+    if (pcs.find(weight) == pcs.end()) init_pcs_weight(weight);
+    if (pcs.find(d_input) == pcs.end()) init_pcs(d_input);
+    if (pcs.find(d_output) == pcs.end()) init_pcs(d_output);
+    if (pcs.find(d_weight) == pcs.end()) init_pcs_weight(d_weight);
+
+
     info.mle_input = mle[input];
     info.mle_output = mle[output];
     info.mle_weight = mle[weight];
@@ -427,45 +495,51 @@ void VCG16::add_layer(layer_type type,
 }
 
 #ifdef DEBUG
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_input() {
-    if (pcs_input->empty()) {
-        *pcs_input = ligero_commit_base(*mle_input, 2);
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_input(int bat, int img) {
+    auto& pcs = pcs_input(bat, img);
+    if (pcs->empty()) {
+        *pcs = ligero_commit_base(*mle_input(bat, img), 2);
     }
-    return pcs_input;
+    return pcs;
 }
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_output() {
-    if (pcs_output->empty()) {
-        *pcs_output = ligero_commit_base(*mle_output, 2);
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_output(int bat, int img) {
+    auto& pcs = pcs_output(bat, img);
+    if (pcs->empty()) {
+        *pcs = ligero_commit_base(*mle_output(bat, img), 2);
     }
-    return pcs_output;
-}
-
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_weight() {
-    if (pcs_weight->empty()) {
-        *pcs_weight = ligero_commit_base(*mle_weight, 2);
-    }
-    return pcs_weight;
+    return pcs;
 }
 
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_input() {
-    if (pcs_d_input->empty()) {
-        *pcs_d_input = ligero_commit_base(*mle_d_input, 2);
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_weight(int bat) {
+    auto& pcs = pcs_weight(bat);
+    if (pcs->empty()) {
+        *pcs = ligero_commit_base(*mle_weight(bat), 2);
     }
-    return pcs_d_input;
+    return pcs;
 }
 
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_output() {
-    if (pcs_d_output->empty()) {
-        *pcs_d_output = ligero_commit_base(*mle_d_output, 2);
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_input(int bat, int img) {
+    auto& pcs = pcs_d_input(bat, img);
+    if (pcs->empty()) {
+        *pcs = ligero_commit_base(*mle_d_input(bat, img), 2);
     }
-    return pcs_d_output;
+    return pcs;
 }
 
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_weight() {
-    if (pcs_d_weight->empty()) {
-        *pcs_d_weight = ligero_commit_base(*mle_d_weight, 2);
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_output(int bat, int img) {
+    auto& pcs = pcs_d_output(bat, img);
+    if (pcs->empty()) {
+        *pcs = ligero_commit_base(*mle_d_output(bat, img), 2);
     }
-    return pcs_d_weight;
+    return pcs;
+}
+
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_weight(int bat) {
+    auto& pcs = pcs_d_weight(bat);
+    if (pcs->empty()) {
+        *pcs = ligero_commit_base(*mle_d_weight(bat), 2);
+    }
+    return pcs;
 }
 
 #endif

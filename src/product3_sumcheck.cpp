@@ -207,7 +207,7 @@ Goldilocks2::Element p3Verifier::challenge() {
     static std::random_device rd;
     static std::mt19937_64 gen(rd());
 
-    constexpr uint64_t MODULUS = Goldilocks2::p;
+    // constexpr uint64_t MODULUS = Goldilocks2::p;
     // std::uniform_int_distribution<uint64_t> dist(0, MODULUS - 1);
 
     // uint64_t randn[] = { dist(gen), dist(gen) };

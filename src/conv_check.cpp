@@ -38,7 +38,7 @@ p2Prover convProver::fix_beta_r_D(
     const std::vector<Goldilocks2::Element>& r_D) {
 
     this->beta = beta;
-    assert(r_D.size() == triple.logD);
+    assert(r_D.size() == size_t(triple.logD));
     assert(triple.Y->get_num_vars() == triple.logD + triple.logNK1); // fix_r_D should be called only once
     assert(triple.W->get_num_vars() == triple.logC + triple.logD + triple.logK);
 
@@ -89,7 +89,7 @@ convProver make_conv2_prover(
 
     size_t in = n + 2 * padding;
     size_t on = in - m + 1;
-    size_t Y_len = in * in + m * in - 1;
+    // size_t Y_len = in * in + m * in - 1;
 
     assert(is_power_of_2(n));
 
@@ -106,7 +106,7 @@ convProver make_conv2_prover(
 
     size_t new_in = 1ull << find_ceiling_log2(in);
     size_t new_padding = ((new_in - n) >> 1);
-    size_t new_on = new_in - m + 1;
+    // size_t new_on = new_in - m + 1;
     size_t new_Y_len = new_in * new_in + m * new_in - 1;
 
     assert(is_power_of_2(new_padding) || new_padding == 0);
@@ -128,8 +128,7 @@ convProver make_conv2_prover(
     }
 
     // Fill Y_1d with Y
-    bool printed = false;
-    // #pragma omp parallel for
+    #pragma omp parallel for
     for (size_t d = 0; d < D; ++d) {
         for (size_t i = 0; i < on; ++i) {
             for (size_t j = 0; j < on; ++j) {
@@ -236,7 +235,7 @@ void pad_weights(
     }
     
 
-    int64_t y_sz = Y.shape(1);
+    size_t y_sz = Y.shape(1);
 
     for (size_t d = 0; d < D; ++d) {
         auto Y_view_d = Y[d];
@@ -258,31 +257,31 @@ void pad_weights(
 
     size_t on = Y_pad.view.shape(1);
     
-    for (int64_t i = 0; i < on; ++i) {
+    for (int64_t i = 0; i < int64_t(on); ++i) {
         int64_t x = i - new_padding_X;
-        for (int64_t j = 0; j < on; ++j) {
+        for (int64_t j = 0; j < int64_t(on); ++j) {
             int64_t y = j - new_padding_X;
-            if (pad_right_bottom && (x < -int64_t(padding_X) || y < -int64_t(padding_X)) ||
-                !pad_right_bottom && (x + new_m > n + padding_X || y + new_m > n + padding_X)) {
+            if ((pad_right_bottom && (x < -int64_t(padding_X) || y < -int64_t(padding_X))) ||
+                (!pad_right_bottom && (x + new_m > n + padding_X || y + new_m > n + padding_X))) {
 
-                for (int64_t d = 0; d < D; ++d) {
+                for (int64_t d = 0; d < int64_t(D); ++d) {
                     auto& y_val = Y_pad.view(d, i, j);
                     auto W_view_d = W_pad.view[d];
 
                     assert(y_val == Goldilocks2::zero());
 
-                    for (int64_t c = 0; c < C; ++c) {
+                    for (int64_t c = 0; c < int64_t(C); ++c) {
                         auto X_view_c = X[c];
                         auto W_view_d_c = W_view_d[c];
 
-                        for (int64_t k = 0; k < new_m; ++k) {
+                        for (int64_t k = 0; k < int64_t(new_m); ++k) {
                             if (x + k < 0 || x + k >= n) continue; // out of X
 
                             auto X_view_c_k = X_view_c[x + k];
                             auto W_view_d_c_k = W_view_d_c[k];
 
-                            for (int64_t l = 0; l < new_m; ++l) {
-                                if (y + l < 0 || y + l >= n) continue; // out of X
+                            for (int64_t l = 0; l < int64_t(new_m); ++l) {
+                                if (y + l < 0 || y + l >= int64_t(n)) continue; // out of X
 
                                 y_val += X_view_c_k(y + l) * W_view_d_c_k(l);
                             }
@@ -294,7 +293,7 @@ void pad_weights(
     }
 }
 
-bool convVerifier::execute_convcheck_1d(convProver& prover, const std::array<const oracle*, 3>& oracle, const size_t& sec_param) {
+bool convVerifier::execute_convcheck_1d(convProver& prover, const std::array<const oracle*, 3>& oracle, size_t sec_param) {
     auto claim = execute_convcheck(prover, oracle, sec_param);
     if (!claim) return false;
     return claim->at(0).claim == oracle[0]->open(claim->at(0).challenges, sec_param) &&
@@ -303,14 +302,27 @@ bool convVerifier::execute_convcheck_1d(convProver& prover, const std::array<con
 
 bool convVerifier::execute_convcheck_2d(
     convProver& prover,
-    const std::array<const oracle*, 3>& oracle,
-    const size_t& sec_param) {
-        
-    auto claim = execute_convcheck(prover, oracle, sec_param);
+    const std::array<const oracle*, 3>& ora,
+    size_t rho_inv,
+    size_t sec_param,
+    bool base_com) {
+
+
+    std::unique_ptr<oracle> pcs_flat_Y;
+    if (base_com) {
+        pcs_flat_Y = std::make_unique<ligeropcs_base>(ligero_commit_base(*prover.triple.Y, rho_inv));
+    } else {
+        pcs_flat_Y = std::make_unique<ligeropcs_ext>(ligero_commit_ext(*prover.triple.Y, rho_inv));
+    }
+
+    std::array<const oracle*, 3> ora_1d = {
+        ora[0], ora[1], pcs_flat_Y.get()
+    };
+    auto claim = execute_convcheck(prover, ora_1d, sec_param);
     if (!claim) return false;
     // pad check W  
     auto aux_info = prover.triple.W->process_challenges(claim->at(1).challenges);
-    if (oracle[1]->open(aux_info.r, sec_param) * aux_info.comp != claim->at(1).claim) {
+    if (ora[1]->open(aux_info.r, sec_param) * aux_info.comp != claim->at(1).claim) {
         return false;
     }
     // check pad X
@@ -323,7 +335,7 @@ bool convVerifier::execute_convcheck_2d(
         } else {
             cha = claim->at(0).challenges;
         }
-        return oracle[0]->open(cha, sec_param) * factor == claim->at(0).claim;
+        return ora[0]->open(cha, sec_param) * factor == claim->at(0).claim;
     }
 
     const Goldilocks2::Element zero = Goldilocks2::zero(), one = Goldilocks2::one();
@@ -344,7 +356,7 @@ bool convVerifier::execute_convcheck_2d(
         for (int j = 0; j < 2; ++j) {
             x[0] = i ? one : zero;
             y[0] = j ? one : zero;
-            A[i][j] = oracle[0]->open(combine_challenges(prefix, x, y), sec_param);
+            A[i][j] = ora[0]->open(combine_challenges(prefix, x, y), sec_param);
             res += A[i][j] * 
                     (i ? x_val[0] * (one - x_val[1]) : (one - x_val[0]) * x_val[1]) *
                     (j ? y_val[0] * (one - y_val[1]) : (one - y_val[0]) * y_val[1]);
@@ -355,9 +367,10 @@ bool convVerifier::execute_convcheck_2d(
         res *= one - r[0];
     }
     if (res != claim->at(0).claim) {
-        throw;
+        return false;
     }
-    return res == claim->at(0).claim;
+    // TODO copy constraint between Y and Y_flatten
+    return true;
 }
 
 std::optional<std::array<challenge_claim, 2>> convVerifier::execute_convcheck(
@@ -420,11 +433,12 @@ std::optional<std::array<challenge_claim, 2>> convVerifier::execute_convcheck(
 
 
 convTriple::convTriple(const convTriple& other)
-    : C(other.C), N(other.N), D(other.D), K(other.K),
-      logC(other.logC), logN(other.logN), logD(other.logD), logK(other.logK), logNK1(other.logNK1),
-      X(std::make_unique<MultilinearPolynomial>(*other.X)),
+    : X(std::make_unique<MultilinearPolynomial>(*other.X)),
       W(std::make_unique<MultilinearPolynomial>(*other.W)),
-      Y(std::make_unique<MultilinearPolynomial>(*other.Y)) {
+      Y(std::make_unique<MultilinearPolynomial>(*other.Y)),
+      C(other.C), N(other.N), D(other.D), K(other.K),
+      logC(other.logC), logN(other.logN), logD(other.logD), logK(other.logK), logNK1(other.logNK1)
+    {
 }
 
 convTriple::convTriple(
@@ -476,10 +490,11 @@ convTriple::convTriple(
     std::unique_ptr<MultilinearPolynomial> _W,
     std::unique_ptr<MultilinearPolynomial> _Y,
     bool padding, int log_n, int log_m)
-    : C(C), N(N), D(D), K(K), padding(padding), log_n(log_n), log_m(log_m),
-      X(std::move(_X)), 
+    : X(std::move(_X)), 
       W(std::move(_W)), 
-      Y(std::move(_Y)) {
+      Y(std::move(_Y)),
+      C(C), N(N), D(D), K(K), padding(padding), log_n(log_n), log_m(log_m)
+      {
 
     logC = find_ceiling_log2(C);
     logN = find_ceiling_log2(N);

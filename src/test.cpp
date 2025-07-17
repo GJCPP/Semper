@@ -267,7 +267,7 @@ void random_conv2_padding(
     array_view<Goldilocks2::Element>& W,
     array_view<Goldilocks2::Element>& Y
     ) {
-    size_t in = n + 2 * padding;
+    // size_t in = n + 2 * padding;
     size_t on = n + 2 * padding - m + 1;
 
     assert(X.shape(0) == C);
@@ -286,16 +286,16 @@ void random_conv2_padding(
 
     // Compute 2D convolution with padding
     #pragma omp parallel for
-    for (int64_t d = 0; d < D; ++d) {
-        for (int64_t i = 0; i < on; ++i) {
-            for (int64_t j = 0; j < on; ++j) {
+    for (int64_t d = 0; d < int64_t(D); ++d) {
+        for (int64_t i = 0; i < int64_t(on); ++i) {
+            for (int64_t j = 0; j < int64_t(on); ++j) {
                 Goldilocks2::Element sum = Goldilocks2::zero();
-                for (int64_t c = 0; c < C; ++c) {
-                    for (int64_t ki = 0; ki < m; ++ki) {
-                        for (int64_t kj = 0; kj < m; ++kj) {
+                for (int64_t c = 0; c < int64_t(C); ++c) {
+                    for (int64_t ki = 0; ki < int64_t(m); ++ki) {
+                        for (int64_t kj = 0; kj < int64_t(m); ++kj) {
                             int64_t x_i = i + ki - padding;
                             int64_t x_j = j + kj - padding;
-                            if (x_i >= 0 && x_i < n && x_j >= 0 && x_j < n) {
+                            if (x_i >= 0 && x_i < int64_t(n) && x_j >= 0 && x_j < int64_t(n)) {
                                 sum = sum + X(c, x_i, x_j) * W(d, c, ki, kj);
                             }
                         }
@@ -352,7 +352,7 @@ bool test_conv2_check() {
         //     return false;
         // }
 
-        if (!convVerifier::execute_convcheck_2d(prover, oracle, 32)) {
+        if (!convVerifier::execute_convcheck_2d(prover, oracle, 2, 32)) {
             return false;
         }
     }
@@ -450,7 +450,7 @@ bool test_pad_weights() {
         //     return false;
         // }
 
-        if (!convVerifier::execute_convcheck_2d(prover, oracle, 32)) {
+        if (!convVerifier::execute_convcheck_2d(prover, oracle, 2, 32)) {
             return false;
         }
     }

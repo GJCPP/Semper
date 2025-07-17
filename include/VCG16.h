@@ -2,6 +2,7 @@
 
 #include <format>
 #include <random>
+#include <unordered_map>
 
 #include "header"
 
@@ -24,26 +25,29 @@ public:
         array_view<Goldilocks2::Element> output, d_output; // Must be the input of the next layer
         array_view<Goldilocks2::Element> aux; // auxiliary data for checking
 
-        std::shared_ptr<MultilinearPolynomial> mle_input, mle_output,
+        array<std::shared_ptr<MultilinearPolynomial>> mle_input, mle_output,
                                             mle_weight, mle_d_weight,
                                             mle_d_input, mle_d_output;
                                             
-        std::shared_ptr<ligeropcs_base> pcs_input, pcs_output,
+        array<std::shared_ptr<ligeropcs_base>> pcs_input, pcs_output,
                                         pcs_weight, pcs_d_weight,
                                         pcs_d_input, pcs_d_output;
 
 #ifdef DEBUG
-        std::shared_ptr<ligeropcs_base> get_pcs_input();
-        std::shared_ptr<ligeropcs_base> get_pcs_output();
-        std::shared_ptr<ligeropcs_base> get_pcs_weight();
-        std::shared_ptr<ligeropcs_base> get_pcs_d_weight();
-        std::shared_ptr<ligeropcs_base> get_pcs_d_input();
-        std::shared_ptr<ligeropcs_base> get_pcs_d_output();
+        std::shared_ptr<ligeropcs_base> get_pcs_input(int bat, int img);
+        std::shared_ptr<ligeropcs_base> get_pcs_output(int bat, int img);
+        std::shared_ptr<ligeropcs_base> get_pcs_weight(int bat);
+        std::shared_ptr<ligeropcs_base> get_pcs_d_weight(int bat);
+        std::shared_ptr<ligeropcs_base> get_pcs_d_input(int bat, int img);
+        std::shared_ptr<ligeropcs_base> get_pcs_d_output(int bat, int img);
 #endif
     };
     VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv);
 
+    // This is for checking data integrity, and is not to be executed in real proof.
     bool check(size_t n_samples = 0) const;
+
+    bool prove(size_t sec_param);
 
     void add_layer(layer_type type,
                     const std::string& name,
@@ -58,16 +62,17 @@ public:
 protected:
     void init_e_pow();
 
-    int64_t scale, max_val, sqr_val;
     int epoch, minibatch, img_per_batch;
+    int64_t scale, max_val, sqr_val;
     uint64_t rho_inv;
     
     cnpy::npz_t filedata; // responsible for releasing data
     
     std::map<std::string, std::unique_ptr<Goldilocks2::Element[]>> data;
     std::map<std::string, std::vector<size_t>> data_shape;
-    std::map<std::string, std::shared_ptr<MultilinearPolynomial>> mle;
-    std::map<std::string, std::shared_ptr<ligeropcs_base>> pcs;
+    std::map<std::string, array_view<Goldilocks2::Element>> data_view;
+    std::map<std::string, array<std::shared_ptr<MultilinearPolynomial>>> mle;
+    std::map<std::string, array<std::shared_ptr<ligeropcs_base>>> pcs;
 
     array_view<Goldilocks2::Element> input_data, input_label;
 

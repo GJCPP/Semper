@@ -58,7 +58,7 @@ ligeroProver_base::ligeroProver_base(const MultilinearPolynomial& w, const uint6
 }
 
 
-ligeroProver_base::ligeroProver_base(const std::vector<Goldilocks::Element>& w, const uint64_t& rho_inv) :M(w), rho_inv(rho_inv) {
+ligeroProver_base::ligeroProver_base(const std::vector<Goldilocks::Element>& w, const uint64_t& rho_inv) :rho_inv(rho_inv), M(w) {
     // stevals = w.get_eval_table();
     size_t l = find_ceiling_log2(w.size());
 
@@ -146,7 +146,7 @@ ligeroProver_ext::ligeroProver_ext(const MultilinearPolynomial& w, const uint64_
     : ligeroProver_ext(w.get_eval_table(), rho_inv) {
 }
 
-ligeroProver_ext::ligeroProver_ext(const std::vector<Goldilocks2::Element>& w, const uint64_t& rho_inv) :M(w), rho_inv(rho_inv) {
+ligeroProver_ext::ligeroProver_ext(const std::vector<Goldilocks2::Element>& w, const uint64_t& rho_inv) :rho_inv(rho_inv), M(w)  {
     size_t l = find_ceiling_log2(w.size());
     M.resize(1ull << l, Goldilocks2::zero());
     // 2^l = a * b

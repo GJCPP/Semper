@@ -1,39 +1,95 @@
 #include <cassert>
 
+#include <chrono>
+
 #include "VCG16.h"
 #include "VCG16_proof.h"
 #include "conv_check.h"
 #include "util.h"
 
-// bool prove_conv(
-//     size_t C, size_t D, size_t n, size_t m, size_t padding,
-//     const oracle* pcs_input, const oracle* pcs_weight, const oracle* pcs_output,
-//     const array_view<Goldilocks2::Element>& X, // [C, n, n]
-//     const array_view<Goldilocks2::Element>& W, // [D, C, m, m]
-//     const array_view<Goldilocks2::Element>& Y,
-//     const size_t& sec_param) { // [D, n, n]
+bool prove_conv(
+    size_t C, size_t D, size_t n, size_t m, size_t padding,
+    const oracle* pcs_input, const oracle* pcs_weight, const oracle* pcs_output,
+    const array_view<Goldilocks2::Element>& X, // [C, n, n]
+    const array_view<Goldilocks2::Element>& W, // [C, D, m, m]
+    const array_view<Goldilocks2::Element>& Y,
+    size_t rho_inv, size_t sec_param) { // [D, n, n]
 
-//     assert(X.shape(0) == C);
-//     assert(X.shape(1) == n);
-//     assert(X.shape(2) == n);
-//     assert(W.shape(0) == D);
-//     assert(W.shape(1) == C);
-//     assert(W.shape(2) == m);
-//     assert(W.shape(3) == m);
-//     assert(Y.shape(0) == D);
-//     assert(Y.shape(1) == n);
-//     assert(Y.shape(2) == n);
+    assert(X.shape(0) == C);
+    assert(X.shape(1) == n);
+    assert(X.shape(2) == n);
+    assert(W.shape(0) == C);
+    assert(W.shape(1) == D);
+    assert(W.shape(2) == m);
+    assert(W.shape(3) == m);
+    assert(Y.shape(0) == D);
+    assert(Y.shape(1) == n + 2 * padding - m + 1);
+    assert(Y.shape(2) == n + 2 * padding - m + 1);
 
-//     assert(is_power_of_2(m));
+    assert(is_power_of_2(m));
 
-//     std::array<const oracle*, 3> oracle = { pcs_input, pcs_weight, pcs_output };
-//     auto prover = make_conv2_prover(C, D, n, m, padding, X, W, Y);
+    std::array<const oracle*, 3> ora = { pcs_input, pcs_weight, pcs_output };
+    auto prover = make_conv2_prover(C, D, n, m, padding, X, W, Y);
 
-//     // prover.triple.W
+    // prover.triple.W
+    
+    if (!convVerifier::execute_convcheck_2d(prover, ora, rho_inv, sec_param)) {
+        return false;
+    }
+    return true;
+}
 
-//     if (!convVerifier::execute_convcheck_2d(prover, oracle, { &p1, &p2, &p3 }, sec_param)) {
-//         return false;
-//     }
-//     return false;
-// }
+bool prove_conv_layer(VCG16::layer_info layer, size_t rho_inv, size_t sec_param) {
+
+    assert(layer.type == VCG16::layer_type::conv);
+    assert(layer.input.get_dims() == 5); // bat x img x C x n x n
+    assert(layer.weight.get_dims() == 5); // bat x D x C x m x m
+    assert(layer.output.get_dims() == 5); // bat x img x D x n x n
+
+    const size_t padding = 1;
+
+    // Prove forward pass
+    int bat = int(layer.input.shape(0));
+    int img = int(layer.input.shape(1));
+    size_t C = layer.input.shape(2);
+    size_t D = layer.output.shape(2);
+    size_t n = layer.input.shape(3);
+    size_t m = layer.weight.shape(3);
+
+    for (int i = 0; i < bat; ++i) {
+        for (int j = 0; j < img; ++j) {
+            auto pcs_input = layer.get_pcs_input(i, j);
+            auto pcs_weight = layer.get_pcs_weight(i);
+            auto pcs_output = layer.get_pcs_output(i, j);
+
+            auto X = layer.input[i][j]; // [C, n, n]
+            array<Goldilocks2::Element> W; // [D, C, m, m]
+            array<Goldilocks2::Element> Y; // [D, n, n]
+            size_t new_m, new_padding;
+
+            auto start_pad = std::chrono::high_resolution_clock::now();
+
+            pad_weights(C, D, n, m, padding,
+                layer.input[i][j],
+                layer.weight[i],
+                layer.output[i][j],
+                W, Y, new_m, new_padding, true);
+
+            std::chrono::duration<double> elapsed_pad = std::chrono::high_resolution_clock::now() - start_pad;
+
+            std::cout << "pad_weights time: " << elapsed_pad.count() << " seconds" << std::endl;
+            start_pad = std::chrono::high_resolution_clock::now();
+
+            pcs_weight = std::make_shared<ligeropcs_base>(ligero_commit_base(W.view, 2));
+            W.view.swap_dim(0, 1); // [C, D, m, m]
+
+            prove_conv(C, D, n, new_m, new_padding,
+                       pcs_input.get(), pcs_weight.get(), pcs_output.get(),
+                       X, W, Y, rho_inv, sec_param);
+            std::chrono::duration<double> elapsed_prove = std::chrono::high_resolution_clock::now() - start_pad;
+            std::cout << "prove_conv time: " << elapsed_prove.count() << " seconds" << std::endl;
+        }
+    }
+    return true;
+}
 

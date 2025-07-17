@@ -25,8 +25,8 @@ private:
     inline void shrinkTable(const Goldilocks2::Element& r);
     static inline Goldilocks2::Element mul(const Goldilocks2::Element& e1, const  Goldilocks2::Element& e2, const  Goldilocks2::Element& e3);
     static inline Goldilocks2::Element lincomb(const Goldilocks2::Element& e1, const  Goldilocks2::Element& e0, const  uint64_t& r);
-    Goldilocks2::Element sum;
     size_t nrnd;
+    Goldilocks2::Element sum;
 };
 
 class p3Verifier{

@@ -174,7 +174,7 @@ mle_aux_info MLE_Convker::process_challenges(
 
 Goldilocks2::Element MLE_Convker::evaluate(const std::vector<Goldilocks2::Element>& input) const {
     assert(!expanded);
-    assert(input.size() == num_vars);
+    assert(input.size() == static_cast<size_t>(num_vars));
     MLE_Convker copy = *this;
     for (auto& e : input) {
         copy.fix(0, e);
