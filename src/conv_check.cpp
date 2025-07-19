@@ -13,7 +13,7 @@ convProver::convProver(convTriple&& triple)
 
 bool convTriple::check() const {
     bool ret = true;
-    #pragma omp parallel for
+#pragma omp parallel for
     for (size_t d = 0; d < D; ++d) {
         std::vector<Goldilocks2::Element> res(N + K - 1);
         for (size_t c = 0; c < C; ++c) {
@@ -115,20 +115,20 @@ convProver make_conv2_prover(
     std::vector<std::vector<bool>> Y_1d_visited(D);
     std::vector<std::vector<Goldilocks2::Element>> Y_1d(D); // D x Y_len
 
-    #pragma omp parallel for
+#pragma omp parallel for
     for (size_t c = 0; c < C; ++c) {
         X_1d[c] = flatten_2d(X[c], new_padding);
         assert(X_1d[c].size() == new_in * new_in);
     }
 
-    #pragma omp parallel for
+#pragma omp parallel for
     for (size_t d = 0; d < D; ++d) {
         Y_1d_visited[d].resize(new_Y_len);
         Y_1d[d].resize(new_Y_len);
     }
 
     // Fill Y_1d with Y
-    #pragma omp parallel for
+#pragma omp parallel for
     for (size_t d = 0; d < D; ++d) {
         for (size_t i = 0; i < on; ++i) {
             for (size_t j = 0; j < on; ++j) {
@@ -182,7 +182,7 @@ void pad_weights(
     size_t& new_m,
     size_t& new_padding_X,
     bool pad_right_bottom) {
-    
+
     assert(X.shape(0) == C);
     assert(X.shape(1) == n);
     assert(X.shape(2) == n);
@@ -205,9 +205,9 @@ void pad_weights(
     new_m = 1ull << find_ceiling_log2(m);
     size_t pad_m = new_m - m;
     new_padding_X = padding_X + pad_m;
-    W_pad.init({D, C, new_m, new_m});
-    Y_pad.init({D, n + 2 * new_padding_X - new_m + 1, n + 2 * new_padding_X - new_m + 1});
-    
+    W_pad.init({ D, C, new_m, new_m });
+    Y_pad.init({ D, n + 2 * new_padding_X - new_m + 1, n + 2 * new_padding_X - new_m + 1 });
+
     W_pad.view.mimic(W);
     Y_pad.view.mimic(Y);
 
@@ -226,14 +226,15 @@ void pad_weights(
                 for (size_t j = 0; j < m; ++j) {
                     if (pad_right_bottom) {
                         W_pad_view_i(j) = W_view_i(j);
-                    } else {
+                    }
+                    else {
                         W_pad_view_i(j + pad_m) = W_view_i(j);
                     }
                 }
             }
         }
     }
-    
+
 
     size_t y_sz = Y.shape(1);
 
@@ -248,46 +249,46 @@ void pad_weights(
             for (size_t j = 0; j < y_sz; ++j) {
                 if (pad_right_bottom) {
                     Y_pad_view_i(j + pad_m) = Y_view_i(j);
-                } else {
+                }
+                else {
                     Y_pad_view_i(j) = Y_view_i(j);
                 }
             }
         }
     }
 
-    size_t on = Y_pad.view.shape(1);
-    
+    size_t on = Y_pad.view.shape(1); // Output size
+
     for (int64_t i = 0; i < int64_t(on); ++i) {
         int64_t x = i - new_padding_X;
+
         for (int64_t j = 0; j < int64_t(on); ++j) {
             int64_t y = j - new_padding_X;
-            if ((pad_right_bottom && (x < -int64_t(padding_X) || y < -int64_t(padding_X))) ||
-                (!pad_right_bottom && (x + new_m > n + padding_X || y + new_m > n + padding_X))) {
 
-                for (int64_t d = 0; d < int64_t(D); ++d) {
-                    auto& y_val = Y_pad.view(d, i, j);
-                    auto W_view_d = W_pad.view[d];
+            bool needs_compute = pad_right_bottom
+                ? (x < -int64_t(padding_X) || y < -int64_t(padding_X))
+                : (x + new_m > n + padding_X || y + new_m > n + padding_X);
 
-                    assert(y_val == Goldilocks2::zero());
+            if (!needs_compute) continue;
 
-                    for (int64_t c = 0; c < int64_t(C); ++c) {
-                        auto X_view_c = X[c];
-                        auto W_view_d_c = W_view_d[c];
+            for (int64_t d = 0; d < int64_t(D); ++d) {
+                Goldilocks2::Element acc = Goldilocks2::zero();
 
-                        for (int64_t k = 0; k < int64_t(new_m); ++k) {
-                            if (x + k < 0 || x + k >= n) continue; // out of X
+                for (int64_t c = 0; c < int64_t(C); ++c) {
+                    for (int64_t k = 0; k < int64_t(new_m); ++k) {
+                        int64_t xk = x + k;
+                        if (xk < 0 || xk >= int64_t(n)) continue;
 
-                            auto X_view_c_k = X_view_c[x + k];
-                            auto W_view_d_c_k = W_view_d_c[k];
+                        for (int64_t l = 0; l < int64_t(new_m); ++l) {
+                            int64_t yl = y + l;
+                            if (yl < 0 || yl >= int64_t(n)) continue;
 
-                            for (int64_t l = 0; l < int64_t(new_m); ++l) {
-                                if (y + l < 0 || y + l >= int64_t(n)) continue; // out of X
-
-                                y_val += X_view_c_k(y + l) * W_view_d_c_k(l);
-                            }
+                            acc += X(c, xk, yl) * W_pad(d, c, k, l);
                         }
                     }
                 }
+
+                Y_pad.view(d, i, j) = acc; // directly write result
             }
         }
     }
@@ -297,7 +298,7 @@ bool convVerifier::execute_convcheck_1d(convProver& prover, const std::array<con
     auto claim = execute_convcheck(prover, oracle, sec_param);
     if (!claim) return false;
     return claim->at(0).claim == oracle[0]->open(claim->at(0).challenges, sec_param) &&
-           claim->at(1).claim == oracle[1]->open(claim->at(1).challenges, sec_param);
+        claim->at(1).claim == oracle[1]->open(claim->at(1).challenges, sec_param);
 }
 
 bool convVerifier::execute_convcheck_2d(
@@ -312,7 +313,8 @@ bool convVerifier::execute_convcheck_2d(
     std::unique_ptr<oracle> pcs_flat_Y;
     if (base_com) {
         pcs_flat_Y = std::make_unique<ligeropcs_base>(ligero_commit_base(*prover.triple.Y, rho_inv));
-    } else {
+    }
+    else {
         pcs_flat_Y = std::make_unique<ligeropcs_ext>(ligero_commit_ext(*prover.triple.Y, rho_inv));
     }
 
@@ -333,7 +335,8 @@ bool convVerifier::execute_convcheck_2d(
         if (prover.triple.C == 1) {
             factor -= claim->at(0).challenges[0];
             cha = { claim->at(0).challenges.begin() + 1, claim->at(0).challenges.end() };
-        } else {
+        }
+        else {
             cha = claim->at(0).challenges;
         }
         return ora[0]->open(cha, sec_param) * factor == claim->at(0).claim;
@@ -349,8 +352,8 @@ bool convVerifier::execute_convcheck_2d(
     prefix = combine_challenges(pre, prefix);
     size_t beg_x = logC + 2, end_x = logC + logn;
     size_t beg_y = end_x + 2, end_y = end_x + logn;
-    Goldilocks2::Element x_val[2] = {r[beg_x - 2], r[beg_x - 1]};
-    Goldilocks2::Element y_val[2] = {r[beg_y - 2], r[beg_y - 1]};
+    Goldilocks2::Element x_val[2] = { r[beg_x - 2], r[beg_x - 1] };
+    Goldilocks2::Element y_val[2] = { r[beg_y - 2], r[beg_y - 1] };
     std::vector<Goldilocks2::Element> x(r.begin() + beg_x - 1, r.begin() + end_x);
     std::vector<Goldilocks2::Element> y(r.begin() + beg_y - 1, r.begin() + end_y);
     Goldilocks2::Element A[2][2], res = Goldilocks2::zero();
@@ -359,9 +362,9 @@ bool convVerifier::execute_convcheck_2d(
             x[0] = i ? one : zero;
             y[0] = j ? one : zero;
             A[i][j] = ora[0]->open(combine_challenges(prefix, x, y), sec_param);
-            res += A[i][j] * 
-                    (i ? x_val[0] * (one - x_val[1]) : (one - x_val[0]) * x_val[1]) *
-                    (j ? y_val[0] * (one - y_val[1]) : (one - y_val[0]) * y_val[1]);
+            res += A[i][j] *
+                (i ? x_val[0] * (one - x_val[1]) : (one - x_val[0]) * x_val[1]) *
+                (j ? y_val[0] * (one - y_val[1]) : (one - y_val[0]) * y_val[1]);
             // 0 -> 01, 1 -> 10
         }
     }
@@ -402,7 +405,7 @@ std::optional<std::array<challenge_claim, 2>> convVerifier::execute_convcheck(
     auto claim_xw = p2Verifier::partial_sumcheck(lhs_prover, rhs, sec_param);
     if (!claim_xw) return std::nullopt;
     auto r_C = std::move(claim_xw->challenges);
-    
+
     // Step 3.2: Prover claims x and w, proves separately X'(r_C) = \sum_n X(r_C, n) \beta^n
     // End with r_N for X and r_K for W
     auto [X_prover, W_prover] = prover.fix_r_C(r_C);
@@ -436,11 +439,11 @@ std::optional<std::array<challenge_claim, 2>> convVerifier::execute_convcheck(
 
 convTriple::convTriple(const convTriple& other)
     : X(std::make_unique<MultilinearPolynomial>(*other.X)),
-      W(std::make_unique<MultilinearPolynomial>(*other.W)),
-      Y(std::make_unique<MultilinearPolynomial>(*other.Y)),
-      C(other.C), N(other.N), D(other.D), K(other.K),
-      logC(other.logC), logN(other.logN), logD(other.logD), logK(other.logK), logNK1(other.logNK1)
-    {
+    W(std::make_unique<MultilinearPolynomial>(*other.W)),
+    Y(std::make_unique<MultilinearPolynomial>(*other.Y)),
+    C(other.C), N(other.N), D(other.D), K(other.K),
+    logC(other.logC), logN(other.logN), logD(other.logD), logK(other.logK), logNK1(other.logNK1)
+{
 }
 
 convTriple::convTriple(
@@ -492,11 +495,11 @@ convTriple::convTriple(
     std::unique_ptr<MultilinearPolynomial> _W,
     std::unique_ptr<MultilinearPolynomial> _Y,
     bool padding, int log_n, int log_m)
-    : X(std::move(_X)), 
-      W(std::move(_W)), 
-      Y(std::move(_Y)),
-      C(C), N(N), D(D), K(K), padding(padding), log_n(log_n), log_m(log_m)
-      {
+    : X(std::move(_X)),
+    W(std::move(_W)),
+    Y(std::move(_Y)),
+    C(C), N(N), D(D), K(K), padding(padding), log_n(log_n), log_m(log_m)
+{
 
     logC = find_ceiling_log2(C);
     logN = find_ceiling_log2(N);

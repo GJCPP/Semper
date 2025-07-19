@@ -464,14 +464,14 @@ void VCG16::add_layer(layer_type type,
 }
 
 #ifdef DEBUG
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_input(int bat) {
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_input(int bat) const {
     auto& pcs = pcs_input[bat];
     if (pcs->empty()) {
         *pcs = ligero_commit_base(*mle_input[bat], 2);
     }
     return pcs;
 }
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_output(int bat) {
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_output(int bat) const {
     auto& pcs = pcs_output[bat];
     if (pcs->empty()) {
         *pcs = ligero_commit_base(*mle_output[bat], 2);
@@ -479,7 +479,7 @@ std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_output(int bat) {
     return pcs;
 }
 
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_weight(int bat) {
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_weight(int bat) const {
     auto& pcs = pcs_weight[bat];
     if (pcs->empty()) {
         *pcs = ligero_commit_base(*mle_weight[bat], 2);
@@ -487,7 +487,7 @@ std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_weight(int bat) {
     return pcs;
 }
 
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_input(int bat) {
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_input(int bat) const {
     auto& pcs = pcs_d_input[bat];
     if (pcs->empty()) {
         *pcs = ligero_commit_base(*mle_d_input[bat], 2);
@@ -495,7 +495,7 @@ std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_input(int bat) {
     return pcs;
 }
 
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_output(int bat) {
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_output(int bat) const {
     auto& pcs = pcs_d_output[bat];
     if (pcs->empty()) {
         *pcs = ligero_commit_base(*mle_d_output[bat], 2);
@@ -503,7 +503,7 @@ std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_output(int bat) {
     return pcs;
 }
 
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_weight(int bat) {
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_weight(int bat) const {
     auto& pcs = pcs_d_weight[bat];
     if (pcs->empty()) {
         *pcs = ligero_commit_base(*mle_d_weight[bat], 2);

@@ -34,12 +34,12 @@ public:
                                         pcs_d_input, pcs_d_output;
 
 #ifdef DEBUG
-        std::shared_ptr<ligeropcs_base> get_pcs_input(int bat);
-        std::shared_ptr<ligeropcs_base> get_pcs_output(int bat);
-        std::shared_ptr<ligeropcs_base> get_pcs_weight(int bat);
-        std::shared_ptr<ligeropcs_base> get_pcs_d_weight(int bat);
-        std::shared_ptr<ligeropcs_base> get_pcs_d_input(int bat);
-        std::shared_ptr<ligeropcs_base> get_pcs_d_output(int bat);
+        std::shared_ptr<ligeropcs_base> get_pcs_input(int bat) const;
+        std::shared_ptr<ligeropcs_base> get_pcs_output(int bat) const;
+        std::shared_ptr<ligeropcs_base> get_pcs_weight(int bat) const ;
+        std::shared_ptr<ligeropcs_base> get_pcs_d_weight(int bat) const;
+        std::shared_ptr<ligeropcs_base> get_pcs_d_input(int bat) const;
+        std::shared_ptr<ligeropcs_base> get_pcs_d_output(int bat) const;
 #endif
     };
     VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv);

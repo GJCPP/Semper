@@ -87,14 +87,8 @@ int main() {
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
     std::cout << "Loading VCG16 took " << duration.count() / 1000000.0 << " s" << std::endl;
 
+    // vcg16.check(1000);
     vcg16.prove(32);
-
-
-// #ifdef DEBUG
-//     vcg16.check(100);
-// #else
-//     vcg16.check(1000);
-// #endif
 
     return 0;
 }
