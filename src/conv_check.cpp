@@ -305,6 +305,7 @@ bool convVerifier::execute_convcheck_2d(
     const std::array<const oracle*, 3>& ora,
     size_t rho_inv,
     size_t sec_param,
+    const std::vector<Goldilocks2::Element>& pre,
     bool base_com) {
 
 
@@ -345,6 +346,7 @@ bool convVerifier::execute_convcheck_2d(
     std::vector<Goldilocks2::Element> prefix(r.begin(), r.begin() + logC);
     if (prover.triple.C == 1)
         prefix.clear();
+    prefix = combine_challenges(pre, prefix);
     size_t beg_x = logC + 2, end_x = logC + logn;
     size_t beg_y = end_x + 2, end_y = end_x + logn;
     Goldilocks2::Element x_val[2] = {r[beg_x - 2], r[beg_x - 1]};

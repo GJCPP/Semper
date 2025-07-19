@@ -412,69 +412,38 @@ void VCG16::add_layer(layer_type type,
     
     auto init_mle = [&](const std::string& key) {
         auto& mle = this->mle[key];
-        mle = {};
-        mle.init({static_cast<size_t>(minibatch), static_cast<size_t>(img_per_batch)});
+        mle.resize(minibatch);
         for (int i = 0; i < minibatch; ++i) {
-            for (int j = 0; j < img_per_batch; ++j) {
-                mle(i, j) = std::make_shared<MultilinearPolynomial>(data_view[key][i][j]);
-            }
-        }
-    };
-    auto init_mle_weight = [&](const std::string& key) {
-        auto& mle = this->mle[key];
-        mle = {};
-        mle.init({static_cast<size_t>(minibatch)});
-        for (int i = 0; i < minibatch; ++i) {
-            mle(i) = std::make_shared<MultilinearPolynomial>(data_view[key][i]);
+            mle[i] = std::make_shared<MultilinearPolynomial>(data_view[key][i]);
         }
     };
     if (mle.find(input) == mle.end()) init_mle(input);
     if (mle.find(output) == mle.end()) init_mle(output);
-    if (mle.find(weight) == mle.end()) init_mle_weight(weight);
+    if (mle.find(weight) == mle.end()) init_mle(weight);
     if (mle.find(d_input) == mle.end()) init_mle(d_input);
     if (mle.find(d_output) == mle.end()) init_mle(d_output);
-    if (mle.find(d_weight) == mle.end()) init_mle_weight(d_weight);
+    if (mle.find(d_weight) == mle.end()) init_mle(d_weight);
 
     auto init_pcs = [&](const std::string& key) {
         auto& mle = this->mle[key];
         auto& pcs = this->pcs[key];
-        pcs = {};
-        pcs.init({static_cast<size_t>(minibatch), static_cast<size_t>(img_per_batch)});
+        pcs.resize(minibatch);
 #ifndef DEBUG
         for (int i = 0; i < minibatch; ++i) {
-            for (int j = 0; j < img_per_batch; ++j) {
-                pcs(i, j) = std::make_shared<ligeropcs_base>(mle(i, j), rho_inv);
-            }
+            pcs[i] = std::make_shared<ligeropcs_base>(mle[i], rho_inv);
         }
 #else
         for (int i = 0; i < minibatch; ++i) {
-            for (int j = 0; j < img_per_batch; ++j) {
-                pcs(i, j) = std::make_shared<ligeropcs_base>();
-            }
-        }
-#endif
-    };
-    auto init_pcs_weight = [&](const std::string& key) {
-        auto& mle = this->mle[key];
-        auto& pcs = this->pcs[key];
-        pcs = {};
-        pcs.init({static_cast<size_t>(minibatch)});
-#ifndef DEBUG
-        for (int i = 0; i < minibatch; ++i) {
-            pcs(i) = std::make_shared<ligeropcs_base>(mle(i), rho_inv);
-        }
-#else
-        for (int i = 0; i < minibatch; ++i) {
-            pcs(i) = std::make_shared<ligeropcs_base>();
+            pcs[i] = std::make_shared<ligeropcs_base>();
         }
 #endif
     };
     if (pcs.find(input) == pcs.end()) init_pcs(input);
     if (pcs.find(output) == pcs.end()) init_pcs(output);
-    if (pcs.find(weight) == pcs.end()) init_pcs_weight(weight);
+    if (pcs.find(weight) == pcs.end()) init_pcs(weight);
     if (pcs.find(d_input) == pcs.end()) init_pcs(d_input);
     if (pcs.find(d_output) == pcs.end()) init_pcs(d_output);
-    if (pcs.find(d_weight) == pcs.end()) init_pcs_weight(d_weight);
+    if (pcs.find(d_weight) == pcs.end()) init_pcs(d_weight);
 
 
     info.mle_input = mle[input];
@@ -495,49 +464,49 @@ void VCG16::add_layer(layer_type type,
 }
 
 #ifdef DEBUG
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_input(int bat, int img) {
-    auto& pcs = pcs_input(bat, img);
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_input(int bat) {
+    auto& pcs = pcs_input[bat];
     if (pcs->empty()) {
-        *pcs = ligero_commit_base(*mle_input(bat, img), 2);
+        *pcs = ligero_commit_base(*mle_input[bat], 2);
     }
     return pcs;
 }
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_output(int bat, int img) {
-    auto& pcs = pcs_output(bat, img);
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_output(int bat) {
+    auto& pcs = pcs_output[bat];
     if (pcs->empty()) {
-        *pcs = ligero_commit_base(*mle_output(bat, img), 2);
+        *pcs = ligero_commit_base(*mle_output[bat], 2);
     }
     return pcs;
 }
 
 std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_weight(int bat) {
-    auto& pcs = pcs_weight(bat);
+    auto& pcs = pcs_weight[bat];
     if (pcs->empty()) {
-        *pcs = ligero_commit_base(*mle_weight(bat), 2);
+        *pcs = ligero_commit_base(*mle_weight[bat], 2);
     }
     return pcs;
 }
 
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_input(int bat, int img) {
-    auto& pcs = pcs_d_input(bat, img);
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_input(int bat) {
+    auto& pcs = pcs_d_input[bat];
     if (pcs->empty()) {
-        *pcs = ligero_commit_base(*mle_d_input(bat, img), 2);
+        *pcs = ligero_commit_base(*mle_d_input[bat], 2);
     }
     return pcs;
 }
 
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_output(int bat, int img) {
-    auto& pcs = pcs_d_output(bat, img);
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_output(int bat) {
+    auto& pcs = pcs_d_output[bat];
     if (pcs->empty()) {
-        *pcs = ligero_commit_base(*mle_d_output(bat, img), 2);
+        *pcs = ligero_commit_base(*mle_d_output[bat], 2);
     }
     return pcs;
 }
 
 std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_weight(int bat) {
-    auto& pcs = pcs_d_weight(bat);
+    auto& pcs = pcs_d_weight[bat];
     if (pcs->empty()) {
-        *pcs = ligero_commit_base(*mle_d_weight(bat), 2);
+        *pcs = ligero_commit_base(*mle_d_weight[bat], 2);
     }
     return pcs;
 }

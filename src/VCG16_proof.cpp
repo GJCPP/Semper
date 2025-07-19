@@ -8,6 +8,7 @@
 #include "util.h"
 
 bool prove_conv(
+    int N, int img,
     size_t C, size_t D, size_t n, size_t m, size_t padding,
     const oracle* pcs_input, const oracle* pcs_weight, const oracle* pcs_output,
     const array_view<Goldilocks2::Element>& X, // [C, n, n]
@@ -30,10 +31,14 @@ bool prove_conv(
 
     std::array<const oracle*, 3> ora = { pcs_input, pcs_weight, pcs_output };
     auto prover = make_conv2_prover(C, D, n, m, padding, X, W, Y);
-
-    // prover.triple.W
     
-    if (!convVerifier::execute_convcheck_2d(prover, ora, rho_inv, sec_param)) {
+    int l = find_ceiling_log2(N);
+    std::vector<Goldilocks2::Element> pre(l);
+    for (int i = 0; i < l; ++i) {
+        pre[l - i - 1] = ((img >> i) & 1) ? Goldilocks2::one() : Goldilocks2::zero();
+    }
+    
+    if (!convVerifier::execute_convcheck_2d(prover, ora, rho_inv, sec_param, pre, true)) {
         return false;
     }
     return true;
@@ -57,10 +62,14 @@ bool prove_conv_layer(VCG16::layer_info layer, size_t rho_inv, size_t sec_param)
     size_t m = layer.weight.shape(3);
 
     for (int i = 0; i < bat; ++i) {
+        double pad_time = 0, prove_time = 0;
+            std::cout << "Proving img ";
         for (int j = 0; j < img; ++j) {
-            auto pcs_input = layer.get_pcs_input(i, j);
+            std::cout << j << " ";
+            std::cout.flush();
+            auto pcs_input = layer.get_pcs_input(i);
             auto pcs_weight = layer.get_pcs_weight(i);
-            auto pcs_output = layer.get_pcs_output(i, j);
+            auto pcs_output = layer.get_pcs_output(i);
 
             auto X = layer.input[i][j]; // [C, n, n]
             array<Goldilocks2::Element> W; // [D, C, m, m]
@@ -77,18 +86,21 @@ bool prove_conv_layer(VCG16::layer_info layer, size_t rho_inv, size_t sec_param)
 
             std::chrono::duration<double> elapsed_pad = std::chrono::high_resolution_clock::now() - start_pad;
 
-            std::cout << "pad_weights time: " << elapsed_pad.count() << " seconds" << std::endl;
+            pad_time += elapsed_pad.count();
+            // std::cout << "pad_weights time: " << elapsed_pad.count() << " seconds" << std::endl;
             start_pad = std::chrono::high_resolution_clock::now();
 
             pcs_weight = std::make_shared<ligeropcs_base>(ligero_commit_base(W.view, 2));
             W.view.swap_dim(0, 1); // [C, D, m, m]
 
-            prove_conv(C, D, n, new_m, new_padding,
+            prove_conv(img, i, C, D, n, new_m, new_padding,
                        pcs_input.get(), pcs_weight.get(), pcs_output.get(),
                        X, W, Y, rho_inv, sec_param);
             std::chrono::duration<double> elapsed_prove = std::chrono::high_resolution_clock::now() - start_pad;
-            std::cout << "prove_conv time: " << elapsed_prove.count() << " seconds" << std::endl;
+            // std::cout << "prove_conv time: " << elapsed_prove.count() << " seconds" << std::endl;
+            prove_time += elapsed_prove.count();
         }
+        std::cout << std::endl << "pad time = " << pad_time << "s, prove time = " << prove_time << "s" << std::endl;
     }
     return true;
 }
