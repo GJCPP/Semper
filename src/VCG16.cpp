@@ -15,13 +15,18 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, 
         values.push_back(&value);
     }
     
-    #pragma omp parallel for
     for (size_t i = 0; i < keys.size(); ++i) {
         std::string key = keys[i];
 
         cnpy::NpyArray *value = values[i];
         size_t num_vals = value->num_vals;
         data[key] = std::make_unique<Goldilocks2::Element[]>(num_vals);
+    }
+    #pragma omp parallel for
+    for (size_t i = 0; i < keys.size(); ++i) {
+        std::string key = keys[i];
+        cnpy::NpyArray *value = values[i];
+        size_t num_vals = value->num_vals;
         auto ptr = data[key].get();
         for (size_t i = 0; i < num_vals; ++i) {
             ptr[i] = Goldilocks2::fromS64(value->data<int64_t>()[i]);

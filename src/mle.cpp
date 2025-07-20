@@ -113,7 +113,7 @@ MultilinearPolynomial::MultilinearPolynomial(const array_view<Goldilocks2::Eleme
     // for (auto d : dims) std::cout << d << " ";
     // std::cout << "costs " << elapsed.count() << " seconds." << std::endl;
 
-    evaluations_view = val_table;
+    // evaluations_view = val_table;
 }
 
 
@@ -255,44 +255,44 @@ const std::vector<Goldilocks2::Element>& MultilinearPolynomial::get_eval_table()
 
 mle_aux_info MultilinearPolynomial::process_challenges(
     const std::vector<Goldilocks2::Element>& challenges) const {
-
-    return ::process_challenges(evaluations_view.get_dims(), evaluations_view.get_shape(), evaluations_view.get_order(), evaluations_view.get_reversed(), challenges);
+    
+    return mle_aux_info{.r = challenges, .comp = Goldilocks2::one()};
 }
 
-mle_aux_info process_challenges(
-    int n,
-    const std::vector<size_t>& shape,
-    const std::vector<int>& order,
-    const std::vector<bool>& reversed,
-    const std::vector<Goldilocks2::Element>& challenges) {
+// mle_aux_info process_challenges(
+//     int n,
+//     const std::vector<size_t>& shape,
+//     const std::vector<int>& order,
+//     const std::vector<bool>& reversed,
+//     const std::vector<Goldilocks2::Element>& challenges) {
     
     
-    assert(shape.size() == size_t(n));
-    assert(order.size() == size_t(n));
-    assert(reversed.size() == size_t(n));
-    mle_aux_info aux;
+//     assert(shape.size() == size_t(n));
+//     assert(order.size() == size_t(n));
+//     assert(reversed.size() == size_t(n));
+//     mle_aux_info aux;
 
-    const Goldilocks2::Element one = Goldilocks2::one();
-    std::vector<size_t> start(n + 1);
-    for (int i = 0; i < n; ++i) {
-        start[i + 1] = find_ceiling_log2(shape[i]);
-    }
-    for (int i = 1; i <= n; ++i) {
-        start[i] += start[i - 1];
-    }
-    for (int i = 0; i < n; ++i) {
-        size_t ord = order[i];
-        size_t begin = start[ord], end = start[ord + 1];
-        bool rev = reversed[ord];
-        for (size_t j = begin; j < end; ++j) {
-            if (rev) {
-                aux.r.push_back(one - challenges[j]);
-            } else {
-                aux.r.push_back(challenges[j]);
-            }
-        }
-    }
+//     const Goldilocks2::Element one = Goldilocks2::one();
+//     std::vector<size_t> start(n + 1);
+//     for (int i = 0; i < n; ++i) {
+//         start[i + 1] = find_ceiling_log2(shape[i]);
+//     }
+//     for (int i = 1; i <= n; ++i) {
+//         start[i] += start[i - 1];
+//     }
+//     for (int i = 0; i < n; ++i) {
+//         size_t ord = order[i];
+//         size_t begin = start[ord], end = start[ord + 1];
+//         bool rev = reversed[ord];
+//         for (size_t j = begin; j < end; ++j) {
+//             if (rev) {
+//                 aux.r.push_back(one - challenges[j]);
+//             } else {
+//                 aux.r.push_back(challenges[j]);
+//             }
+//         }
+//     }
 
-    aux.comp = Goldilocks2::one();
-    return aux;
-}
+//     aux.comp = Goldilocks2::one();
+//     return aux;
+// }

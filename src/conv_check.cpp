@@ -303,12 +303,12 @@ bool convVerifier::execute_convcheck_1d(convProver& prover, const std::array<con
 
 bool convVerifier::execute_convcheck_2d(
     convProver& prover,
-    const std::array<const oracle*, 3>& ora,
+    open_param X,
+    open_param W,
+    open_param Y,
     size_t rho_inv,
     size_t sec_param,
-    const std::vector<Goldilocks2::Element>& pre,
     bool base_com) {
-
 
     std::unique_ptr<oracle> pcs_flat_Y;
     if (base_com) {
@@ -319,13 +319,13 @@ bool convVerifier::execute_convcheck_2d(
     }
 
     std::array<const oracle*, 3> ora_1d = {
-        ora[0], ora[1], pcs_flat_Y.get()
+        X.pcs, W.pcs, pcs_flat_Y.get()
     };
     auto claim = execute_convcheck(prover, ora_1d, sec_param);
     if (!claim) return false;
     // pad check W  
     auto aux_info = prover.triple.W->process_challenges(claim->at(1).challenges);
-    if (ora[1]->open(aux_info.r, sec_param) * aux_info.comp != claim->at(1).claim) {
+    if (W(aux_info.r).open(sec_param) * aux_info.comp != claim->at(1).claim) {
         return false;
     }
     // check pad X
@@ -339,7 +339,7 @@ bool convVerifier::execute_convcheck_2d(
         else {
             cha = claim->at(0).challenges;
         }
-        return ora[0]->open(cha, sec_param) * factor == claim->at(0).claim;
+        return X(cha).open(sec_param) * factor == claim->at(0).claim;
     }
 
     const Goldilocks2::Element zero = Goldilocks2::zero(), one = Goldilocks2::one();
@@ -349,7 +349,6 @@ bool convVerifier::execute_convcheck_2d(
     std::vector<Goldilocks2::Element> prefix(r.begin(), r.begin() + logC);
     if (prover.triple.C == 1)
         prefix.clear();
-    prefix = combine_challenges(pre, prefix);
     size_t beg_x = logC + 2, end_x = logC + logn;
     size_t beg_y = end_x + 2, end_y = end_x + logn;
     Goldilocks2::Element x_val[2] = { r[beg_x - 2], r[beg_x - 1] };
@@ -361,7 +360,7 @@ bool convVerifier::execute_convcheck_2d(
         for (int j = 0; j < 2; ++j) {
             x[0] = i ? one : zero;
             y[0] = j ? one : zero;
-            A[i][j] = ora[0]->open(combine_challenges(prefix, x, y), sec_param);
+            A[i][j] = X(combine_challenges(prefix, x, y)).open(sec_param);
             res += A[i][j] *
                 (i ? x_val[0] * (one - x_val[1]) : (one - x_val[0]) * x_val[1]) *
                 (j ? y_val[0] * (one - y_val[1]) : (one - y_val[0]) * y_val[1]);

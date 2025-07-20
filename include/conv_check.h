@@ -8,6 +8,7 @@
 #include "product2_sumcheck.h"
 #include "mle_convker.h"
 #include "array_view.h"
+#include "mle_open.h"
 
 class convProver;
 class convVerifier;
@@ -81,7 +82,13 @@ protected:
 class convVerifier {
 public:
     static bool execute_convcheck_1d(convProver& prover, const std::array<const oracle*, 3>& oracle, size_t sec_param);
-    static bool execute_convcheck_2d(convProver& prover, const std::array<const oracle*, 3>& oracle, size_t rho_inv, size_t sec_param, const std::vector<Goldilocks2::Element>& pre = {}, bool base_com = false);
+    static bool execute_convcheck_2d(convProver& prover,
+        open_param X_open,
+        open_param W_open,
+        open_param Y_open,
+        size_t rho_inv,
+        size_t sec_param,
+        bool base_com = false);
 protected:
     static std::optional<std::array<challenge_claim, 2>> execute_convcheck(
                                                             convProver& prover,

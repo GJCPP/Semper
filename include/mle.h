@@ -71,7 +71,7 @@ protected:
     // evaliations over the hypercube
     std::vector<Goldilocks2::Element> evaluations;
 
-    array_view<Goldilocks2::Element> evaluations_view;
+    // array_view<Goldilocks2::Element> evaluations_view;
     
     // used to assist openning proof. with respect to pcs.
     // array_view<Goldilocks2::Element> evaluations_view;
@@ -79,10 +79,10 @@ protected:
     int num_vars;
 };
 
-mle_aux_info process_challenges(
-    int n,
-    const std::vector<size_t>& shape,
-    const std::vector<int>& order,
-    const std::vector<bool>& reversed,
-    const std::vector<Goldilocks2::Element>& challenges);
+// mle_aux_info process_challenges(
+//     int n,
+//     const std::vector<size_t>& shape,
+//     const std::vector<int>& order,
+//     const std::vector<bool>& reversed,
+//     const std::vector<Goldilocks2::Element>& challenges);
     

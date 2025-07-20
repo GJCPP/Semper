@@ -10,14 +10,20 @@
 bool prove_conv(
     int N, int img,
     size_t C, size_t D, size_t n, size_t m, size_t padding,
-    const oracle* pcs_input, const oracle* pcs_weight, const oracle* pcs_output,
+    open_param oX, // [N, C, n, n]
+    open_param oW, // [C, D, m, m]
+    open_param oY, // [N, D, on, on]
     const array_view<Goldilocks2::Element>& X, // [C, n, n]
     const array_view<Goldilocks2::Element>& W, // [C, D, m, m]
-    const array_view<Goldilocks2::Element>& Y,
-    size_t rho_inv, size_t sec_param) { // [D, n, n]
+    const array_view<Goldilocks2::Element>& Y, // [D, on, on]
+    size_t rho_inv, size_t sec_param) { 
 
-    std::array<const oracle*, 3> ora = { pcs_input, pcs_weight, pcs_output };
     auto prover = make_conv2_prover(C, D, n, m, padding, X, W, Y);
+
+    if (!prover.triple.check()) {
+        std::cout << "❌ Conv triple check failed." << std::endl;
+        return false;
+    }
 
     int l = find_ceiling_log2(N);
     std::vector<Goldilocks2::Element> pre(l);
@@ -25,7 +31,12 @@ bool prove_conv(
         pre[l - i - 1] = ((img >> i) & 1) ? Goldilocks2::one() : Goldilocks2::zero();
     }
 
-    if (!convVerifier::execute_convcheck_2d(prover, ora, rho_inv, sec_param, pre, true)) {
+    oX = oX.fix(pre);
+    oY = oY.fix(pre);
+    oW.rev[2] = oW.rev[2] ^ true;
+    oW.rev[3] = oW.rev[3] ^ true;
+
+    if (!convVerifier::execute_convcheck_2d(prover, oX, oW, oY, rho_inv, sec_param, true)) {
         return false;
     }
     return true;
@@ -86,10 +97,14 @@ bool prove_conv(
         // std::cout << "pad_weights time: " << elapsed_pad.count() << " seconds" << std::endl;
         start_pad = std::chrono::high_resolution_clock::now();
 
-        pW.view.swap_dim(0, 1); // [C, D, m, m]
+        pW.view.swap_dim(0, 1); // [IC, OC, m, m]
+        
+        open_param oX(X, pcs_input);
+        open_param oW(pW, pcs_weight);
+        open_param oY(Y, pcs_output);
 
         if (!prove_conv(N, j, IC, OC, in, new_m, new_padding,
-            pcs_input, pcs_weight, pcs_output,
+            oX, oW, oY,
             pX, pW, pY, rho_inv, sec_param)) return false;
         std::chrono::duration<double> elapsed_prove = std::chrono::high_resolution_clock::now() - start_pad;
         // std::cout << "prove_conv time: " << elapsed_prove.count() << " seconds" << std::endl;
@@ -133,8 +148,8 @@ bool prove_conv_backward_dW(const VCG16::layer_info& layer, int padding, size_t 
     for (int i = 0; i < bat; ++i) {
         double pad_time = 0, prove_time = 0;
         auto pcs_input = layer.get_pcs_input(i);
-        auto pcs_weight = layer.get_pcs_weight(i);
-        auto pcs_output = layer.get_pcs_output(i);
+        auto pcs_d_weight = layer.get_pcs_d_weight(i);
+        auto pcs_d_output = layer.get_pcs_d_output(i);
         auto X = layer.input[i]; // [N, C, n, n]
         auto dW = layer.d_weight[i]; // [D, C, m, m]
         auto dY = layer.d_output[i]; // [N, D, on, on]
@@ -144,7 +159,7 @@ bool prove_conv_backward_dW(const VCG16::layer_info& layer, int padding, size_t 
         dW.swap_dim(0, 1); // [C, D, m, m]
 
         if (!prove_conv(padding,
-            pcs_input.get(), pcs_output.get(), pcs_weight.get(),
+            pcs_input.get(), pcs_d_output.get(), pcs_d_weight.get(),
             X, dY, dW,
             rho_inv, sec_param)) return false;
     }

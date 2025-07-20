@@ -344,15 +344,24 @@ bool test_conv2_check() {
         // MLE_Convker p2 = *dynamic_cast<MLE_Convker*>(prover.triple.W.get());
         MultilinearPolynomial p3 = *prover.triple.Y;
 
-        std::array<ligeropcs_ext, 3> pcs = { ligero_commit_ext(p1, 2), pcs_w, ligero_commit_ext(p3, 2) };
-        std::array<const oracle*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
+        // std::array<ligeropcs_ext, 3> pcs = { ligero_commit_ext(p1, 2), pcs_w, ligero_commit_ext(p3, 2) };
+        // std::array<const oracle*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
+
+        auto pcs_x = ligero_commit_ext(p1, 2);
+        auto pcs_y = ligero_commit_ext(p3, 2);
+        open_param op_x(X_view, &pcs_x);
+        open_param op_w(W_pad.view, &pcs_w);
+        open_param op_y(Y_view, &pcs_y);
+        
+        op_w.rev[2] = op_w.rev[2] ^ true;
+        op_w.rev[3] = op_w.rev[3] ^ true;
 
         // if (!prover.triple.check()) {
         //     std::cout << "convTriple check failed" << std::endl;
         //     return false;
         // }
 
-        if (!convVerifier::execute_convcheck_2d(prover, oracle, 2, 32)) {
+        if (!convVerifier::execute_convcheck_2d(prover, op_x, op_w, op_y, 2, 32)) {
             return false;
         }
     }
@@ -442,15 +451,22 @@ bool test_pad_weights() {
         // MultilinearPolynomial _p2(copy_W);
         MultilinearPolynomial p3 = *prover.triple.Y;
 
-        std::array<ligeropcs_ext, 3> pcs = { ligero_commit_ext(p1, 2), pcs_w, ligero_commit_ext(p3, 2) };
-        std::array<const oracle*, 3> oracle = { &pcs[0], &pcs[1], &pcs[2] };
+        ligeropcs_ext pcs_x = ligero_commit_ext(p1, 2);
+        ligeropcs_ext pcs_y = ligero_commit_ext(p3, 2);
+
+        open_param op_x(X.view, &pcs_x);
+        open_param op_w(W_pad.view, &pcs_w);
+        open_param op_y(Y.view, &pcs_y);
+
+        op_w.rev[2] = op_w.rev[2] ^ true;
+        op_w.rev[3] = op_w.rev[3] ^ true;
 
         // if (!prover.triple.check()) {
         //     std::cout << "convTriple check failed" << std::endl;
         //     return false;
         // }
 
-        if (!convVerifier::execute_convcheck_2d(prover, oracle, 2, 32)) {
+        if (!convVerifier::execute_convcheck_2d(prover, op_x, op_w, op_w, 2, 32)) {
             return false;
         }
     }

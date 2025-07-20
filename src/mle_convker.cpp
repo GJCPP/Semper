@@ -30,9 +30,9 @@ MLE_Convker::MLE_Convker(const array_view<Goldilocks2::Element>& kernel, size_t 
         }
     }
 
-    evaluations_view = kernel;
-    evaluations_view.reverse(2);
-    evaluations_view.reverse(3);
+    // evaluations_view = kernel;
+    // evaluations_view.reverse(2);
+    // evaluations_view.reverse(3);
 }
 
 Goldilocks2::Element MLE_Convker::eval_hypercube(size_t mask) const {
