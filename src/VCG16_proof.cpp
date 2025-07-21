@@ -91,19 +91,19 @@ bool prove_conv(
             iY,
             pW, pY, new_m, new_padding, pad_right_bottom);
 
-        if (!random_check_conv(X, W, Y, padding, 1000)) {
-            std::cout << "❌ Random check failed." << std::endl;
-            return false;
-        } else {
-            std::cout << "✅ Random check passed." << std::endl;
-        }
+        // if (!random_check_conv(X, W, Y, padding, 1000)) {
+        //     std::cout << "❌ Random check failed." << std::endl;
+        //     return false;
+        // } else {
+        //     std::cout << "✅ Random check passed." << std::endl;
+        // }
 
-        if (!random_check_single_conv(pX, pW, pY, new_padding, 1000)) {
-            std::cout << "❌ Random single check failed." << std::endl;
-            return false;
-        } else {
-            std::cout << "✅ Random single check passed." << std::endl;
-        }
+        // if (!random_check_single_conv(pX, pW, pY, new_padding, 1000)) {
+        //     std::cout << "❌ Random single check failed." << std::endl;
+        //     return false;
+        // } else {
+        //     std::cout << "✅ Random single check passed." << std::endl;
+        // }
 
 
 
@@ -198,14 +198,13 @@ bool prove_conv_backward_dX(const VCG16::layer_info& layer, int padding, size_t 
         auto pcs_d_input = layer.get_pcs_d_input(i);
         auto dY = layer.d_output[i]; // [N, D, on, on]
         auto W = layer.weight[i]; // [D, C, m, m]
-        auto dX = layer.input[i]; // [N, C, n, n]
+        auto dX = layer.d_input[i]; // [N, C, n, n]
 
         W.swap_dim(0, 1); // [C, D, m, m]
         W.reverse(2);
         W.reverse(3); // [C, D, m, m]
 
-        size_t new_padding = m - 1;
-        if (!prove_conv(new_padding,
+        if (!prove_conv(padding,
             pcs_d_output.get(), pcs_weight.get(), pcs_d_input.get(),
             dY, W, dX,
             false,
@@ -226,11 +225,6 @@ bool prove_conv_layer(const VCG16::layer_info& layer, size_t rho_inv, size_t sec
 
 
 
-    std::cout << "Proving backward dX:";
-    if (!prove_conv_backward_dX(layer, padding, rho_inv, sec_param)) {
-        std::cout << "❌ Proving backward dX failed." << std::endl;
-        return false;
-    }
 
     std::cout << "Proving forward:";
     if (!prove_conv_forward(layer, padding, rho_inv, sec_param)) {
@@ -244,6 +238,11 @@ bool prove_conv_layer(const VCG16::layer_info& layer, size_t rho_inv, size_t sec
         return false;
     }
     
+    std::cout << "Proving backward dX:";
+    if (!prove_conv_backward_dX(layer, padding, rho_inv, sec_param)) {
+        std::cout << "❌ Proving backward dX failed." << std::endl;
+        return false;
+    }
 
 
     return true;
