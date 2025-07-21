@@ -160,6 +160,59 @@ bool random_check_conv(
     return ret;
 }
 
+bool random_check_single_conv(
+    const array_view<Goldilocks2::Element>& input, // [C, H, W]
+    const array_view<Goldilocks2::Element>& weights, // [OC, C, K, K]
+    const array_view<Goldilocks2::Element>& expected, // [OC, H + 2 * pad - K + 1, W + 2 * pad - K + 1]
+    size_t pad,
+    size_t n_samples
+) {
+    size_t C = input.shape(0);
+    size_t H = input.shape(1);
+    size_t W = input.shape(2);
+    size_t K = weights.shape(2);
+    size_t OC = weights.shape(0);
+    size_t OH = H + 2 * pad - K + 1;
+    size_t OW = W + 2 * pad - K + 1;
+    assert(input.shape(0) == C);
+    assert(input.shape(1) == H);
+    assert(input.shape(2) == W);
+    assert(weights.shape(0) == OC);
+    assert(weights.shape(1) == C);
+    assert(weights.shape(2) == K);
+    assert(weights.shape(3) == K);
+    assert(expected.shape(0) == OC);
+    assert(expected.shape(1) == OH);
+    assert(expected.shape(2) == OW);
+
+    bool ret = true;
+
+#pragma omp parallel for
+    for (size_t cnt = 0; cnt < n_samples; ++cnt) {
+        size_t oc = rand() % OC;
+        size_t i = rand() % OH;
+        size_t j = rand() % OW;
+        Goldilocks2::Element acc = Goldilocks2::zero();
+        for (size_t c = 0; c < C; ++c) {
+            for (size_t ki = 0; ki < K; ++ki) {
+                for (size_t kj = 0; kj < K; ++kj) {
+                    if (i + ki >= pad && i + ki < H + pad && j + kj >= pad && j + kj < W + pad) {
+                        acc += input(c, i + ki - pad, j + kj - pad) * weights(oc, c, ki, kj);
+                    }
+                }
+            }
+        }
+        // acc = acc / scale; // downscale
+        // if (acc < 0) acc = 0; // relu
+
+        Goldilocks2::Element actual = expected(oc, i, j);
+        if (actual != acc) {
+            std::cout << "❌ Mismatch at (oc=" << oc << ", i=" << i << ", j=" << j << "): manual=" << acc << ", expected=" << actual << std::endl;
+            ret = false;
+        }
+    }
+    return ret;
+}
 
 void add_conv(const array_view<Goldilocks2::Element>& input, const array_view<Goldilocks2::Element>& weights, array_view<Goldilocks2::Element>& output, size_t pad) {
     

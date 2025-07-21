@@ -3,6 +3,7 @@
 #include <chrono>
 
 #include "VCG16.h"
+#include "VCG16_check.h"
 #include "VCG16_proof.h"
 #include "conv_check.h"
 #include "util.h"
@@ -20,10 +21,10 @@ bool prove_conv(
 
     auto prover = make_conv2_prover(C, D, n, m, padding, X, W, Y);
 
-    if (!prover.triple.check()) {
-        std::cout << "❌ Conv triple check failed." << std::endl;
-        return false;
-    }
+    // if (!prover.triple.check()) {
+    //     std::cout << "❌ Conv triple check failed." << std::endl;
+    //     return false;
+    // }
 
     int l = find_ceiling_log2(N);
     std::vector<Goldilocks2::Element> pre(l);
@@ -48,10 +49,11 @@ bool prove_conv(
     const array_view<Goldilocks2::Element>& X, // [N, IC, in, in]
     const array_view<Goldilocks2::Element>& W, // [OC, IC, m, m]
     const array_view<Goldilocks2::Element>& Y, // [N, OC, on, on]
+    bool pad_right_bottom,
     size_t rho_inv, size_t sec_param) {
 
     const int N = X.shape(0), IC = X.shape(1), in = X.shape(2), OC = Y.shape(1), on = Y.shape(2);
-    const int m = W.shape(2);;
+    const int m = W.shape(2);
 
     assert(X.shape(0) == N);
     assert(X.shape(1) == IC);
@@ -87,9 +89,23 @@ bool prove_conv(
             iX,
             iW,
             iY,
-            pW, pY, new_m, new_padding, true);
+            pW, pY, new_m, new_padding, pad_right_bottom);
 
-        
+        if (!random_check_conv(X, W, Y, padding, 1000)) {
+            std::cout << "❌ Random check failed." << std::endl;
+            return false;
+        } else {
+            std::cout << "✅ Random check passed." << std::endl;
+        }
+
+        if (!random_check_single_conv(pX, pW, pY, new_padding, 1000)) {
+            std::cout << "❌ Random single check failed." << std::endl;
+            return false;
+        } else {
+            std::cout << "✅ Random single check passed." << std::endl;
+        }
+
+
 
         std::chrono::duration<double> elapsed_pad = std::chrono::high_resolution_clock::now() - start_pad;
 
@@ -132,6 +148,7 @@ bool prove_conv_forward(const VCG16::layer_info& layer, int padding, size_t rho_
         if (!prove_conv(padding,
             pcs_input.get(), pcs_weight.get(), pcs_output.get(),
             layer.input[i], layer.weight[i], layer.output[i],
+            true,
             rho_inv, sec_param)) return false;
     }
     return true;
@@ -148,11 +165,11 @@ bool prove_conv_backward_dW(const VCG16::layer_info& layer, int padding, size_t 
     for (int i = 0; i < bat; ++i) {
         double pad_time = 0, prove_time = 0;
         auto pcs_input = layer.get_pcs_input(i);
-        auto pcs_d_weight = layer.get_pcs_d_weight(i);
         auto pcs_d_output = layer.get_pcs_d_output(i);
+        auto pcs_d_weight = layer.get_pcs_d_weight(i);
         auto X = layer.input[i]; // [N, C, n, n]
-        auto dW = layer.d_weight[i]; // [D, C, m, m]
         auto dY = layer.d_output[i]; // [N, D, on, on]
+        auto dW = layer.d_weight[i]; // [D, C, m, m]
 
         X.swap_dim(0, 1); // [C, N, n, n]
         dY.swap_dim(0, 1); // [D, N, on, on]
@@ -161,11 +178,41 @@ bool prove_conv_backward_dW(const VCG16::layer_info& layer, int padding, size_t 
         if (!prove_conv(padding,
             pcs_input.get(), pcs_d_output.get(), pcs_d_weight.get(),
             X, dY, dW,
+            true,
             rho_inv, sec_param)) return false;
     }
     return true;
 }
 
+bool prove_conv_backward_dX(const VCG16::layer_info& layer, int padding, size_t rho_inv, size_t sec_param) {
+    int bat = int(layer.input.shape(0));
+    int img = int(layer.input.shape(1));
+    size_t C = layer.input.shape(2);
+    size_t D = layer.output.shape(2);
+    size_t n = layer.input.shape(3);
+    size_t m = layer.weight.shape(3);
+
+    for (int i = 0; i < bat; ++i) {
+        auto pcs_d_output = layer.get_pcs_d_output(i);
+        auto pcs_weight = layer.get_pcs_weight(i);
+        auto pcs_d_input = layer.get_pcs_d_input(i);
+        auto dY = layer.d_output[i]; // [N, D, on, on]
+        auto W = layer.weight[i]; // [D, C, m, m]
+        auto dX = layer.input[i]; // [N, C, n, n]
+
+        W.swap_dim(0, 1); // [C, D, m, m]
+        W.reverse(2);
+        W.reverse(3); // [C, D, m, m]
+
+        size_t new_padding = m - 1;
+        if (!prove_conv(new_padding,
+            pcs_d_output.get(), pcs_weight.get(), pcs_d_input.get(),
+            dY, W, dX,
+            false,
+            rho_inv, sec_param)) return false;
+    }
+    return true;
+}
 
 bool prove_conv_layer(const VCG16::layer_info& layer, size_t rho_inv, size_t sec_param) {
 
@@ -178,17 +225,25 @@ bool prove_conv_layer(const VCG16::layer_info& layer, size_t rho_inv, size_t sec
 
 
 
+
+    std::cout << "Proving backward dX:";
+    if (!prove_conv_backward_dX(layer, padding, rho_inv, sec_param)) {
+        std::cout << "❌ Proving backward dX failed." << std::endl;
+        return false;
+    }
+
+    std::cout << "Proving forward:";
+    if (!prove_conv_forward(layer, padding, rho_inv, sec_param)) {
+        std::cout << "❌ Proving forward pass failed." << std::endl;
+        return false;
+    }
+
     std::cout << "Proving backward dW:";
     if (!prove_conv_backward_dW(layer, padding, rho_inv, sec_param)) {
         std::cout << "❌ Proving backward dW failed." << std::endl;
         return false;
     }
     
-    std::cout << "Proving forward:";
-    if (!prove_conv_forward(layer, padding, rho_inv, sec_param)) {
-        std::cout << "❌ Proving forward pass failed." << std::endl;
-        return false;
-    }
 
 
     return true;

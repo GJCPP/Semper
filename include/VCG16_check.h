@@ -36,6 +36,12 @@ void add_conv(
     size_t pad
 );
 
+bool random_check_single_conv(
+    const array_view<Goldilocks2::Element>& input,
+    const array_view<Goldilocks2::Element>& weights,
+    const array_view<Goldilocks2::Element>& expected,
+    size_t pad, size_t n_samples);
+
 bool check_relu(
     const array_view<Goldilocks2::Element>& sign,
     const array_view<Goldilocks2::Element>& input,

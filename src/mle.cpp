@@ -166,6 +166,7 @@ Goldilocks2::Element MultilinearPolynomial::open(const std::vector<Goldilocks2::
 MultilinearPolynomial MultilinearPolynomial::operator+(const MultilinearPolynomial& g) const {
     assert(num_vars == g.get_num_vars());
     std::vector<Goldilocks2::Element> evs(evaluations.size()), evalg = g.evaluations;
+    #pragma omp parallel for
     for (size_t i = 0;i < evaluations.size(); ++i) {
         evs[i] = evaluations[i] + evalg[i];
     }
@@ -176,6 +177,7 @@ MultilinearPolynomial MultilinearPolynomial::operator+(const MultilinearPolynomi
 MultilinearPolynomial MultilinearPolynomial::operator-(const MultilinearPolynomial& g) const {
     assert(num_vars == g.get_num_vars());
     std::vector<Goldilocks2::Element> evs(evaluations.size()), evalg = g.evaluations;
+    #pragma omp parallel for
     for (size_t i = 0;i < evaluations.size(); ++i) {
         evs[i] = evaluations[i] - evalg[i];
     }
@@ -229,6 +231,7 @@ void MultilinearPolynomial::fix(size_t pos, const std::vector<Goldilocks2::Eleme
 
 MultilinearPolynomial MultilinearPolynomial::sum_over_lowbits(size_t len) const {
     std::vector<Goldilocks2::Element> evs(1ull << (num_vars - len));
+    #pragma omp parallel for
     for (size_t i = 0; i < (1ull << (num_vars - len)); ++i) {
         for (size_t j = 0; j < (1ull << len); ++j) {
             evs[i] = evs[i] + evaluations[(i << len) | j];
@@ -239,6 +242,7 @@ MultilinearPolynomial MultilinearPolynomial::sum_over_lowbits(size_t len) const 
 
 MultilinearPolynomial MultilinearPolynomial::sum_over_lowbits_with_power(size_t len, Goldilocks2::Element beta) const {
     std::vector<Goldilocks2::Element> evs(1ull << (num_vars - len));
+    #pragma omp parallel for
     for (size_t i = 0; i < (1ull << (num_vars - len)); ++i) {
         Goldilocks2::Element power = Goldilocks2::one();
         for (size_t j = 0; j < (1ull << len); ++j) {

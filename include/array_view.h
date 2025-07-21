@@ -231,12 +231,41 @@ public:
         return data_size == 0;
     }
 
-    void mimic(const array_view<T>& arr) {
+    void mimic(const array_view<T>& other, const std::vector<size_t>& new_shape = {}) {
+        std::vector<size_t> ns(other.dims); // Original shape
+        if (new_shape.empty()) {
+            for (int i = 0; i < other.dims; ++i) {
+                ns[other.order[i]] = other.data_shape[i];
+            }
+        } else {
+            if (new_shape.size() != other.dims) {
+                throw std::runtime_error("array_view::copy_to: New shape size does not match");
+            }
+            for (int i = 0; i < other.dims; ++i) {
+                ns[other.order[i]] = new_shape[i];
+            }
+        }
 
-        assert(dims == arr.dims);
+        *this = array_view<T>(data, ns);
+        reorder(other.order);
+        reversed = other.reversed;
+    }
 
-        reorder(arr.order);
-        reversed = arr.reversed;
+    void copy_to(array_view<T>& new_arr, T* output, const std::vector<size_t>& new_shape = {}) const {
+        new_arr.mimic(*this, new_shape);
+        new_arr.data = output;
+
+        std::vector<size_t> ind(dims);
+        for (size_t i = 0; i < data_size; ++i) {
+            new_arr(ind) = (*this)(ind);
+            ++ind.back();
+            int high = dims - 1;
+            while (high > 0 && ind[high] == data_shape[high]) {
+                ind[high] = 0;
+                --high;
+                ++ind[high];
+            }
+        }
     }
 
 protected:
@@ -287,10 +316,9 @@ public:
     array() {}
 
     array(const array_view<T>& view) {
-        data = std::vector<T>(view.size());
-        std::copy(view.data, view.data + view.size(), data.begin());
-        this->view = view;
-        this->view.data = data.data();
+        size_t sz = view.size();
+        data.resize(sz);
+        view.copy_to(this->view, data.data());
     }
 
     array(const std::vector<size_t>& shape) {
@@ -302,7 +330,7 @@ public:
         for (size_t i = 0; i < shape.size(); ++i) {
             data_size *= shape[i];
         }
-        data = std::vector<T>(data_size);
+        data.resize(data_size);
         view = array_view<T>(data.data(), shape);
     }
 
