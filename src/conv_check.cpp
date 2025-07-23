@@ -325,7 +325,7 @@ bool convVerifier::execute_convcheck_2d(
     if (!claim) return false;
     // pad check W  
     auto aux_info = prover.triple.W->process_challenges(claim->at(1).challenges);
-    if (W(aux_info.r).open(sec_param) * aux_info.comp != claim->at(1).claim) {
+    if (W.parse_all(aux_info.r).open(sec_param) * aux_info.comp != claim->at(1).claim) {
         return false;
     }
     // check pad X
@@ -339,7 +339,7 @@ bool convVerifier::execute_convcheck_2d(
         else {
             cha = claim->at(0).challenges;
         }
-        return X(cha).open(sec_param) * factor == claim->at(0).claim;
+        return X.parse_all(cha).open(sec_param) * factor == claim->at(0).claim;
     }
 
     const Goldilocks2::Element zero = Goldilocks2::zero(), one = Goldilocks2::one();
@@ -356,11 +356,12 @@ bool convVerifier::execute_convcheck_2d(
     std::vector<Goldilocks2::Element> x(r.begin() + beg_x - 1, r.begin() + end_x);
     std::vector<Goldilocks2::Element> y(r.begin() + beg_y - 1, r.begin() + end_y);
     Goldilocks2::Element A[2][2], res = Goldilocks2::zero();
+    X = X(prefix);
     for (int i = 0; i < 2; ++i) {
         for (int j = 0; j < 2; ++j) {
             x[0] = i ? one : zero;
             y[0] = j ? one : zero;
-            A[i][j] = X(combine_challenges(prefix, x, y)).open(sec_param);
+            A[i][j] = X(x)(y).open(sec_param);
             res += A[i][j] *
                 (i ? x_val[0] * (one - x_val[1]) : (one - x_val[0]) * x_val[1]) *
                 (j ? y_val[0] * (one - y_val[1]) : (one - y_val[0]) * y_val[1]);

@@ -1,3 +1,4 @@
+#include "header"
 #include "mle_open.h"
 #include "util.h"
 
@@ -13,8 +14,7 @@ open_param::open_param(const array_view<Goldilocks2::Element>& mle, const oracle
         shape[i] = find_ceiling_log2(mle.shape(i));
         sz += shape[i];
         start[ord[i] + 1] = shape[i];
-    } // 3 2 2 2
-    // 1 0 2 3 -> 0 2 5 7 9
+    }
     for (int i = 1; i < n; ++i) {
         start[i] += start[i - 1];
     }
@@ -42,15 +42,7 @@ open_param open_param::fix(const std::vector<Goldilocks2::Element>& r) const {
     return res;
 }
 
-open_param open_param::parse_all(const std::vector<Goldilocks2::Element>& r) const
-{
-#ifdef Debug
-    size_t sz = 0;
-    for (int i = next; i < int(shape.size()); ++i) {
-        sz += shape[i];
-    }
-    assert(sz == r.size());
-#endif
+open_param open_param::parse_all(const std::vector<Goldilocks2::Element>& r) const {
     open_param res(*this);
     int k = 0;
     for (int i = next; i < int(shape.size()); ++i) {
@@ -59,12 +51,13 @@ open_param open_param::parse_all(const std::vector<Goldilocks2::Element>& r) con
             ++k;
         }
     }
+    assert(k == int(r.size()));
     res.next = int(shape.size());
     return res;
 }
 
 open_param open_param::operator()(const std::vector<Goldilocks2::Element>& r) const {
-    return parse_all(r);
+    return fix(r);
 }
 
 Goldilocks2::Element open_param::open(size_t sec_param) const {

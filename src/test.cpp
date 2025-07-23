@@ -1,4 +1,13 @@
 #include "test.h"
+#include "util.h"
+#include "product2_sumcheck.h"
+#include "product3_sumcheck.h"
+#include "logup.h"
+#include "mle_pow.h"
+#include "conv_check.h"
+#include "array_view.h"
+#include "pad_check.h"
+#include "mat_check.h"
 
 #define CNT_TEST 10
 
@@ -473,6 +482,54 @@ bool test_pad_weights() {
     return true;
 }
 
+bool test_mat_mult() {
+    for (int cnt(0); cnt != CNT_TEST; ++cnt) {
+        srand(cnt);
+        size_t n = (rand() % 100 + 3), m = (rand() % 100 + 3), l = (rand() % 100 + 3);
+        // X: n x m, W: m x l, Y: n x l
+        array<Goldilocks2::Element> X({n, m});
+        array<Goldilocks2::Element> W({m, l});
+        array<Goldilocks2::Element> Y({n, l});
+
+        for (size_t i = 0; i < n; ++i) {
+            for (size_t j = 0; j < m; ++j) {
+                X(i, j) = random_ext();
+            }
+        }
+        for (size_t i = 0; i < m; ++i) {
+            for (size_t j = 0; j < l; ++j) {
+                W(i, j) = random_ext();
+            }
+        }
+        for (size_t i = 0; i < n; ++i) {
+            for (size_t j = 0; j < l; ++j) {
+                Goldilocks2::Element sum = Goldilocks2::zero();
+                for (size_t k = 0; k < m; ++k) {
+                    sum = sum + X(i, k) * W(k, j);
+                }
+                Y(i, j) = sum;
+            }
+        }
+        
+        MultilinearPolynomial p_x(X);
+        MultilinearPolynomial p_w(W);
+        MultilinearPolynomial p_y(Y);
+        ligeropcs_ext pcs_x = ligero_commit_ext(p_x, 2);
+        ligeropcs_ext pcs_w = ligero_commit_ext(p_w, 2);
+        ligeropcs_ext pcs_y = ligero_commit_ext(p_y, 2);
+        mat_mult_prover prover(n, m, l, p_x, p_w, p_y);
+        if (!mat_mult_verifier::execute_mat_mult_check(
+            prover,
+            open_param(X.view, &pcs_x),
+            open_param(W.view, &pcs_w),
+            open_param(Y.view, &pcs_y),
+            32)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool run_test() {
     srand(79);
     if (!test_arithmetic()) {
@@ -513,6 +570,10 @@ bool run_test() {
     }
     if (!test_pad_weights()) {
         std::cout << "test_pad_weights failed" << std::endl;
+        return false;
+    }
+    if (!test_mat_mult()) {
+        std::cout << "test_mat_mult failed" << std::endl;
         return false;
     }
     std::cout << "All tests passed" << std::endl;
