@@ -330,16 +330,7 @@ bool convVerifier::execute_convcheck_2d(
     }
     // check pad X
     if (prover.triple.padding == false) { // No padding
-        auto factor = Goldilocks2::one();
-        std::vector<Goldilocks2::Element> cha;
-        if (prover.triple.C == 1) {
-            factor -= claim->at(0).challenges[0];
-            cha = { claim->at(0).challenges.begin() + 1, claim->at(0).challenges.end() };
-        }
-        else {
-            cha = claim->at(0).challenges;
-        }
-        return X.parse_all(cha).open(sec_param) * factor == claim->at(0).claim;
+        return X.parse_all(claim->at(0).challenges).open(sec_param) == claim->at(0).claim;
     }
 
     const Goldilocks2::Element zero = Goldilocks2::zero(), one = Goldilocks2::one();
@@ -347,8 +338,9 @@ bool convVerifier::execute_convcheck_2d(
     size_t logn = prover.triple.log_n;
     std::vector<Goldilocks2::Element>& r = claim->at(0).challenges;
     std::vector<Goldilocks2::Element> prefix(r.begin(), r.begin() + logC);
-    if (prover.triple.C == 1)
-        prefix.clear();
+
+    X = X(prefix);
+    
     size_t beg_x = logC + 2, end_x = logC + logn;
     size_t beg_y = end_x + 2, end_y = end_x + logn;
     Goldilocks2::Element x_val[2] = { r[beg_x - 2], r[beg_x - 1] };
@@ -356,7 +348,6 @@ bool convVerifier::execute_convcheck_2d(
     std::vector<Goldilocks2::Element> x(r.begin() + beg_x - 1, r.begin() + end_x);
     std::vector<Goldilocks2::Element> y(r.begin() + beg_y - 1, r.begin() + end_y);
     Goldilocks2::Element A[2][2], res = Goldilocks2::zero();
-    X = X(prefix);
     for (int i = 0; i < 2; ++i) {
         for (int j = 0; j < 2; ++j) {
             x[0] = i ? one : zero;
@@ -367,9 +358,6 @@ bool convVerifier::execute_convcheck_2d(
                 (j ? y_val[0] * (one - y_val[1]) : (one - y_val[0]) * y_val[1]);
             // 0 -> 01, 1 -> 10
         }
-    }
-    if (prover.triple.C == 1) {
-        res *= one - r[0];
     }
     if (res != claim->at(0).claim) {
         return false;
