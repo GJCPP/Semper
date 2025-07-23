@@ -6,6 +6,7 @@
 #include "VCG16_check.h"
 #include "VCG16_proof.h"
 #include "conv_check.h"
+#include "mat_check.h"
 #include "util.h"
 
 bool prove_conv(
@@ -248,3 +249,88 @@ bool prove_conv_layer(const VCG16::layer_info& layer, size_t rho_inv, size_t sec
     return true;
 }
 
+bool prove_full(
+    open_param oX, // [N, n]
+    open_param oW, // [n, m]
+    open_param oY, // [N, m]
+    const array_view<Goldilocks2::Element>& X, // [N, n]
+    const array_view<Goldilocks2::Element>& W, // [n, m]
+    const array_view<Goldilocks2::Element>& Y, // [N, m]
+    size_t sec_param) {
+
+    const size_t N = X.shape(0), n = X.shape(1), m = Y.shape(1);
+    assert(X.shape(0) == N && X.shape(1) == n);
+    assert(W.shape(0) == n && W.shape(1) == m);
+    assert(Y.shape(0) == N && Y.shape(1) == m);
+
+    mat_mult_prover prover(N, n, m, X, W, Y);
+    return mat_mult_verifier::execute_mat_mult_check(prover, oX, oW, oY, sec_param);
+}
+
+bool prove_full_layer(const VCG16::layer_info& layer, uint64_t rho_inv, size_t sec_param) {
+    const int batch = int(layer.input.shape(0));
+    // Prove forward
+    for (int i = 0; i < batch; ++i) {
+        auto pcs_input = layer.get_pcs_input(i);
+        auto pcs_weight = layer.get_pcs_weight(i);
+        auto pcs_output = layer.get_pcs_output(i);
+
+        open_param oX(layer.input[i], pcs_input.get());
+        open_param oW(layer.weight[i], pcs_weight.get());
+        open_param oY(layer.output[i], pcs_output.get());
+
+        if (!prove_full(oX, oW, oY,
+            layer.input[i], layer.weight[i], layer.output[i],
+            sec_param)) {
+            std::cout << "❌ Proving full forward failed." << std::endl;
+            return false;
+        }
+    }
+    
+    // Prove backward dW = X^T * dY
+    for (int i = 0; i < batch; ++i) {
+        auto pcs_input = layer.get_pcs_input(i);
+        auto pcs_d_weight = layer.get_pcs_d_weight(i);
+        auto pcs_d_output = layer.get_pcs_d_output(i);
+        auto X = layer.input[i]; // [N, n]
+        auto dW = layer.d_weight[i]; // [n, m]
+        auto dY = layer.d_output[i]; // [N, m]
+
+        X.swap_dim(0, 1); // [n, N]
+
+        auto oX = open_param(X, pcs_input.get());
+        auto odW = open_param(dW, pcs_d_weight.get());
+        auto odY = open_param(dY, pcs_d_output.get());
+
+        if (!prove_full(oX, odY, odW, 
+            X, dY, dW,
+            sec_param)) {
+            std::cout << "❌ Proving full backward dW failed." << std::endl;
+            return false;
+        }
+    }
+
+    // Prove backward dX = dY * W^T
+    for (int i = 0; i < batch; ++i) {
+        auto pcs_d_output = layer.get_pcs_d_output(i);
+        auto pcs_weight = layer.get_pcs_weight(i);
+        auto pcs_d_input = layer.get_pcs_d_input(i);
+        auto dY = layer.d_output[i]; // [N, m]
+        auto W = layer.weight[i];    // [n, m]
+        auto dX = layer.d_input[i];  // [N, n]
+
+        W.swap_dim(0, 1); // [m, n]
+
+        auto odY = open_param(dY, pcs_d_output.get());
+        auto oW = open_param(W, pcs_weight.get());
+        auto odX = open_param(dX, pcs_d_input.get());
+
+        if (!prove_full(odY, oW, odX,
+            dY, W, dX,
+            sec_param)) {
+            std::cout << "❌ Proving full backward dX failed." << std::endl;
+            return false;
+        }
+    }
+    return true;
+}
