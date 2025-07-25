@@ -268,8 +268,8 @@ bool check_relu(
         Goldilocks2::Element actual = input.get(i);
         Goldilocks2::Element expected = output.get(i);
         if (Goldilocks2::isNeg(s)) actual = Goldilocks2::zero();
-        actual = Goldilocks2::fromS64(Goldilocks2::toS64(actual) / scale);
-        if (std::abs(Goldilocks2::toS64(actual - expected)) > 1) {
+        actual = Goldilocks2::fromS64(std::round(double(Goldilocks2::toS64(actual)) / scale));
+        if (actual != expected) {
             ret = false;
             #pragma omp critical
             {
@@ -298,8 +298,8 @@ bool random_check_relu(
         Goldilocks2::Element actual = input.get(i);
         Goldilocks2::Element expected = output.get(i);
         if (Goldilocks2::isNeg(s)) actual = Goldilocks2::zero();
-        actual = Goldilocks2::fromS64(Goldilocks2::toS64(actual) / scale);
-        if (std::abs(Goldilocks2::toS64(actual - expected)) > 1) {
+        actual = Goldilocks2::fromS64(std::round(double(Goldilocks2::toS64(actual)) / scale));
+        if (actual != expected) {
             ret = false;
             #pragma omp critical
             {

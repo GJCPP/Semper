@@ -268,6 +268,24 @@ public:
         }
     }
 
+    void copy_to(T* output, const std::vector<size_t>& new_shape = {}) const {
+        array_view<T> new_arr;
+        new_arr.mimic(*this, new_shape);
+        new_arr.data = output;
+
+        std::vector<size_t> ind(dims);
+        for (size_t i = 0; i < data_size; ++i) {
+            new_arr(ind) = (*this)(ind);
+            ++ind.back();
+            int high = dims - 1;
+            while (high > 0 && ind[high] == data_shape[high]) {
+                ind[high] = 0;
+                --high;
+                ++ind[high];
+            }
+        }
+    }
+
 protected:
     void init_offset() {
         if (dims == 0) {

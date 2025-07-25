@@ -273,45 +273,6 @@ class ManualVGG16:
                 dW_q = torch.round(dw_Q/self.scale).to(torch.int64)
 
                 self.save_to_cache(f'dW_conv_q{lid}', dw_Q.to(torch.int64)) # unscaled
-                # if lid == 1:
-                #     print("Checking conv2d_weight manually for lid=1")
-
-                #     padding = 1
-                #     stride = 1
-                #     input_f = input_q.to(torch.float64)
-                #     grad_f = grad_q.to(torch.float64)
-                #     dw_auto = dw_Q  # torch result
-
-                #     OC, IC, KH, KW = dw_auto.shape
-                #     N = input_f.shape[0]
-                #     H_out, W_out = grad_f.shape[2], grad_f.shape[3]
-                #     H_in, W_in = input_f.shape[2], input_f.shape[3]
-
-                #     # Check selected or all values
-                #     for oc in range(OC):
-                #         for ic in range(IC):
-                #             for kh in range(KH):
-                #                 for kw in range(KW):
-                #                     dw_manual = 0.0
-                #                     for n in range(N):
-                #                         for i in range(H_out):
-                #                             for j in range(W_out):
-                #                                 in_i = i * stride + kh - padding
-                #                                 in_j = j * stride + kw - padding
-                #                                 if 0 <= in_i < H_in and 0 <= in_j < W_in:
-                #                                     dw_manual += input_f[n, ic, in_i, in_j] * grad_f[n, oc, i, j]
-                #                     auto_val = dw_auto[oc, ic, kh, kw].item()
-                #                     err = abs(dw_manual - auto_val)
-                #                     if err > 1e-6:
-                #                         print(f"❌ Mismatch at ({oc},{ic},{kh},{kw}): manual={dw_manual:.3f}, torch={auto_val:.3f}, err={err:.3e}")
-                #                     else:
-                #                         print(f"✅ Match at ({oc},{ic},{kh},{kw}): val={auto_val:.3f}")
-                #     exit(0)
-
-                # Propagate grad to previous layer
-                #grad = F.conv_transpose2d(grad, W[f'conv{lid}'], padding=1)
-                #with torch.no_grad():
-                #    W[f'conv{lid}'] -= lr * dW
 
 
                 grad_q = F.conv_transpose2d(grad_q.to(torch.float64), W[f'conv_q{lid}'].to(torch.float64), padding=1).to(torch.int64)

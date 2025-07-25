@@ -44,6 +44,11 @@ public:
     };
     VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv);
 
+    void build_sign_table();
+    void build_relu_table();
+    void build_scale_table();
+    void build_round_table();
+
     // This is for checking data integrity, and is not to be executed in real proof.
     bool check(size_t n_samples = 0) const;
 
@@ -79,6 +84,19 @@ protected:
     std::vector<layer_info> layers;
     
     std::vector<Goldilocks2::Element> e_pow_inv;
+
+
+    std::vector<size_t> sign_from, sign_to;
+    ligeropcs_base pcs_sign_from, pcs_sign_to;
+
+    std::vector<size_t> relu_from, relu_to;
+    ligeropcs_base pcs_relu_from, pcs_relu_to;
+
+    std::vector<size_t> scale_from, scale_to;
+    ligeropcs_base pcs_scale_from, pcs_scale_to;
+
+    std::vector<size_t> round_from, round_to;
+    ligeropcs_base pcs_round_from, pcs_round_to;
 
     // bool check_conv_relu(int n_samples = 0) const;
 };

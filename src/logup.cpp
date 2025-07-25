@@ -221,6 +221,93 @@ bool LogupVerifier::execute_logup(LogupProver& lpr, const uint64_t& rho_inv, con
     return true;
 }
 
+bool LogupVerifier::execute_logup(LogupProver& lpr, 
+        LogupDef::pcs_base t1, LogupDef::pcs_base t2,
+        LogupDef::pcs_base f1, LogupDef::pcs_base f2,
+        const uint64_t& rho_inv, const size_t& sec_param) {
+    std::array<LogupDef::pcs_base, 4> ft = { f1, f2, t1, t2 };
+    set_timer("check commitment of f, t");
+    for (auto pc : ft) {
+        if (!ligeroVerifier::check_commit(pc, sec_param)) return false;
+    }
+    end_timer("check commitment of f, t");
+    // alert("f,t commited");
+
+
+    auto c = lpr.commit_c(rho_inv);
+    set_timer("check commitment of c");
+    if (!ligeroVerifier::check_commit(c, sec_param)) return false;
+    end_timer("check commitment of c");
+    // alert("c commited");
+
+    Goldilocks2::Element gamma = randnum();
+    Goldilocks2::Element lambda = randnum();
+    lpr.calculate_gh(gamma, lambda);
+    auto gh = lpr.commit_gh(rho_inv);
+    set_timer("check commitment of g, h");
+    for (auto pc : gh) {
+        if (!ligeroVerifier::check_commit(pc, sec_param)) return false;
+    }
+    end_timer("check commitment of g, h");
+    // alert("g,h commited");
+
+    auto pcsg = gh[0], pcsh = gh[1];
+
+    std::array<sProver, 2> firstProvers = lpr.firstProvers();
+    Goldilocks2::Element sum = firstProvers[0].get_sum();
+    assert(sum == firstProvers[1].get_sum());
+    set_timer("sumcheck 1 / 4");
+    if (!sVerifier::execute_sumcheck(firstProvers[0], pcsg, sec_param)) {
+        std::cout << "logup failed 0 \n";
+        return false;
+    }
+    end_timer("sumcheck 1 / 4");
+    // alert("sumcheck 1 / 4 finished");
+
+    set_timer("sumcheck 2 / 4");
+    if (!sVerifier::execute_sumcheck(firstProvers[1], pcsh, sec_param)) {
+        std::cout << "logup failed 1 \n";
+        return false;
+    }
+    end_timer("sumcheck 2 / 4");
+    // alert("sumcheck 2 / 4 finished");
+
+    set_timer("generate rg and rh");
+    const size_t numvar_g = find_ceiling_log2(pcsg.num_cols * pcsg.num_rows);
+    const size_t numvar_h = find_ceiling_log2(pcsh.num_cols * pcsh.num_rows);
+    std::vector<Goldilocks2::Element> rg = randvec(numvar_g);
+    std::vector<Goldilocks2::Element> rh = randvec(numvar_h);
+    end_timer("generate rg and rh");
+
+    std::array<p3Prover, 2> secondProvers = lpr.secondProvers(rg, rh);
+    assert(secondProvers[0].get_sum() == Goldilocks2::one());
+    assert(secondProvers[1].get_sum() == ligeroVerifier::open(c, rh, sec_param));
+
+    set_timer("calculate eq");
+    MLE_Eq eqg(rg);
+    MLE_Eq eqh(rh);
+    end_timer("calculate eq");
+    auto pcsf1 = ft[0], pcsf2 = ft[1], pcst1 = ft[2], pcst2 = ft[3];
+
+    set_timer("sumcheck 3 / 4");
+    if (!p3Verifier::execute_logup_sumcheck(secondProvers[0], eqg, pcsg, pcsf1, pcsf2, gamma, lambda, sec_param)) {
+        std::cout << "logup failed 2 \n";
+        return false;
+    }
+    end_timer("sumcheck 3 / 4");
+    // alert("sumcheck 3 / 4 finished");
+
+    set_timer("sumcheck 4 / 4");
+    if (!p3Verifier::execute_logup_sumcheck(secondProvers[1], eqh, pcsh, pcst1, pcst2, gamma, lambda, sec_param)) {
+        std::cout << "logup failed 3 \n";
+        return false;
+    }
+    end_timer("sumcheck 4 / 4");
+    // alert("sumcheck 4 / 4 finished");
+    // alert("logup finished");
+    return true;
+}
+
 Goldilocks2::Element LogupVerifier::randnum() {
     return { Goldilocks::fromU64(dist(gen)), Goldilocks::fromU64(dist(gen)) };
 }

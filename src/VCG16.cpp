@@ -126,6 +126,80 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, 
 
 
     init_e_pow();
+    build_sign_table();
+    build_relu_table();
+    build_round_table();
+}
+
+void VCG16::build_sign_table() {
+    // Positive case
+    sign_from.resize(max_val * 2 - 1);
+    sign_to.resize(max_val * 2 - 1);
+    #pragma omp parallel for
+    for (size_t i = 0; i < max_val; ++i) {
+        sign_from[i] = i;
+        sign_to[i] = 1;
+    }
+
+    // Negative case
+    #pragma omp parallel for
+    for (int64_t i = 1; i < max_val; ++i) {
+        sign_from[max_val + i - 1] = Goldilocks::fromS64(-i).fe;
+        sign_to[max_val + i - 1] = 0;
+    }
+
+    pcs_sign_from = ligero_commit_base(sign_from, rho_inv);
+    pcs_sign_to = ligero_commit_base(sign_to, rho_inv);
+}
+
+void VCG16::build_relu_table() {
+    // Positive case
+    relu_from.resize(max_val * 2 - 1);
+    relu_to.resize(max_val * 2 - 1);
+    #pragma omp parallel for
+    for (size_t i = 0; i < max_val; ++i) {
+        relu_from[i] = i;
+        relu_to[i] = std::round(double(i) / double(scale));
+    }
+
+    // Negative case
+    #pragma omp parallel for
+    for (int64_t i = 1; i < max_val; ++i) {
+        relu_from[max_val + i - 1] = Goldilocks::fromS64(-i).fe;
+        relu_to[max_val + i - 1] = 0;
+    }
+
+    pcs_relu_from = ligero_commit_base(relu_from, rho_inv);
+    pcs_relu_to = ligero_commit_base(relu_to, rho_inv);
+}
+
+void VCG16::build_scale_table() {
+    // Positive case
+    relu_from.resize(max_val * 2 - 1);
+    relu_to.resize(max_val * 2 - 1);
+    #pragma omp parallel for
+    for (size_t i = 0; i < max_val; ++i) {
+        relu_from[i] = i;
+        relu_to[i] = std::round(double(i) / double(scale));
+    }
+
+    // Negative case
+    #pragma omp parallel for
+    for (int64_t i = 1; i < max_val; ++i) {
+        relu_from[max_val + i - 1] = Goldilocks::fromS64(-i).fe;
+        relu_to[max_val + i - 1] = Goldilocks::fromS64(std::round(double(-i) / double(scale))).fe;
+    }
+
+    pcs_relu_from = ligero_commit_base(relu_from, rho_inv);
+    pcs_relu_to = ligero_commit_base(relu_to, rho_inv);
+}
+
+void VCG16::build_round_table() {
+    round_from = {Goldilocks::negone().fe, 0, 1};
+    round_to = {0, 0, 0};
+
+    pcs_round_from = ligero_commit_base(round_from, rho_inv);
+    pcs_round_to = ligero_commit_base(round_to, rho_inv);
 }
 
 void VCG16::init_e_pow() {
@@ -388,11 +462,21 @@ bool VCG16::prove(size_t sec_param) {
                 break;
 
             case layer_type::full:
-                if (!prove_full_layer(layer, rho_inv, sec_param)) {
+                // if (!prove_full_layer(layer, rho_inv, sec_param)) {
+                //     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
+                //     return false;
+                // }
+                break;
+
+            case layer_type::relu:
+                if (!prove_relu_layer(layer,
+                    sign_from, pcs_sign_from, sign_to, pcs_sign_to,
+                    relu_from, pcs_relu_from, relu_to, pcs_relu_to,
+                    scale_from, pcs_scale_from, scale_to, pcs_scale_to,
+                    scale, rho_inv, sec_param)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
                     return false;
                 }
-                break;
 
             default:
                 break;

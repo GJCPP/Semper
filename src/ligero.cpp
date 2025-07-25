@@ -67,9 +67,9 @@ ligeroProver_base::ligeroProver_base(const std::vector<Goldilocks::Element>& w, 
     b = a << (l & 1);           //ceil(l/2)
     M.resize(1ull << l, Goldilocks::zero());
     codelen = b * rho_inv;
-    for (size_t i = 0; i < w.size(); ++i) {
-        M[i] = w[i]; // Seems redundant
-    }
+    // for (size_t i = 0; i < w.size(); ++i) {
+    //     M[i] = w[i]; // Seems redundant
+    // }
     for (size_t i = 0; i < a; ++i) {
         std::vector<Goldilocks::Element> dataline(b);
         for (size_t j = 0; j < b; ++j) {

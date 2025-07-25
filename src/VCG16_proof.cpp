@@ -334,3 +334,91 @@ bool prove_full_layer(const VCG16::layer_info& layer, uint64_t rho_inv, size_t s
     }
     return true;
 }
+
+bool prove_relu_layer(const VCG16::layer_info& layer,
+    const std::vector<size_t>& sign_from, ligeropcs_base pcs_sign_from,
+    const std::vector<size_t>& sign_to, ligeropcs_base pcs_sign_to,
+    const std::vector<size_t>& relu_from, ligeropcs_base pcs_relu_from,
+    const std::vector<size_t>& relu_to, ligeropcs_base pcs_relu_to,
+    const std::vector<size_t>& scale_from, ligeropcs_base pcs_scale_from,
+    const std::vector<size_t>& scale_to, ligeropcs_base pcs_scale_to,
+    size_t scale,
+    size_t rho_inv, size_t sec_param) {
+
+    const int batch = int(layer.input.shape(0));
+    for (int i = 0; i != batch; ++i) {
+        // Prove forward
+        auto pcs_input = layer.get_pcs_input(i);
+        auto pcs_output = layer.get_pcs_output(i);
+        auto X = layer.input[i];
+        auto Y = layer.output[i];
+
+        size_t n = X.size();
+
+        std::vector<Goldilocks2::Element> X_copy(n), Y_copy(n);
+        std::vector<size_t> X_vec(n), Y_vec(n);
+        
+        X.copy_to(X_copy.data());
+        Y.copy_to(Y_copy.data());
+
+        #pragma omp parallel for
+        for (size_t j = 0; j < n; ++j) {
+            X_vec[j] = X_copy[j][0].fe;
+            Y_vec[j] = Y_copy[j][0].fe;
+        }
+        auto pcs_X = ligero_commit_base(X_vec, rho_inv), pcs_Y = ligero_commit_base(Y_vec, rho_inv);
+
+        LogupProver prover(X_vec, Y_vec, relu_from, relu_to);
+        if (!LogupVerifier::execute_logup(prover, pcs_relu_from, pcs_relu_to, pcs_X, pcs_Y, rho_inv, sec_param)) {
+            std::cout << "❌ Proving relu forward failed." << std::endl;
+            return false;
+        }
+
+        // Prove backward
+        auto pcs_d_input = layer.get_pcs_d_input(i);
+        auto pcs_d_output = layer.get_pcs_d_output(i);
+        auto dX = layer.d_input[i];
+        auto dY = layer.d_output[i];
+        std::vector<Goldilocks2::Element> dX_copy(n), dY_copy(n);
+        std::vector<size_t> sign_vec(n), dX_vec(n), dY_vec(n), filtered_dY_vec(n);
+
+        dX.copy_to(dX_copy.data());
+        dY.copy_to(dY_copy.data());
+        for (size_t j = 0; j < n; ++j) {
+            if (Goldilocks2::isNeg(X_copy[j])) {
+                sign_vec[j] = 0;
+                filtered_dY_vec[j] = 0;
+            } else {
+                sign_vec[j] = 1;
+                filtered_dY_vec[j] = dY_copy[j][0].fe;
+            }
+        }
+
+        ligeropcs_base pcs_sign = ligero_commit_base(sign_vec, rho_inv),
+                        pcs_filtered_dY = ligero_commit_base(filtered_dY_vec, rho_inv);
+
+        // 1. Prove sign_vec
+        LogupProver sign_prover(X_vec, sign_vec, sign_from, sign_to);
+        if (!LogupVerifier::execute_logup(sign_prover, pcs_sign_from, pcs_sign_to, *layer.get_pcs_input(i), pcs_sign, rho_inv, sec_param)) {
+            std::cout << "❌ Proving relu sign failed." << std::endl;
+            return false;
+        }
+
+        // 2. Prove filtered_dY(alpha) = \sum eq(alpha, i) * sign(i) * dY(i)
+        std::vector<Goldilocks2::Element> alpha = random_vec_ext(find_ceiling_log2(n));
+        MLE_Eq alpha_eq(alpha);
+        p3Prover filtered_dY_prover(alpha_eq, sign_vec, filtered_dY_vec);
+        if (!p3Verifier::execute_sumcheck(filtered_dY_prover, {&alpha_eq, &pcs_sign, &pcs_filtered_dY}, sec_param)) {
+            std::cout << "❌ Proving relu filtered_dY failed." << std::endl;
+            return false;
+        }
+        
+        // 3. Prove dX = scale(filtered_dY)
+        LogupProver dX_prover(filtered_dY_vec, dX_vec, scale_from, scale_to);
+        if (!LogupVerifier::execute_logup(dX_prover, pcs_scale_from, pcs_scale_to, pcs_filtered_dY, *layer.get_pcs_d_input(i), rho_inv, sec_param)) {
+            std::cout << "❌ Proving relu dX failed." << std::endl;
+            return false;
+        }
+    }
+    return true;
+}

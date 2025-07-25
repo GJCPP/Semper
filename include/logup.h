@@ -44,6 +44,10 @@ public:
 class LogupVerifier {
 public:
     static bool execute_logup(LogupProver& lpr, const uint64_t& rho_inv, const size_t& sec_param);
+    static bool execute_logup(LogupProver& lpr, 
+        LogupDef::pcs_base t1, LogupDef::pcs_base t2,
+        LogupDef::pcs_base f1, LogupDef::pcs_base f2,
+        const uint64_t& rho_inv, const size_t& sec_param);
 private:
     static std::mt19937_64 gen;
     static std::uniform_int_distribution<uint64_t> dist;

@@ -38,32 +38,32 @@
 //     std::cout << "dummy result: " << Goldilocks2::toString(ext1) << " \n";
 // }
 
-// void bench_logup(const size_t& fsize) {
-//     std::vector<uint64_t> t1 = trange(0, (1ull << 16) - 1);
-//     std::vector<uint64_t> t2(t1.size());
-//     for (size_t i = 0;i < t1.size(); ++i) {
-//         t2[i] = t1[i] << 1;
-//     }
+void bench_logup(const size_t& fsize) {
+    std::vector<uint64_t> t1 = trange(0, (1ull << 16) - 1);
+    std::vector<uint64_t> t2(t1.size());
+    for (size_t i = 0;i < t1.size(); ++i) {
+        t2[i] = t1[i] << 1;
+    }
 
-//     std::vector<uint64_t> f1(fsize);
-//     std::vector<uint64_t> f2(f1.size());
+    std::vector<uint64_t> f1(fsize);
+    std::vector<uint64_t> f2(f1.size());
 
-//     srand(42);
-//     for (size_t i = 0;i < f1.size(); ++i) {
-//         size_t r = rand() % t1.size();
-//         f1[i] = t1[r];
-//         f2[i] = t2[r];
-//     }
+    srand(42);
+    for (size_t i = 0;i < f1.size(); ++i) {
+        size_t r = rand() % t1.size();
+        f1[i] = t1[r];
+        f2[i] = t2[r];
+    }
 
-//     alert("\n--------      begin logup      ----------");
-//     std::cout << "size of f is " << fsize << '\n' << std::endl;
-//     set_timer("logup with f of size " + std::to_string(fsize));
-//     LogupProver lpr(f1, f2, t1, t2);
-//     std::cout << LogupVerifier::execute_logup(lpr, 2, 32) << '\n';
-//     end_timer("logup with f of size " + std::to_string(fsize), false);
-//     alert("\n\n--------      end logup      ----------\n\n");
-//     totaltime();
-// }
+    alert("\n--------      begin logup      ----------");
+    std::cout << "size of f is " << fsize << '\n' << std::endl;
+    set_timer("logup with f of size " + std::to_string(fsize));
+    LogupProver lpr(f1, f2, t1, t2);
+    std::cout << LogupVerifier::execute_logup(lpr, 2, 32) << '\n';
+    end_timer("logup with f of size " + std::to_string(fsize), false);
+    alert("\n\n--------      end logup      ----------\n\n");
+    totaltime();
+}
 
 int main() {
     // bench_operation();
