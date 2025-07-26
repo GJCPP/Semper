@@ -4,9 +4,10 @@
 #include "VCG16_check.h"
 #include "VCG16_proof.h"
 
+// static std::unordered_map<size_t, size_t> relu_map = {};
 
 VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv)
-    : epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * max_val), rho_inv(rho_inv) {
+    : epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * max_value), rho_inv(rho_inv) {
     filedata = loadEpochData(data_dir, epoch);
     std::vector<std::string> keys;
     std::vector<cnpy::NpyArray*> values;
@@ -127,16 +128,22 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, 
 
     init_e_pow();
     build_sign_table();
-    build_relu_table();
-    build_round_table();
+    build_scale_range_table();
 }
 
 void VCG16::build_sign_table() {
+    if (!is_power_of_2(max_val)) {
+        throw std::runtime_error("VCG16: max_value must be power of 2");
+    }
     // Positive case
-    sign_from.resize(max_val * 2 - 1);
-    sign_to.resize(max_val * 2 - 1);
+    sign_from.resize(max_val * 2);
+    sign_to.resize(max_val * 2);
+    
+    sign_from[0] = 0;
+    sign_to[0] = 0;
+
     #pragma omp parallel for
-    for (size_t i = 0; i < max_val; ++i) {
+    for (size_t i = 1; i < max_val; ++i) {
         sign_from[i] = i;
         sign_to[i] = 1;
     }
@@ -144,62 +151,42 @@ void VCG16::build_sign_table() {
     // Negative case
     #pragma omp parallel for
     for (int64_t i = 1; i < max_val; ++i) {
-        sign_from[max_val + i - 1] = Goldilocks::fromS64(-i).fe;
-        sign_to[max_val + i - 1] = 0;
+        sign_from[max_val * 2 - i - 1] = Goldilocks::fromS64(-i).fe;
+        sign_to[max_val * 2 - i - 1] = 0;
     }
+
+    sign_from.back() = Goldilocks::fromS64(-1).fe + 1;
+    sign_to.back() = -1;
 
     pcs_sign_from = ligero_commit_base(sign_from, rho_inv);
     pcs_sign_to = ligero_commit_base(sign_to, rho_inv);
 }
 
-void VCG16::build_relu_table() {
+void VCG16::build_scale_range_table() {
+    if (!is_power_of_2(scale)) {
+        throw std::runtime_error("VCG16: scale must be power of 2");
+    }
     // Positive case
-    relu_from.resize(max_val * 2 - 1);
-    relu_to.resize(max_val * 2 - 1);
+    scale_range_from.resize(scale * 2);
+    scale_range_to.resize(scale * 2);
     #pragma omp parallel for
-    for (size_t i = 0; i < max_val; ++i) {
-        relu_from[i] = i;
-        relu_to[i] = std::round(double(i) / double(scale));
+    for (size_t i = 0; i < scale; ++i) {
+        scale_range_from[i] = i;
+        scale_range_to[i] = 0;
     }
 
     // Negative case
     #pragma omp parallel for
-    for (int64_t i = 1; i < max_val; ++i) {
-        relu_from[max_val + i - 1] = Goldilocks::fromS64(-i).fe;
-        relu_to[max_val + i - 1] = 0;
+    for (int64_t i = 1; i < scale; ++i) {
+        scale_range_from[scale * 2 - i - 1] = Goldilocks::fromS64(-i).fe;
+        scale_range_to[scale * 2 - i - 1] = 0;
     }
 
-    pcs_relu_from = ligero_commit_base(relu_from, rho_inv);
-    pcs_relu_to = ligero_commit_base(relu_to, rho_inv);
-}
+    scale_range_from.back() = scale;
+    scale_range_to.back() = 1;
 
-void VCG16::build_scale_table() {
-    // Positive case
-    relu_from.resize(max_val * 2 - 1);
-    relu_to.resize(max_val * 2 - 1);
-    #pragma omp parallel for
-    for (size_t i = 0; i < max_val; ++i) {
-        relu_from[i] = i;
-        relu_to[i] = std::round(double(i) / double(scale));
-    }
-
-    // Negative case
-    #pragma omp parallel for
-    for (int64_t i = 1; i < max_val; ++i) {
-        relu_from[max_val + i - 1] = Goldilocks::fromS64(-i).fe;
-        relu_to[max_val + i - 1] = Goldilocks::fromS64(std::round(double(-i) / double(scale))).fe;
-    }
-
-    pcs_relu_from = ligero_commit_base(relu_from, rho_inv);
-    pcs_relu_to = ligero_commit_base(relu_to, rho_inv);
-}
-
-void VCG16::build_round_table() {
-    round_from = {Goldilocks::negone().fe, 0, 1};
-    round_to = {0, 0, 0};
-
-    pcs_round_from = ligero_commit_base(round_from, rho_inv);
-    pcs_round_to = ligero_commit_base(round_to, rho_inv);
+    pcs_scale_range_from = ligero_commit_base(scale_range_from, rho_inv);
+    pcs_scale_range_to = ligero_commit_base(scale_range_to, rho_inv);
 }
 
 void VCG16::init_e_pow() {
@@ -471,8 +458,7 @@ bool VCG16::prove(size_t sec_param) {
             case layer_type::relu:
                 if (!prove_relu_layer(layer,
                     sign_from, pcs_sign_from, sign_to, pcs_sign_to,
-                    relu_from, pcs_relu_from, relu_to, pcs_relu_to,
-                    scale_from, pcs_scale_from, scale_to, pcs_scale_to,
+                    scale_range_from, pcs_scale_range_from, scale_range_to, pcs_scale_range_to,
                     scale, rho_inv, sec_param)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
                     return false;

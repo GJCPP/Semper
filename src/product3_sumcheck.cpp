@@ -142,6 +142,52 @@ bool p3Verifier::execute_sumcheck(p3Prover& pr, const std::array<const oracle*, 
     return true;
 }
 
+bool p3Verifier::execute_sumcheck(p3Prover& pr, Goldilocks2::Element claim, const std::array<const oracle*, 3>& oracle, const size_t& sec_param) {
+
+    Goldilocks2::Element sum = pr.get_sum();
+    if (sum != claim) {
+        return false;
+    }
+    size_t nrnd = pr.get_rounds();
+    std::vector<Goldilocks2::Element> challenges;
+
+    // s_{i - 1}
+    std::array<Goldilocks2::Element, 4> si1 = { Goldilocks2::zero(), Goldilocks2::zero(), Goldilocks2::zero(), Goldilocks2::zero() };
+    for (size_t round = 1; round <= nrnd; ++round) {
+        // s_i
+        std::array<Goldilocks2::Element, 4> si;
+        si = pr.send_message(round, challenges);
+        // s(0) + s(1)
+        Goldilocks2::Element ss;
+        Goldilocks2::add(ss, si[0], si[1]);
+        if (round == 1) {
+            if (!(ss == sum)) return false;
+        }
+        else {
+            Goldilocks2::Element sr;
+            Goldilocks2::Element r = challenges[round - 2];
+            interpolate_3(sr, r, si1[0], si1[1], si1[2], si1[3]);
+            if (!(sr == ss)) return false;
+
+            // final check
+            if (round == nrnd) {
+                challenges.push_back(challenge());
+
+                Goldilocks2::Element f_r = oracle[0]->open(challenges, sec_param) * oracle[1]->open(challenges, sec_param) * oracle[2]->open(challenges, sec_param);
+                Goldilocks2::Element slrl;
+                Goldilocks2::Element rl = challenges[round - 1];
+                interpolate_3(slrl, rl, si[0], si[1], si[2], si[3]);
+                if (!(slrl == f_r)) return false;
+            }
+        }
+
+        challenges.push_back(challenge());
+        // goto next round
+        si1 = si;
+    }
+    return true;
+}
+
 bool p3Verifier::execute_logup_sumcheck(
     p3Prover& pr,
     const MLE_Eq& eqr,

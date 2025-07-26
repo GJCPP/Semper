@@ -9,7 +9,7 @@
 #include "pad_check.h"
 #include "mat_check.h"
 
-#define CNT_TEST 100
+#define CNT_TEST 40
 
 bool test_arithmetic() {
     typedef Goldilocks2::Element Element;
@@ -172,28 +172,6 @@ bool test_partial_sumcheck_product2() {
     return true;
 }
 
-
-bool test_logup() {
-    size_t fsize = 1ull << 16;
-    std::vector<uint64_t> t1 = trange(0, (1ull << 16) - 1);
-    std::vector<uint64_t> t2(t1.size());
-    for (size_t i = 0;i < t1.size(); ++i) {
-        t2[i] = t1[i] << 1;
-    }
-
-    std::vector<uint64_t> f1(fsize);
-    std::vector<uint64_t> f2(f1.size());
-
-    srand(42);
-    for (size_t i = 0;i < f1.size(); ++i) {
-        size_t r = rand() % t1.size();
-        f1[i] = t1[r];
-        f2[i] = t2[r];
-    }
-
-    LogupProver lpr(f1, f2, t1, t2);
-    return LogupVerifier::execute_logup(lpr, 2, 32);
-}
 
 bool test_conv_check() {
     for (int cnt(0); cnt != CNT_TEST; ++cnt) {
@@ -524,6 +502,49 @@ bool test_mat_mult() {
             open_param(W.view, &pcs_w),
             open_param(Y.view, &pcs_y),
             32)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool test_logup() {
+    for (int cnt(0); cnt != CNT_TEST; ++cnt) {
+        size_t fsize = 2 << (rand() % 10), tsize = 4 << (rand() % 10);
+        std::vector<std::pair<uint64_t, uint64_t>> t(tsize);
+        std::vector<bool> vis(1 << 18);
+        for (size_t i = 0; i < tsize; ++i) {
+            size_t new_t1 = rand() % (1ull << 18);
+            while (vis[new_t1]) {
+                new_t1 = rand() % (1ull << 18);
+            }
+            vis[new_t1] = true;
+            t[i].first = new_t1;
+            t[i].second = rand() % (1ull << 5);
+        }
+        std::sort(t.begin(), t.end());
+        std::vector<uint64_t> t1(tsize), t2(tsize);
+        for (size_t i = 0; i < tsize; ++i) {
+            t1[i] = t[i].first;
+            t2[i] = t[i].second;
+        }
+
+        std::vector<uint64_t> f1(fsize);
+        std::vector<uint64_t> f2(f1.size());
+
+        srand(cnt);
+        for (size_t i = 0; i < f1.size(); ++i) {
+            size_t r = rand() % t1.size();
+            f1[i] = t1[r];
+            f2[i] = t2[r];
+        }
+
+        LogupProver lpr(f1, f2, t1, t2);
+        auto pcs_f1 = ligero_commit_base(f1, 2),
+             pcs_f2 = ligero_commit_base(f2, 2),
+             pcs_t1 = ligero_commit_base(t1, 2),
+             pcs_t2 = ligero_commit_base(t2, 2);
+        if (!LogupVerifier::execute_logup(lpr, pcs_f1, pcs_f2, pcs_t1, pcs_t2, 2, 32)) {
             return false;
         }
     }

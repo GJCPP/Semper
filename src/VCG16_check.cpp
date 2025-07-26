@@ -1,5 +1,7 @@
+#include "VCG16.h"
 #include "VCG16_check.h"
 
+#include <unordered_map>
 #include <iostream>
 #include <random>
 
@@ -268,7 +270,9 @@ bool check_relu(
         Goldilocks2::Element actual = input.get(i);
         Goldilocks2::Element expected = output.get(i);
         if (Goldilocks2::isNeg(s)) actual = Goldilocks2::zero();
-        actual = Goldilocks2::fromS64(std::round(double(Goldilocks2::toS64(actual)) / scale));
+        else {
+            actual = Goldilocks2::fromS64(relu_map[Goldilocks2::toS64(actual)]);
+        }
         if (actual != expected) {
             ret = false;
             #pragma omp critical
@@ -291,17 +295,20 @@ bool random_check_relu(
     size_t sz = input.size();
     static thread_local std::mt19937 rng(std::random_device{}());
 
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (size_t cnt = 0; cnt < n_samples; ++cnt) {
         size_t i = std::uniform_int_distribution<size_t>(0, sz - 1)(rng);
         Goldilocks2::Element s = sign.get(i);
         Goldilocks2::Element actual = input.get(i);
         Goldilocks2::Element expected = output.get(i);
         if (Goldilocks2::isNeg(s)) actual = Goldilocks2::zero();
-        actual = Goldilocks2::fromS64(std::round(double(Goldilocks2::toS64(actual)) / scale));
+        else {
+            std::cout << actual[0].fe << " -> " << relu_map[actual[0].fe] << std::endl;
+            actual = Goldilocks2::fromS64(relu_map[actual[0].fe]);
+        }
         if (actual != expected) {
             ret = false;
-            #pragma omp critical
+            // #pragma omp critical
             {
                 std::cout << "❌ Mismatch at (i=" << i << "): manual=" << actual << ", expected=" << expected << std::endl;
             }
