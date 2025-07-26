@@ -420,50 +420,61 @@ bool prove_relu_layer(const VCG16::layer_info& layer,
 
 
         // Prove backward
-        // auto pcs_d_input = layer.get_pcs_d_input(i);
-        // auto pcs_d_output = layer.get_pcs_d_output(i);
-        // auto dX = layer.d_input[i];
-        // auto dY = layer.d_output[i];
-        // std::vector<Goldilocks2::Element> dX_copy(n), dY_copy(n);
-        // std::vector<size_t> sign_vec(n), dX_vec(n), dY_vec(n), filtered_dY_vec(n);
+        auto pcs_dX = *layer.get_pcs_d_input(i);
+        auto pcs_dY = *layer.get_pcs_d_output(i);
+        auto dX = layer.d_input[i];
+        auto dY = layer.d_output[i];
+        std::vector<Goldilocks2::Element> dX_copy(n), dY_copy(n);
+        std::vector<size_t> dX_vec(n), dY_vec(n), filtered_dY_vec(n);
 
-        // dX.copy_to(dX_copy.data());
-        // dY.copy_to(dY_copy.data());
-        // for (size_t j = 0; j < n; ++j) {
-        //     if (Goldilocks2::isNeg(X_copy[j])) {
-        //         sign_vec[j] = 0;
-        //         filtered_dY_vec[j] = 0;
-        //     } else {
-        //         sign_vec[j] = 1;
-        //         filtered_dY_vec[j] = dY_copy[j][0].fe;
-        //     }
-        // }
+        dX.copy_to(dX_copy.data());
+        dY.copy_to(dY_copy.data());
+        for (size_t j = 0; j < n; ++j) {
+            if (sign_vec[j] == 0) {
+                filtered_dY_vec[j] = 0;
+            } else {
+                sign_vec[j] = 1;
+                filtered_dY_vec[j] = dY_copy[j][0].fe;
+            }
+        }
 
-        // ligeropcs_base pcs_sign = ligero_commit_base(sign_vec, rho_inv),
-        //                 pcs_filtered_dY = ligero_commit_base(filtered_dY_vec, rho_inv);
+        ligeropcs_base pcs_filtered_dY = ligero_commit_base(filtered_dY_vec, rho_inv);
 
-        // // 1. Prove sign_vec
-        // LogupProver sign_prover(X_vec, sign_vec, sign_from, sign_to);
-        // if (!LogupVerifier::execute_logup(sign_prover, pcs_sign_from, pcs_sign_to, *layer.get_pcs_input(i), pcs_sign, rho_inv, sec_param)) {
-        //     std::cout << "❌ Proving relu sign failed." << std::endl;
-        //     return false;
-        // }
-
-        // // 2. Prove filtered_dY(alpha) = \sum eq(alpha, i) * sign(i) * dY(i)
-        // std::vector<Goldilocks2::Element> alpha = random_vec_ext(find_ceiling_log2(n));
-        // MLE_Eq alpha_eq(alpha);
-        // p3Prover filtered_dY_prover(alpha_eq, sign_vec, filtered_dY_vec);
-        // if (!p3Verifier::execute_sumcheck(filtered_dY_prover, {&alpha_eq, &pcs_sign, &pcs_filtered_dY}, sec_param)) {
-        //     std::cout << "❌ Proving relu filtered_dY failed." << std::endl;
-        //     return false;
-        // }
+        // 1. Prove filtered_dY(alpha) = \sum eq(alpha, i) * sign(i) * dY(i)
+        auto cha = random_vec_ext(find_ceiling_log2(n));
+        MLE_Eq cha_eq(cha);
+        p3Prover filtered_dY_prover(cha_eq, sign_vec, filtered_dY_vec);
+        if (!p3Verifier::execute_sumcheck(filtered_dY_prover, {&cha_eq, &pcs_sign, &pcs_filtered_dY}, sec_param)) {
+            std::cout << "❌ Proving relu filtered_dY failed." << std::endl;
+            return false;
+        }
         
-        // // 3. Prove dX = scale(filtered_dY)
-        // LogupProver dX_prover(filtered_dY_vec, dX_vec, scale_from, scale_to);
-        // if (!LogupVerifier::execute_logup(dX_prover, pcs_scale_from, pcs_scale_to, pcs_filtered_dY, *layer.get_pcs_d_input(i), rho_inv, sec_param)) {
-        //     std::cout << "❌ Proving relu dX failed." << std::endl;
-        //     return false;
-        // }
+        // 2. Prove filtered_dY = dX * scale + dY_rem
+        std::vector<size_t> dY_rem_vec(n);
+        for (size_t j = 0; j < n; ++j) {
+            dX_vec[j] = dX_copy[j][0].fe;
+            if (filtered_dY_vec[j] != 0) {
+                int64_t y = Goldilocks2::toS64(Goldilocks2::fromU64(filtered_dY_vec[j])), k = scale;
+                int64_t x = Goldilocks2::toS64(dX_copy[j]);
+                int64_t rem = y - x * k;
+                dY_rem_vec[j] = Goldilocks2::fromS64(rem)[0].fe;
+            } else {
+                dY_rem_vec[j] = 0;
+            }
+        }
+        // 2.1 Prove dX * scale + dY_rem = filtered_dY
+        auto pcs_dY_rem = ligero_commit_base(dY_rem_vec, rho_inv);
+        auto gamma = random_vec_ext(find_ceiling_log2(n));
+        if (pcs_dX.open(gamma, sec_param) * Goldilocks2::fromU64(scale) + pcs_dY_rem.open(gamma, sec_param) != pcs_filtered_dY.open(gamma, sec_param)) {
+            std::cout << "❌ Proving relu dX * scale + dY_rem failed." << std::endl;
+            return false;
+        }
+        // 2.2 Prove -scale < dY_rem < scale
+        LogupProver dY_rem_prover(dY_rem_vec, zero_vec, scale_range_from, scale_range_to);
+        if (!LogupVerifier::execute_logup(dY_rem_prover, pcs_dY_rem, pcs_zero, pcs_scale_range_from, pcs_scale_range_to, rho_inv, sec_param)) {
+            std::cout << "❌ Proving relu dY_rem failed." << std::endl;
+            return false;
+        }
     }
     return true;
 }
