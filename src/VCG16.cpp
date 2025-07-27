@@ -383,17 +383,17 @@ bool VCG16::prove(size_t sec_param) {
         std::cout << "Proving layer " << layer.name << std::endl;
         switch (layer.type) {
             case layer_type::conv:
-                // if (!prove_conv_layer(layer, rho_inv, sec_param)) {
-                //     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
-                //     return false;
-                // }
+                if (!prove_conv_layer(layer, rho_inv, sec_param)) {
+                    std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
+                    return false;
+                }
                 break;
 
             case layer_type::full:
-                // if (!prove_full_layer(layer, rho_inv, sec_param)) {
-                //     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
-                //     return false;
-                // }
+                if (!prove_full_layer(layer, rho_inv, sec_param)) {
+                    std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
+                    return false;
+                }
                 break;
 
             case layer_type::relu:

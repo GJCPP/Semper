@@ -180,7 +180,7 @@ class ManualVGG16:
         #    W['fc2'] -= lr * dW_fc2
             
 
-        grad_z2_q = torch.round(grad_a2_q * (c['z2_q'][-1] > 0) / self.scale).to(torch.int64)
+        grad_z2_q = torch.round(grad_a2_q * (c['a2_q'][-1] > 0) / self.scale).to(torch.int64)
         grad_a1_q = torch.round(grad_z2_q.to(torch.float64) @ W['fc2_q'].T.to(torch.float64)).to(torch.int64)
         dW_fc2_q = (c['a1_q'][-1].to(torch.float64).T @ grad_z2_q.to(torch.float64)).to(torch.int64) # big value
         with torch.no_grad():
@@ -197,7 +197,7 @@ class ManualVGG16:
         #with torch.no_grad():
         #    W['fc1'] -= lr * dW_fc1
 
-        grad_z1_q = torch.round(grad_a1_q * (c['z1_q'][-1] > 0) / self.scale).to(torch.int64)
+        grad_z1_q = torch.round(grad_a1_q * (c['a1_q'][-1] > 0) / self.scale).to(torch.int64)
         grad_flat_q = torch.round(grad_z1_q @ W['fc1_q'].T).to(torch.int64)
         dW_fc1_q = (c['flat_q'][-1].to(torch.float64).T @ grad_z1_q.to(torch.float64)).to(torch.int64) # big value
         with torch.no_grad():
