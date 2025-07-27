@@ -8,6 +8,8 @@
 #include "array_view.h"
 #include "pad_check.h"
 #include "mat_check.h"
+#include "div_check.h"
+#include "sign_check.h"
 
 #define CNT_TEST 40
 
@@ -551,6 +553,66 @@ bool test_logup() {
     return true;
 }
 
+bool test_div_check() {
+    for (int cnt = 0; cnt < CNT_TEST; ++cnt) {
+        srand(cnt);
+        bool allow_neg_sign = rand() % 2 == 0;
+        int64_t denom = (1ull << (rand() % 10 + 1));
+        size_t n = (1 << (rand() % 10 + 1)), max_val = (1ull << (rand() % 20 + 1));
+        std::vector<int64_t> num_val(n);
+        for (size_t i = 0; i < n; ++i) {
+            num_val[i] = (rand() % max_val) * (rand() % 2 == 0 ? 1 : -1);
+        }
+        std::vector<Goldilocks2::Element> num(n);
+        for (size_t i = 0; i < n; ++i) {
+            num[i] = Goldilocks2::fromS64(num_val[i]);
+        }
+        auto [quo, rem] = get_quo_rem(num, denom, allow_neg_sign);
+        divProver prover(num, quo, rem, denom, allow_neg_sign, 2);
+        ligeropcs_base pcs_num = ligero_commit_base(num, 2);
+        ligeropcs_base pcs_quo = ligero_commit_base(quo, 2);
+        ligeropcs_base pcs_rem = ligero_commit_base(rem, 2);
+        if (!divVerifier::execute_div_check(
+            prover,
+            pcs_num,
+            pcs_quo,
+            pcs_rem,
+            32)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool test_sign_check() {
+    for (int cnt = 0; cnt < CNT_TEST; ++cnt) {
+        srand(cnt);
+        int64_t denom = (1ull << (rand() % 10 + 1));
+        int64_t n = (1 << (rand() % 10 + 1)), max_val = (1ull << (rand() % 20 + 1));
+        std::vector<int64_t> num_val(n), sign_val(n);
+        for (size_t i = 0; i < n; ++i) {
+            num_val[i] = (rand() % max_val) * (rand() % 2 == 0 ? 1 : -1);
+            sign_val[i] = (num_val[i] < 0) ? 0 : 1;
+        }
+        std::vector<Goldilocks2::Element> num(n), sign(n);
+        for (size_t i = 0; i < n; ++i) {
+            num[i] = Goldilocks2::fromS64(num_val[i]);
+            sign[i] = Goldilocks2::fromS64(sign_val[i]);
+        }
+        signProver prover(num, sign, denom, max_val, 2);
+        ligeropcs_base pcs_num = ligero_commit_base(num, 2);
+        ligeropcs_base pcs_sign = ligero_commit_base(sign, 2);
+        if (!signVerifier::execute_sign_check(
+            prover,
+            pcs_num,
+            pcs_sign,
+            32)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool run_test() {
     srand(79);
     if (!test_arithmetic()) {
@@ -595,6 +657,14 @@ bool run_test() {
     }
     if (!test_mat_mult()) {
         std::cout << "test_mat_mult failed" << std::endl;
+        return false;
+    }
+    if (!test_div_check()) {
+        std::cout << "test_div_check failed" << std::endl;
+        return false;
+    }
+    if (!test_sign_check()) {
+        std::cout << "test_sign_check failed" << std::endl;
         return false;
     }
     std::cout << "All tests passed" << std::endl;
