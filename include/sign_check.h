@@ -4,8 +4,7 @@
 #include "div_check.h"
 
 
-// (< 0) -> 0, (>= 0) -> 1
-std::vector<Goldilocks2::Element> get_sign(const std::vector<Goldilocks2::Element>& vec);
+std::vector<Goldilocks2::Element> get_sign(const std::vector<Goldilocks2::Element>& vec, bool strict_positive);
 
 class signVerifier;
 
@@ -16,7 +15,7 @@ public:
 
     signProver(const std::vector<Goldilocks2::Element>& vec,
             const std::vector<Goldilocks2::Element>& sign,
-            uint64_t scale, uint64_t max_val, uint64_t rho_inv);
+            uint64_t scale, uint64_t max_val, bool strict_positive, uint64_t rho_inv);
 
     divProver next_prover(ligeropcs_base& pcs_quo, ligeropcs_base& pcs_rem, signProver& next_prover) const;
 
@@ -34,8 +33,17 @@ public:
 
     inline int get_num_vars() const { return num_vars; }
 
+    inline ligeropcs_base get_pcs_bias_x() const {
+        if (!strict) {
+            throw std::runtime_error("signProver: get_pcs_bias_x called when strict is false");
+        }
+        return ligero_commit_base(vec, rho_inv);
+    }
+
 protected:
-    uint64_t scale, max_val, rho_inv, num_vars;
+    uint64_t scale, max_val;
+    bool strict;
+    uint64_t rho_inv, num_vars;
     std::vector<Goldilocks2::Element> vec, sign; 
 
 };

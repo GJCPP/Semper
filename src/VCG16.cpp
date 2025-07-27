@@ -127,67 +127,8 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, 
 
 
     init_e_pow();
-    build_sign_table();
-    build_scale_range_table();
 }
 
-void VCG16::build_sign_table() {
-    if (!is_power_of_2(max_val)) {
-        throw std::runtime_error("VCG16: max_value must be power of 2");
-    }
-    // Positive case
-    sign_from.resize(max_val * 2);
-    sign_to.resize(max_val * 2);
-    
-    sign_from[0] = 0;
-    sign_to[0] = 0;
-
-    #pragma omp parallel for
-    for (size_t i = 1; i < max_val; ++i) {
-        sign_from[i] = i;
-        sign_to[i] = 1;
-    }
-
-    // Negative case
-    #pragma omp parallel for
-    for (int64_t i = 1; i < max_val; ++i) {
-        sign_from[max_val * 2 - i - 1] = Goldilocks::fromS64(-i).fe;
-        sign_to[max_val * 2 - i - 1] = 0;
-    }
-
-    sign_from.back() = Goldilocks::fromS64(-1).fe + 1;
-    sign_to.back() = -1;
-
-    pcs_sign_from = ligero_commit_base(sign_from, rho_inv);
-    pcs_sign_to = ligero_commit_base(sign_to, rho_inv);
-}
-
-void VCG16::build_scale_range_table() {
-    if (!is_power_of_2(scale)) {
-        throw std::runtime_error("VCG16: scale must be power of 2");
-    }
-    // Positive case
-    scale_range_from.resize(scale * 2);
-    scale_range_to.resize(scale * 2);
-    #pragma omp parallel for
-    for (size_t i = 0; i < scale; ++i) {
-        scale_range_from[i] = i;
-        scale_range_to[i] = 0;
-    }
-
-    // Negative case
-    #pragma omp parallel for
-    for (int64_t i = 1; i < scale; ++i) {
-        scale_range_from[scale * 2 - i - 1] = Goldilocks::fromS64(-i).fe;
-        scale_range_to[scale * 2 - i - 1] = 0;
-    }
-
-    scale_range_from.back() = scale;
-    scale_range_to.back() = 1;
-
-    pcs_scale_range_from = ligero_commit_base(scale_range_from, rho_inv);
-    pcs_scale_range_to = ligero_commit_base(scale_range_to, rho_inv);
-}
 
 void VCG16::init_e_pow() {
     e_pow_inv.resize(max_val);
@@ -456,10 +397,7 @@ bool VCG16::prove(size_t sec_param) {
                 break;
 
             case layer_type::relu:
-                if (!prove_relu_layer(layer,
-                    sign_from, pcs_sign_from, sign_to, pcs_sign_to,
-                    scale_range_from, pcs_scale_range_from, scale_range_to, pcs_scale_range_to,
-                    scale, rho_inv, sec_param)) {
+                if (!prove_relu_layer(layer, scale, max_val, sqr_val, rho_inv, sec_param)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
                     return false;
                 }

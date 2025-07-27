@@ -587,19 +587,21 @@ bool test_div_check() {
 bool test_sign_check() {
     for (int cnt = 0; cnt < CNT_TEST; ++cnt) {
         srand(cnt);
+        bool strict = rand() % 2 == 0;
         int64_t denom = (1ull << (rand() % 10 + 1));
         int64_t n = (1 << (rand() % 10 + 1)), max_val = (1ull << (rand() % 20 + 1));
         std::vector<int64_t> num_val(n), sign_val(n);
         for (size_t i = 0; i < n; ++i) {
             num_val[i] = (rand() % max_val) * (rand() % 2 == 0 ? 1 : -1);
-            sign_val[i] = (num_val[i] < 0) ? 0 : 1;
+            if (!strict) sign_val[i] = (num_val[i] < 0) ? 0 : 1;
+            else sign_val[i] = (num_val[i] <= 0) ? 0 : 1;
         }
         std::vector<Goldilocks2::Element> num(n), sign(n);
         for (size_t i = 0; i < n; ++i) {
             num[i] = Goldilocks2::fromS64(num_val[i]);
             sign[i] = Goldilocks2::fromS64(sign_val[i]);
         }
-        signProver prover(num, sign, denom, max_val, 2);
+        signProver prover(num, sign, denom, max_val, strict, 2);
         ligeropcs_base pcs_num = ligero_commit_base(num, 2);
         ligeropcs_base pcs_sign = ligero_commit_base(sign, 2);
         if (!signVerifier::execute_sign_check(
