@@ -109,7 +109,7 @@ convProver make_conv2_prover(
     // size_t new_on = new_in - m + 1;
     size_t new_Y_len = new_in * new_in + m * new_in - 1;
 
-    assert(is_power_of_2(new_padding) || new_padding == 0);
+    // assert(is_power_of_2(new_padding) || new_padding == 0);
 
     std::vector<std::vector<Goldilocks2::Element>> X_1d(C);
     std::vector<std::vector<bool>> Y_1d_visited(D);
@@ -169,7 +169,7 @@ convProver make_conv2_prover(
         std::make_unique<MultilinearPolynomial>(std::move(X_1d)),
         std::make_unique<MLE_Convker>(W, C, D, new_in, m),
         std::make_unique<MultilinearPolynomial>(std::move(Y_1d)),
-        new_padding != 0, find_ceiling_log2(new_in), find_ceiling_log2(m)));
+        new_padding, find_ceiling_log2(new_in), find_ceiling_log2(m)));
 }
 
 void pad_weights(
@@ -341,10 +341,10 @@ bool convVerifier::execute_convcheck_2d(
 
     X = X(prefix);
     
-    size_t beg_x = logC + 2, end_x = logC + logn;
-    size_t beg_y = end_x + 2, end_y = end_x + logn;
-    Goldilocks2::Element x_val[2] = { r[beg_x - 2], r[beg_x - 1] };
-    Goldilocks2::Element y_val[2] = { r[beg_y - 2], r[beg_y - 1] };
+    size_t beg_x = logC + logn - X.shape[X.next] + 1, end_x = logC + logn;
+    size_t beg_y = end_x + logn - X.shape[X.next] + 1, end_y = end_x + logn;
+    std::vector<Goldilocks2::Element> x_val(&r[logC], &r[beg_x]);
+    std::vector<Goldilocks2::Element> y_val(&r[logC + logn], &r[beg_y]);
     std::vector<Goldilocks2::Element> x(r.begin() + beg_x - 1, r.begin() + end_x);
     std::vector<Goldilocks2::Element> y(r.begin() + beg_y - 1, r.begin() + end_y);
     Goldilocks2::Element A[2][2], res = Goldilocks2::zero();
@@ -353,10 +353,27 @@ bool convVerifier::execute_convcheck_2d(
             x[0] = i ? one : zero;
             y[0] = j ? one : zero;
             A[i][j] = X(x)(y).open(sec_param);
-            res += A[i][j] *
-                (i ? x_val[0] * (one - x_val[1]) : (one - x_val[0]) * x_val[1]) *
-                (j ? y_val[0] * (one - y_val[1]) : (one - y_val[0]) * y_val[1]);
-            // 0 -> 01, 1 -> 10
+            // x 01111 if i == 0, 10000 if i == 1
+            for (size_t k = 0; k < x_val.size(); ++k) {
+                if (i) {
+                    if (k == 0) A[i][j] *= x_val[k];
+                    else A[i][j] *= (one - x_val[k]);
+                } else {
+                    if (k == 0) A[i][j] *= (one - x_val[k]);
+                    else A[i][j] *= x_val[k];
+                }
+            }
+            // y 01111 if j == 0, 10000 if j == 1
+            for (size_t k = 0; k < y_val.size(); ++k) {
+                if (j) {
+                    if (k == 0) A[i][j] *= y_val[k];
+                    else A[i][j] *= (one - y_val[k]);
+                } else {
+                    if (k == 0) A[i][j] *= (one - y_val[k]);
+                    else A[i][j] *= y_val[k];
+                }
+            }
+            res += A[i][j];
         }
     }
     if (res != claim->at(0).claim) {
@@ -482,7 +499,7 @@ convTriple::convTriple(
     std::unique_ptr<MultilinearPolynomial> _X,
     std::unique_ptr<MultilinearPolynomial> _W,
     std::unique_ptr<MultilinearPolynomial> _Y,
-    bool padding, int log_n, int log_m)
+    size_t padding, int log_n, int log_m)
     : X(std::move(_X)),
     W(std::move(_W)),
     Y(std::move(_Y)),

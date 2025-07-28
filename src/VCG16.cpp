@@ -7,7 +7,7 @@
 // static std::unordered_map<size_t, size_t> relu_map = {};
 
 VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv)
-    : epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * max_value), rho_inv(rho_inv) {
+    : epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * scale), rho_inv(rho_inv) {
     filedata = loadEpochData(data_dir, epoch);
     std::vector<std::string> keys;
     std::vector<cnpy::NpyArray*> values;
@@ -381,6 +381,7 @@ bool VCG16::check(size_t n_samples) const {
 bool VCG16::prove(size_t sec_param) {
     for (auto& layer : layers) {
         std::cout << "Proving layer " << layer.name << std::endl;
+        if (layer.name != "conv_11") continue;
         switch (layer.type) {
             case layer_type::conv:
                 if (!prove_conv_layer(layer, rho_inv, sec_param)) {

@@ -31,7 +31,7 @@ open_param::open_param(const open_param& other)
 }
 
 open_param open_param::fix(const std::vector<Goldilocks2::Element>& r) const {
-    assert(next != int(r.size()));
+    assert(next != int(shape.size()));
     assert(r.size() == shape[next]);
 
     open_param res(*this);
