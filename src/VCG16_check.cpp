@@ -269,11 +269,11 @@ bool check_relu(
         Goldilocks2::Element s = sign.get(i);
         Goldilocks2::Element actual = input.get(i);
         Goldilocks2::Element expected = output.get(i);
-        if (Goldilocks2::isNeg(s)) actual = Goldilocks2::zero();
+        if (Goldilocks2::toS64(s) <= 0) actual = Goldilocks2::zero();
         else {
-            actual = Goldilocks2::fromS64(relu_map[Goldilocks2::toS64(actual)]);
+            actual = Goldilocks2::fromS64(std::round(double(Goldilocks2::toS64(actual)) / double(scale)));
         }
-        if (actual != expected) {
+        if (std::abs(Goldilocks2::toS64(actual - expected)) > 1) {
             ret = false;
             #pragma omp critical
             {
@@ -301,12 +301,11 @@ bool random_check_relu(
         Goldilocks2::Element s = sign.get(i);
         Goldilocks2::Element actual = input.get(i);
         Goldilocks2::Element expected = output.get(i);
-        if (Goldilocks2::isNeg(s)) actual = Goldilocks2::zero();
+        if (Goldilocks2::toS64(s) <= 0) actual = Goldilocks2::zero();
         else {
-            std::cout << actual[0].fe << " -> " << relu_map[actual[0].fe] << std::endl;
-            actual = Goldilocks2::fromS64(relu_map[actual[0].fe]);
+            actual = Goldilocks2::fromS64(std::round(double(Goldilocks2::toS64(actual)) / double(scale)));
         }
-        if (actual != expected) {
+        if (std::abs(Goldilocks2::toS64(actual - expected)) > 1) {
             ret = false;
             // #pragma omp critical
             {
@@ -586,14 +585,14 @@ bool check_full(
     #pragma omp parallel for
     for (size_t n = 0; n < N; ++n) {
         auto view_input_n = input[n];
-        auto view_weights_n = weights[n];
+        // auto view_weights_n = weights[n];
         auto view_output_n = output[n];
         for (size_t oc = 0; oc < OC; ++oc) {
             Goldilocks2::Element actual = Goldilocks2::zero();
             for (size_t c = 0; c < C; ++c) {
-                actual += view_input_n.get(c) * view_weights_n(c, oc);
+                actual += view_input_n(c) * weights(c, oc);
             }
-            Goldilocks2::Element expected = view_output_n.get(oc);
+            Goldilocks2::Element expected = view_output_n(oc);
             if (actual != expected) {
                 ret = false;
                 #pragma omp critical

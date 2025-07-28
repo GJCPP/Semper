@@ -341,8 +341,9 @@ bool prove_relu_layer(const VCG16::layer_info& layer,
     size_t rho_inv, size_t sec_param) {
 
     const int batch = int(layer.input.shape(0));
-    // Prove forward
+
     for (int i = 0; i != batch; ++i) {
+        // Prove forward
         auto pcs_X = *layer.get_pcs_input(i);
         auto pcs_Y = *layer.get_pcs_output(i);
         auto X = layer.input[i];
@@ -356,104 +357,70 @@ bool prove_relu_layer(const VCG16::layer_info& layer,
         X.copy_to(X_copy.data());
         Y.copy_to(Y_copy.data());
 
-        // 1. Prove sign
-        auto X_sign = get_sign(X_copy, true);
-        auto pcs_X_sign = ligero_commit_base(X_sign, rho_inv);
-
-        signProver sign_prover(X_copy, X_sign, scale, sqr_val, true, rho_inv);
-        if (!signVerifier::execute_sign_check(sign_prover, pcs_X, pcs_X_sign, sec_param)) {
-            std::cout << "❌ Proving relu forward failed." << std::endl;
-            return false;
-        }
-
-        // 2. Prove filtered_X = X * sign
-        std::vector<Goldilocks2::Element> filtered_X(n);
-        for (size_t j = 0; j < n; ++j) {
-            if (Goldilocks2::toS64(X_copy[j]) > 0) {
-                filtered_X[j] = X_copy[j];
+        // 1. Prove scale_X
+        std::vector<Goldilocks2::Element> X_quo(n);
+        for (size_t i = 0; i < n; ++i) {
+            if (Goldilocks2::toS64(X_copy[i]) > 0) {
+                X_quo[i] = Y_copy[i]; // ceil division
             } else {
-                filtered_X[j] = Goldilocks2::zero();
+                X_quo[i] = Goldilocks2::fromS64(Goldilocks2::toS64(X_copy[i]) / int64_t(scale));
             }
         }
-        auto pcs_filtered_X = ligero_commit_base(filtered_X, rho_inv);
-        auto challenge = random_vec_ext(logn);
-        auto claim_filtered_X_cha = pcs_filtered_X.open(challenge, sec_param);
-
-        MLE_Eq mle_challenge(challenge);
-        p3Prover p3_prover(X_copy, X_sign, mle_challenge);
-        if (!p3Verifier::execute_sumcheck(p3_prover, claim_filtered_X_cha, {&pcs_X, &pcs_X_sign, &mle_challenge}, sec_param)) {
-            std::cout << "❌ Proving relu filtered_X failed." << std::endl;
+        auto X_rem = get_rem(X_copy, scale, X_quo, true);
+        auto pcs_X_quo = ligero_commit_base(X_quo, rho_inv);
+        auto pcs_X_rem = ligero_commit_base(X_rem, rho_inv);
+        divProver div_prover_X(X_copy, X_quo, X_rem, scale, true, rho_inv);
+        if (!divVerifier::execute_div_check(div_prover_X, pcs_X, pcs_X_quo, pcs_X_rem, sec_param)) {
+            std::cout << "❌ Proving relu forward scale_X failed." << std::endl;
             return false;
         }
-        // 3. Prove Y = filtered_X / scale + rem_Y
-        auto rem_Y = get_rem(filtered_X, scale, Y_copy, true);
-        auto pcs_rem_Y = ligero_commit_base(rem_Y, rho_inv);
-        divProver div_prover(filtered_X, Y_copy, rem_Y, scale, true, rho_inv);
-        if (!divVerifier::execute_div_check(
-            div_prover,
-            pcs_filtered_X, pcs_Y, pcs_rem_Y,
-            sec_param)) {
-            std::cout << "❌ Proving relu Y failed." << std::endl;
+        // 2. Prove sign of scaled X
+        auto X_scale_sign = get_sign(X_quo, true);
+        auto pcs_X_scale_sign = ligero_commit_base(X_scale_sign, rho_inv);
+        signProver sign_prover_X(X_quo, X_scale_sign, scale, max_val, true, rho_inv);
+        if (!signVerifier::execute_sign_check(sign_prover_X, pcs_X_quo, pcs_X_scale_sign, sec_param)) {
+            std::cout << "❌ Proving relu forward X_scale_sign failed." << std::endl;
             return false;
         }
-
-    }
-    
-    // Prove backward
-    for (int i = 0; i != batch; ++i) {
-        auto pcs_Y = *layer.get_pcs_output(i);
+        // 3. Prove Y = X_scale_sign * X_quo
+        auto Y_challenge = random_vec_ext(logn); // draw new challenges
+        auto mle_challenge = MLE_Eq(Y_challenge);
+        auto claim_Y_cha = pcs_Y.open(Y_challenge, sec_param);
+        p3Prover p3_prover_Y(X_scale_sign, X_quo, mle_challenge);
+        if (!p3Verifier::execute_sumcheck(p3_prover_Y, claim_Y_cha, {&pcs_X_scale_sign, &pcs_X_quo, &mle_challenge}, sec_param)) {
+            std::cout << "❌ Proving relu forward Y failed." << std::endl;
+            return false;
+        }
+        
+        // Prove backward
         auto pcs_dX = *layer.get_pcs_d_input(i);
         auto pcs_dY = *layer.get_pcs_d_output(i);
-        auto Y = layer.output[i];
         auto dX = layer.d_input[i];
         auto dY = layer.d_output[i];
-
-        size_t n = dX.size();
-        int logn = find_ceiling_log2(n);
-
-        std::vector<Goldilocks2::Element> Y_copy(n), dX_copy(n), dY_copy(n);
-        Y.copy_to(Y_copy.data());
+        std::vector<Goldilocks2::Element> dX_copy(n), dY_copy(n);
         dX.copy_to(dX_copy.data());
         dY.copy_to(dY_copy.data());
-
-        // 1. Prove sign_Y
-        auto Y_sign = get_sign(Y_copy, true);
-        auto pcs_Y_sign = ligero_commit_base(Y_sign, rho_inv);
-        signProver sign_prover(Y_copy, Y_sign, scale, max_val, true, rho_inv);
-        if (!signVerifier::execute_sign_check(sign_prover, pcs_Y, pcs_Y_sign, sec_param)) {
-            std::cout << "❌ Proving relu backward sign_Y failed." << std::endl;
-            return false;
-        }
-
-        // 2. Prove filtered_dY = dY * sign_Y
-        std::vector<Goldilocks2::Element> filtered_dY(n);
+        // 1. Prove scaled dY_filtered = dY * X_scale_sign
+        std::vector<Goldilocks2::Element> dY_filtered(n);
         for (size_t j = 0; j < n; ++j) {
-            if (Goldilocks2::toS64(Y_copy[j]) > 0) {
-                filtered_dY[j] = dY_copy[j];
-            } else {
-                filtered_dY[j] = Goldilocks2::zero();
+            if (X_scale_sign[j] == Goldilocks2::one()) {
+                dY_filtered[j] = dY_copy[j];
             }
         }
-        auto pcs_filtered_dY = ligero_commit_base(filtered_dY, rho_inv);
-
-        auto challenge = random_vec_ext(logn); // draw new challenges
-        auto mle_challenge = MLE_Eq(challenge);
-        auto claim_filtered_dY_cha = pcs_filtered_dY.open(challenge, sec_param);
-
-        p3Prover p3_prover_dY(dY_copy, Y_sign, mle_challenge);
-        if (!p3Verifier::execute_sumcheck(p3_prover_dY, claim_filtered_dY_cha, {&pcs_dY, &pcs_Y_sign, &mle_challenge}, sec_param)) {
-            std::cout << "❌ Proving relu backward filtered_dY failed." << std::endl;
+        auto pcs_dY_filtered = ligero_commit_base(dY_filtered, rho_inv);
+        auto dY_challenge = random_vec_ext(logn); // draw new challenges
+        auto mle_challenge_dY_filtered = MLE_Eq(dY_challenge);
+        p3Prover p3_prover_dY_filtered(X_scale_sign, dY_copy, mle_challenge_dY_filtered);
+        auto claim_dY_filtered = pcs_dY_filtered.open(dY_challenge, sec_param);
+        if (!p3Verifier::execute_sumcheck(p3_prover_dY_filtered, claim_dY_filtered, {&pcs_X_scale_sign, &pcs_dY, &mle_challenge_dY_filtered}, sec_param)) {
+            std::cout << "❌ Proving relu backward dY_filtered failed." << std::endl;
             return false;
         }
-
-        // 3. Prove dX = filtered_dY * scale + rem_dX
-        auto rem_dX = get_rem(filtered_dY, scale, dX_copy, true);
-        auto pcs_rem_dX = ligero_commit_base(rem_dX, rho_inv);
-        divProver div_prover_dX(filtered_dY, dX_copy, rem_dX, scale, true, rho_inv);
-        if (!divVerifier::execute_div_check(
-            div_prover_dX,
-            pcs_filtered_dY, pcs_dX, pcs_rem_dX,
-            sec_param)) {
+        // 2. Prove dX = dY_filtered / scale
+        auto dX_rem = get_rem(dY_filtered, scale, dX_copy, true);
+        auto pcs_dX_rem = ligero_commit_base(dX_rem, rho_inv);
+        divProver div_prover_dX(dY_filtered, dX_copy, dX_rem, scale, true, rho_inv);
+        if (!divVerifier::execute_div_check(div_prover_dX, pcs_dY_filtered, pcs_dX, pcs_dX_rem, sec_param)) {
             std::cout << "❌ Proving relu backward dX failed." << std::endl;
             return false;
         }

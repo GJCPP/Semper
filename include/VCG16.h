@@ -83,4 +83,4 @@ protected:
 
 
 
-static std::unordered_map<size_t, size_t> relu_map;
+// static std::unordered_map<size_t, size_t> relu_map;

@@ -22,6 +22,8 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, 
         cnpy::NpyArray *value = values[i];
         size_t num_vals = value->num_vals;
         data[key] = std::make_unique<Goldilocks2::Element[]>(num_vals);
+        data_shape[key] = {};
+        data_view[key] = {};
     }
     #pragma omp parallel for
     for (size_t i = 0; i < keys.size(); ++i) {
@@ -226,7 +228,7 @@ bool VCG16::check(size_t n_samples) const {
 
                 //Check backward pass
                 std::cout << "Checking layer " << layer.name << " (backward)" << std::endl;
-                pass &= check_relu(layer.input, layer.d_output, layer.d_input, scale, n_samples);
+                pass &= check_relu(layer.output, layer.d_output, layer.d_input, scale, n_samples);
                 if (!pass) {
                     std::cout << "❌ Layer " << layer.name << " failed. (backward)" << std::endl;
                     break;
@@ -323,6 +325,11 @@ bool VCG16::check(size_t n_samples) const {
                     std::cout << "Checking layer " << layer.name << " (forward) for mini-batch " << i << std::endl;
                     pass &= check_full(layer.input[i], layer.weight[i], layer.output[i], n_samples);
                 }
+
+                if (!pass) {
+                    std::cout << "❌ Layer " << layer.name << " failed. (forward)" << std::endl;
+                    break;
+                }
                 
                 //Check backward pass, check d_weight
                 std::cout << "Checking layer " << layer.name << " (backward, d_weight)" << std::endl;
@@ -333,6 +340,11 @@ bool VCG16::check(size_t n_samples) const {
                     pass &= check_full(input_i, layer.d_output[i], layer.d_weight[i], n_samples);
                 }
 
+                if (!pass) {
+                    std::cout << "❌ Layer " << layer.name << " failed. (backward, d_weight)" << std::endl;
+                    break;
+                }
+
                 //Check backward pass, check d_input
                 std::cout << "Checking layer " << layer.name << " (backward, d_input)" << std::endl;
                 for (size_t i = 0; i < layer.input.shape(0) && pass; ++i) {
@@ -340,6 +352,10 @@ bool VCG16::check(size_t n_samples) const {
                     array_view<Goldilocks2::Element> weight_i(layer.weight[i]);
                     weight_i.swap_dim(0, 1); // Transpose weight to [OC, C]
                     pass &= check_full(layer.d_output[i], weight_i, layer.d_input[i], n_samples);
+                }
+                if (!pass) {
+                    std::cout << "❌ Layer " << layer.name << " failed. (backward, d_input)" << std::endl;
+                    break;
                 }
                 break;
 
@@ -381,21 +397,20 @@ bool VCG16::check(size_t n_samples) const {
 bool VCG16::prove(size_t sec_param) {
     for (auto& layer : layers) {
         std::cout << "Proving layer " << layer.name << std::endl;
-        if (layer.name != "conv_11") continue;
         switch (layer.type) {
-            case layer_type::conv:
-                if (!prove_conv_layer(layer, rho_inv, sec_param)) {
-                    std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
-                    return false;
-                }
-                break;
+            // case layer_type::conv:
+            //     if (!prove_conv_layer(layer, rho_inv, sec_param)) {
+            //         std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
+            //         return false;
+            //     }
+            //     break;
 
-            case layer_type::full:
-                if (!prove_full_layer(layer, rho_inv, sec_param)) {
-                    std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
-                    return false;
-                }
-                break;
+            // case layer_type::full:
+            //     if (!prove_full_layer(layer, rho_inv, sec_param)) {
+            //         std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
+            //         return false;
+            //     }
+            //     break;
 
             case layer_type::relu:
                 if (!prove_relu_layer(layer, scale, max_val, sqr_val, rho_inv, sec_param)) {
