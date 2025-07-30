@@ -240,6 +240,18 @@ MultilinearPolynomial MultilinearPolynomial::sum_over_lowbits(size_t len) const 
     return MultilinearPolynomial(evs);
 }
 
+MultilinearPolynomial MultilinearPolynomial::prod_over_lowbits(size_t len) const {
+    std::vector<Goldilocks2::Element> evs(1ull << (num_vars - len));
+    #pragma omp parallel for
+    for (size_t i = 0; i < (1ull << (num_vars - len)); ++i) {
+        evs[i] = Goldilocks2::one();
+        for (size_t j = 0; j < (1ull << len); ++j) {
+            evs[i] = evs[i] * evaluations[(i << len) | j];
+        }
+    }
+    return MultilinearPolynomial(evs);
+}
+
 MultilinearPolynomial MultilinearPolynomial::sum_over_lowbits_with_power(size_t len, Goldilocks2::Element beta) const {
     std::vector<Goldilocks2::Element> evs(1ull << (num_vars - len));
     #pragma omp parallel for

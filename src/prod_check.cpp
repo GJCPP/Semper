@@ -1,0 +1,55 @@
+#include "prod_check.h"
+#include "product3_sumcheck.h"
+
+prodProver::prodProver(const MultilinearPolynomial& raw, const MultilinearPolynomial& pro, int suffix_len, size_t rho_inv)
+    : raw(raw), pro(pro), num_vars(raw.get_num_vars()), suffix_len(suffix_len), rho_inv(rho_inv) {
+    if (raw.get_num_vars() != pro.get_num_vars() + suffix_len) {
+        throw std::invalid_argument("prodProver: raw and pro must have compatible variable counts.");
+    }
+}
+
+p3Prover prodProver::prove_next(const MLE_Eq& cha, ligeropcs_base& pcs_new_raw) {
+    if (cha.get_num_vars() != raw.get_num_vars() - 1) {
+        throw std::runtime_error("prodProver::prove_next: Challenge size does not match raw polynomial variable count.");
+    }
+    MultilinearPolynomial new_raw = raw.prod_over_lowbits(1);
+    MultilinearPolynomial raw_0 = raw, raw_1 = raw;
+    raw_0.fix(num_vars - 1, Goldilocks2::zero());
+    raw_1.fix(num_vars - 1, Goldilocks2::one());
+    pcs_new_raw = ligero_commit_base(new_raw, rho_inv);
+    
+    raw = new_raw;
+    --num_vars;
+    --suffix_len;
+
+    return p3Prover(cha, raw_0, raw_1);
+}
+
+bool prodVerifier::execute_prod_check(prodProver& prover, open_param raw, open_param pro, size_t sec_param) {
+    
+    ligeropcs_base pcs_raw, pcs_new_raw;
+    bool first = true;
+    while (prover.suffix_len) {
+        std::vector<Goldilocks2::Element> cha = random_vec_ext(prover.num_vars - 1);
+        MLE_Eq eq_cha(cha);
+        p3Prover pr = prover.prove_next(eq_cha, pcs_new_raw);
+        auto claim = p3Verifier::partial_sumcheck(pr, pcs_new_raw.open(cha, sec_param), sec_param);
+        if (!claim) return false;
+        auto cha_0 = combine_challenges(claim->challenges, {Goldilocks2::zero()});
+        auto cha_1 = combine_challenges(claim->challenges, {Goldilocks2::one()});
+        if (first) {
+            if (claim->claim != eq_cha.open(claim->challenges, sec_param) *
+                raw.parse_all(cha_0).open(sec_param) *
+                raw.parse_all(cha_1).open(sec_param)) return false;
+            first = false;
+        } else {
+            if (claim->claim != eq_cha.open(claim->challenges, sec_param) *
+                pcs_raw.open(cha_0, sec_param) *
+                pcs_raw.open(cha_1, sec_param)) return false;
+        }
+        pcs_raw = pcs_new_raw;
+    }
+    auto cha = random_vec_ext(prover.num_vars);
+    return pcs_raw.open(cha, sec_param) == pro.parse_all(cha).open(sec_param);
+}
+

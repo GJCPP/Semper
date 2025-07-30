@@ -31,3 +31,14 @@ Goldilocks2::Element MLE_Eq::evaluate(const std::vector<Goldilocks2::Element>& p
     }
     return result;
 }
+
+Goldilocks2::Element MLE_Eq::open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const {
+    if (z.size() != size_t(num_vars)) {
+        throw std::runtime_error("MLE_Eq::open: z size does not match number of variables.");
+    }
+    Goldilocks2::Element result = Goldilocks2::one();
+    for (int i = 0; i < num_vars; ++i) {
+        result = result * (r[i] * z[i] + one_minus_r[i] * (Goldilocks2::one() - z[i]));
+    }
+    return result;
+}

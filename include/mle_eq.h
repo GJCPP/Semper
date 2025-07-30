@@ -17,6 +17,8 @@ public:
     }
 
     Goldilocks2::Element evaluate(const std::vector<Goldilocks2::Element>& point) const override;
+
+    Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const override;
 private:
     std::vector<Goldilocks2::Element> r, one_minus_r;
 };

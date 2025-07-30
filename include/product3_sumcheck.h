@@ -6,6 +6,8 @@
 #include "ligero.h"
 #include <array>
 #include <vector>
+#include <optional>
+
 /*
 prover for sumcheck of product of three multilinear polynomials in O(3 * 2^l) time
 */
@@ -36,6 +38,9 @@ public:
     static bool execute_sumcheck(p3Prover& pr, const std::array<const oracle*, 3>& oracle, const size_t& sec_param);
     static bool execute_sumcheck(p3Prover& pr, Goldilocks2::Element claim, const std::array<const oracle*, 3>& oracle, const size_t& sec_param);
 
+    static std::optional<challenge_claim> partial_sumcheck(p3Prover& pr, const size_t& sec_param);
+    static std::optional<challenge_claim> partial_sumcheck(p3Prover& pr, Goldilocks2::Element claim, const size_t& sec_param);
+    
     // customized sumcheck for \Sigma eq * frac * (gamma - p1 - lambda * p2)
     static bool execute_logup_sumcheck(
         p3Prover& pr,

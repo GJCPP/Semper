@@ -57,6 +57,8 @@ public:
     // Sum over the last len bits
     virtual MultilinearPolynomial sum_over_lowbits(size_t len) const;
 
+    virtual MultilinearPolynomial prod_over_lowbits(size_t len) const;
+
     // Power over the last len bits
     virtual MultilinearPolynomial sum_over_lowbits_with_power(size_t len, Goldilocks2::Element beta) const;
 
