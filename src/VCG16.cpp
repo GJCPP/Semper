@@ -257,8 +257,6 @@ bool VCG16::check(size_t n_samples) const {
                     std::cout << "❌ Layer " << layer.name << " failed. (forward)" << std::endl;
                     break;
                 }
-
-                //Check backward pass
                 
                 //Check backward pass
                 std::cout << "Checking layer " << layer.name << " (backward)" << std::endl;
@@ -412,11 +410,18 @@ bool VCG16::prove(size_t sec_param) {
             //     }
             //     break;
 
-            case layer_type::relu:
-                if (!prove_relu_layer(layer, scale, max_val, sqr_val, rho_inv, sec_param)) {
+            // case layer_type::relu:
+            //     if (!prove_relu_layer(layer, scale, max_val, sqr_val, rho_inv, sec_param)) {
+            //         std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
+            //         return false;
+            //     }
+
+            case layer_type::pool:
+                if (!prove_pool_layer(layer, rho_inv, sec_param)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
                     return false;
                 }
+                break;
 
             default:
                 break;

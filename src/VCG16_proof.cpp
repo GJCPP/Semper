@@ -427,3 +427,65 @@ bool prove_relu_layer(const VCG16::layer_info& layer,
     }
     return true;
 }
+
+bool prove_pool_layer(const VCG16::layer_info& layer, size_t rho_inv, size_t sec_param) {
+    const int batch = int(layer.input.shape(0));
+    const int img = int(layer.input.shape(1));
+    // stride = kernel size = 2
+    // layer.input : [batch, img, C, N, N]
+    // layer.output: [batch, img, C, N/2, N/2]
+    int logimg = find_ceiling_log2(img);
+    int logC = find_ceiling_log2(layer.input.shape(2));
+    int logN = find_ceiling_log2(layer.input.shape(3));
+    // Prove forward
+    for (int i = 0; i < batch; ++i) {
+        auto pcs_input = layer.get_pcs_input(i);
+        auto pcs_output = layer.get_pcs_output(i);
+
+        auto input = layer.input[i]; // [img, C, N, N]
+        auto output = layer.output[i]; // [img, C, N/2, N/2]
+
+        // Step 1. Commit expand(output) - input
+        array<Goldilocks2::Element> diff(input.get_shape());
+        for (int j = 0; j < img; ++j) {
+            for (int c = 0; c < input.shape(1); ++c) {
+                for (int n = 0; n < input.shape(2); ++n) {
+                    for (int m = 0; m < input.shape(3); ++m) {
+                        diff(j, c, n, m) = output(j, c, n / 2, m / 2) - input(j, c, n, m);
+                    }
+                }
+            }
+        }
+        auto pcs_diff = ligero_commit_base(diff.view, rho_inv);
+        // Step 2. Prove diff = expand(output) - input
+        std::vector<Goldilocks2::Element> output_cha = random_vec_ext(logimg + logC + 2 * logN - 2);
+        std::vector<Goldilocks2::Element> extra_cha = random_vec_ext(2);
+        std::vector<Goldilocks2::Element> expand_cha; // [logimg | logC | logN - 1 | 1 | logN - 1 | 1]
+        expand_cha.reserve(logimg + logC + 2 * logN);
+        int next_output_cha = 0, next_extra_cha = 0;
+        for (int j = 0; j < logimg + logC + 2 * logN; ++j) {
+            if (j != logimg + logC + logN - 1 && j != logimg + logC + 2 * logN - 1) {
+                expand_cha.push_back(output_cha[next_output_cha++]);
+            } else {
+                expand_cha.push_back(extra_cha[next_extra_cha++]);
+            }
+        }
+        if (logN == 1) {
+            std::vector<Goldilocks2::Element> new_output_cha = expand_cha;
+            new_output_cha[logimg + logC] = Goldilocks2::zero();
+            new_output_cha[logimg + logC + 1] = Goldilocks2::zero();
+            output_cha = new_output_cha;
+        }
+        MLE_Eq eq_extra(extra_cha);
+        Goldilocks2::Element factor = Goldilocks2::zero();
+        for (int i = 0; i != 2; ++i)
+            for (int j = 0; j != 2; ++j)
+                factor += eq_extra.open({i ? Goldilocks2::one() : Goldilocks2::zero(), j ? Goldilocks2::one() : Goldilocks2::zero()}, sec_param);
+        if (factor * pcs_output->open(output_cha, sec_param) - pcs_input->open(expand_cha, sec_param)
+                != pcs_diff.open(expand_cha, sec_param)) {
+            std::cout << "❌ Proving pool forward failed." << std::endl;
+            return false;
+        }
+    }
+    return true;
+}

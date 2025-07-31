@@ -317,8 +317,8 @@ bool random_check_relu(
 }
 
 bool check_pool(
-    const array_view<Goldilocks2::Element>& input,
-    const array_view<Goldilocks2::Element>& output,
+    const array_view<Goldilocks2::Element>& input, // [N, C, H, W]
+    const array_view<Goldilocks2::Element>& output, // [N, C, H/2, W/2]
     const array_view<Goldilocks2::Element>& idx,
     size_t kernel_size,
     size_t stride,
