@@ -57,4 +57,5 @@ private:
     static inline void interpolate_3(Goldilocks2::Element& fr, const Goldilocks2::Element& r, const Goldilocks2::Element& f1, const Goldilocks2::Element& f2, const Goldilocks2::Element& f3, const Goldilocks2::Element& f4);
 };
 
+bool prove_mle_product(const MultilinearPolynomial& prod, const MultilinearPolynomial& p1, const MultilinearPolynomial& p2, ligeropcs_base pcs_prod, ligeropcs_base pcs_p1, ligeropcs_base pcs_p2, size_t sec_param);
 

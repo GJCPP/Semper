@@ -25,6 +25,31 @@ open_param::open_param(const array_view<Goldilocks2::Element>& mle, const oracle
     }
 }
 
+open_param::open_param(const std::vector<int>& log_shape, const oracle* pcs)
+    : next(0), pcs(pcs), shape(log_shape) {
+    int n = int(shape.size());
+    ord.resize(n);
+    rev.resize(n);
+    for (int i = 0; i < n; ++i) {
+        ord[i] = i;
+        rev[i] = false;
+    }
+    int sz = 0;
+    std::vector<int> start(n + 1);
+    for (size_t i = 0; i < n; ++i) {
+        sz += shape[i];
+        start[ord[i] + 1] = shape[i];
+    }
+    for (int i = 1; i < n; ++i) {
+        start[i] += start[i - 1];
+    }
+    cha.resize(sz);
+    ele.resize(n);
+    for (size_t i = 0; i < n; ++i) {
+        ele[i] = start[ord[i]];
+    }
+}
+
 open_param::open_param(const open_param& other)
     : pcs(other.pcs), cha(other.cha), ele(other.ele), shape(other.shape), ord(other.ord), rev(other.rev), next(other.next)
 {

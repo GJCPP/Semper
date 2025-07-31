@@ -395,6 +395,7 @@ bool VCG16::check(size_t n_samples) const {
 bool VCG16::prove(size_t sec_param) {
     for (auto& layer : layers) {
         std::cout << "Proving layer " << layer.name << std::endl;
+        auto start = std::chrono::high_resolution_clock::now();
         switch (layer.type) {
             // case layer_type::conv:
             //     if (!prove_conv_layer(layer, rho_inv, sec_param)) {
@@ -417,7 +418,7 @@ bool VCG16::prove(size_t sec_param) {
             //     }
 
             case layer_type::pool:
-                if (!prove_pool_layer(layer, rho_inv, sec_param)) {
+                if (!prove_pool_layer(layer, scale, max_val, rho_inv, sec_param)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
                     return false;
                 }
@@ -426,6 +427,10 @@ bool VCG16::prove(size_t sec_param) {
             default:
                 break;
         }
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = end - start;
+        std::cout << "✅ Layer " << layer.name << " proved in " << elapsed.count() << " seconds." << std::endl;
+
     }
     return false;
 }

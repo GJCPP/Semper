@@ -1,6 +1,7 @@
 #include "product3_sumcheck.h"
 #include "goldilocks_quadratic_ext.h"
 #include "mle.h"
+#include "mle_open.h"
 #include <array>
 #include <vector>
 #include <random>
@@ -237,4 +238,29 @@ Goldilocks2::Element p3Verifier::challenge() {
 
     // uint64_t randn[] = { dist(gen), dist(gen) };
     return random_ext();
+}
+
+bool prove_mle_product(
+    const MultilinearPolynomial& prod,
+    const MultilinearPolynomial& p1,
+    const MultilinearPolynomial& p2,
+    ligeropcs_base o_prod,
+    ligeropcs_base o_p1,
+    ligeropcs_base o_p2,
+    size_t sec_param) {
+
+    int num_vars = prod.get_num_vars();
+    if (num_vars != p1.get_num_vars() || num_vars != p2.get_num_vars()) {
+        throw std::invalid_argument("prove_product: prod, p1, and p2 must have the same number of variables.");
+    }
+    std::vector<Goldilocks2::Element> cha = random_vec_ext(num_vars);
+    MLE_Eq eq(cha);
+    p3Prover prover(eq, p1, p2);
+    auto claim = p3Verifier::partial_sumcheck(prover, o_prod.open(cha, sec_param), sec_param);
+    if (!claim || eq.open(claim->challenges, sec_param) * 
+        o_p1.open(claim->challenges, sec_param) *
+        o_p2.open(claim->challenges, sec_param) != claim->claim) {
+        return false;
+    }
+    return true;
 }
