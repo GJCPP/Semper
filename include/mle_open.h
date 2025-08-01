@@ -12,6 +12,7 @@ class open_param{
 public:
     open_param(const array_view<Goldilocks2::Element>& mle, const oracle *pcs);
     open_param(const std::vector<int>& log_shape, const oracle *pcs);
+    open_param(int num_vars, const oracle *pcs);
     open_param(const open_param& other);
 
     open_param fix(const std::vector<Goldilocks2::Element>& r) const;

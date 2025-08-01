@@ -165,10 +165,10 @@ Goldilocks2::Element MultilinearPolynomial::open(const std::vector<Goldilocks2::
 
 MultilinearPolynomial MultilinearPolynomial::operator+(const MultilinearPolynomial& g) const {
     assert(num_vars == g.get_num_vars());
-    std::vector<Goldilocks2::Element> evs(evaluations.size()), evalg = g.evaluations;
+    std::vector<Goldilocks2::Element> evs(evaluations.size());
     #pragma omp parallel for
     for (size_t i = 0;i < evaluations.size(); ++i) {
-        evs[i] = evaluations[i] + evalg[i];
+        evs[i] = evaluations[i] + g.evaluations[i];
     }
     return MultilinearPolynomial(evs);
 }
@@ -176,10 +176,31 @@ MultilinearPolynomial MultilinearPolynomial::operator+(const MultilinearPolynomi
 
 MultilinearPolynomial MultilinearPolynomial::operator-(const MultilinearPolynomial& g) const {
     assert(num_vars == g.get_num_vars());
-    std::vector<Goldilocks2::Element> evs(evaluations.size()), evalg = g.evaluations;
+    std::vector<Goldilocks2::Element> evs(evaluations.size());
     #pragma omp parallel for
     for (size_t i = 0;i < evaluations.size(); ++i) {
-        evs[i] = evaluations[i] - evalg[i];
+        evs[i] = evaluations[i] - g.evaluations[i];
+    }
+    return MultilinearPolynomial(evs);
+}
+
+MultilinearPolynomial MultilinearPolynomial::operator*(const MultilinearPolynomial& g) const {
+    if (num_vars != g.get_num_vars()) {
+        throw std::invalid_argument("MultilinearPolynomial::operation *: polynomials must have same number of variables");
+    }
+    std::vector<Goldilocks2::Element> evs(evaluations.size());
+    #pragma omp parallel for
+    for (size_t i = 0;i < evaluations.size(); ++i) {
+        evs[i] = evaluations[i] * g.evaluations[i];
+    }
+    return MultilinearPolynomial(evs);
+}
+
+MultilinearPolynomial MultilinearPolynomial::operator*(size_t scale) const {
+    std::vector<Goldilocks2::Element> evs(evaluations.size());
+    #pragma omp parallel for
+    for (size_t i = 0;i < evaluations.size(); ++i) {
+        evs[i] = evaluations[i] * Goldilocks2::fromU64(scale);
     }
     return MultilinearPolynomial(evs);
 }

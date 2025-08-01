@@ -134,13 +134,14 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, 
 
 void VCG16::init_e_pow() {
     e_pow_inv.resize(max_val);
+    e_pow_inv_from.resize(max_val);
     for (int64_t i = 0; i < max_val; ++i) {
-        e_pow_inv[i] = Goldilocks2::fromS64(std::round(std::exp(static_cast<double>(-i) / scale) * scale));
-        if (e_pow_inv[i] == Goldilocks2::zero()) {
-            // std::cout << "e_pow_inv[" << i << "] is 0, scale=" << scale << std::endl;
-            return;
-        }
+        e_pow_inv_from[i] = i;
+        e_pow_inv[i] = Goldilocks2::toU64(Goldilocks2::fromS64(std::round(std::exp(static_cast<double>(-i) / scale) * scale)))[0];
+        // TODO : To be optimized
     }
+    pcs_e_pow_inv_from = ligero_commit_base(e_pow_inv_from, rho_inv);
+    pcs_e_pow_inv = ligero_commit_base(e_pow_inv, rho_inv);
 }
 
 bool VCG16::check(size_t n_samples) const {
@@ -417,8 +418,16 @@ bool VCG16::prove(size_t sec_param) {
             //         return false;
             //     }
 
-            case layer_type::pool:
-                if (!prove_pool_layer(layer, scale, max_val, rho_inv, sec_param)) {
+            // case layer_type::pool:
+            //     if (!prove_pool_layer(layer, scale, max_val, rho_inv, sec_param)) {
+            //         std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
+            //         return false;
+            //     }
+            //     break;
+
+            case layer_type::softmax:
+                if (!prove_softmax(layer, scale, max_val, e_pow_inv_from, e_pow_inv,
+                                   pcs_e_pow_inv_from, pcs_e_pow_inv, rho_inv, sec_param)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
                     return false;
                 }
@@ -469,6 +478,7 @@ void VCG16::add_layer(layer_type type,
     if (mle.find(d_input) == mle.end()) init_mle(d_input);
     if (mle.find(d_output) == mle.end()) init_mle(d_output);
     if (mle.find(d_weight) == mle.end()) init_mle(d_weight);
+    if (mle.find(aux) == mle.end()) init_mle(aux);
 
     auto init_pcs = [&](const std::string& key) {
         auto& mle = this->mle[key];
@@ -490,6 +500,7 @@ void VCG16::add_layer(layer_type type,
     if (pcs.find(d_input) == pcs.end()) init_pcs(d_input);
     if (pcs.find(d_output) == pcs.end()) init_pcs(d_output);
     if (pcs.find(d_weight) == pcs.end()) init_pcs(d_weight);
+    if (pcs.find(aux) == pcs.end()) init_pcs(aux);
 
 
     info.mle_input = mle[input];
@@ -498,6 +509,7 @@ void VCG16::add_layer(layer_type type,
     info.mle_d_input = mle[d_input];
     info.mle_d_output = mle[d_output];
     info.mle_d_weight = mle[d_weight];
+    info.mle_aux = mle[aux];
     
     info.pcs_input = pcs[input];
     info.pcs_output = pcs[output];
@@ -505,6 +517,7 @@ void VCG16::add_layer(layer_type type,
     info.pcs_d_input = pcs[d_input];
     info.pcs_d_output = pcs[d_output];
     info.pcs_d_weight = pcs[d_weight];
+    info.pcs_aux = pcs[aux];
 
     layers.push_back(info);
 }
@@ -553,6 +566,15 @@ std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_weight(int bat) con
     auto& pcs = pcs_d_weight[bat];
     if (pcs->empty()) {
         *pcs = ligero_commit_base(*mle_d_weight[bat], 2);
+    }
+    return pcs;
+}
+
+
+std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_aux(int bat) const {
+    auto& pcs = pcs_aux[bat];
+    if (pcs->empty()) {
+        *pcs = ligero_commit_base(*mle_aux[bat], 2);
     }
     return pcs;
 }

@@ -642,7 +642,7 @@ bool check_softmax(
     const array_view<Goldilocks2::Element>& input,
     const array_view<Goldilocks2::Element>& output, // output = d_input
     const array_view<Goldilocks2::Element>& label,
-    const std::vector<Goldilocks2::Element>& e_pow_inv,
+    const std::vector<size_t>& e_pow_inv,
     int64_t scale) {
 
     size_t N = input.shape(0);
@@ -669,7 +669,7 @@ bool check_softmax(
             }
         }
         for (size_t c = 0; c < C; ++c) {
-            exp_input[c] = e_pow_inv[Goldilocks2::toS64(max_input) - Goldilocks2::toS64(scale_input[c])];
+            exp_input[c] = Goldilocks2::fromU64(e_pow_inv[Goldilocks2::toS64(max_input) - Goldilocks2::toS64(scale_input[c])]);
         }
         Goldilocks2::Element sum = Goldilocks2::zero();
         for (size_t c = 0; c < C; ++c) {

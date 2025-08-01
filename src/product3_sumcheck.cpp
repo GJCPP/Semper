@@ -251,7 +251,7 @@ bool prove_mle_product(
 
     int num_vars = prod.get_num_vars();
     if (num_vars != p1.get_num_vars() || num_vars != p2.get_num_vars()) {
-        throw std::invalid_argument("prove_product: prod, p1, and p2 must have the same number of variables.");
+        throw std::invalid_argument("prove_mle_product: prod, p1, and p2 must have the same number of variables.");
     }
     std::vector<Goldilocks2::Element> cha = random_vec_ext(num_vars);
     MLE_Eq eq(cha);

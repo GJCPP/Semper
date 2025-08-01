@@ -27,11 +27,13 @@ public:
 
         std::vector<std::shared_ptr<MultilinearPolynomial>> mle_input, mle_output,
                                             mle_weight, mle_d_weight,
-                                            mle_d_input, mle_d_output;
+                                            mle_d_input, mle_d_output,
+                                            mle_aux;
                                             
         std::vector<std::shared_ptr<ligeropcs_base>> pcs_input, pcs_output,
                                         pcs_weight, pcs_d_weight,
-                                        pcs_d_input, pcs_d_output;
+                                        pcs_d_input, pcs_d_output,
+                                        pcs_aux;
 
 #ifdef DEBUG
         std::shared_ptr<ligeropcs_base> get_pcs_input(int bat) const;
@@ -40,6 +42,7 @@ public:
         std::shared_ptr<ligeropcs_base> get_pcs_d_weight(int bat) const;
         std::shared_ptr<ligeropcs_base> get_pcs_d_input(int bat) const;
         std::shared_ptr<ligeropcs_base> get_pcs_d_output(int bat) const;
+        std::shared_ptr<ligeropcs_base> get_pcs_aux(int bat) const;
 #endif
     };
     VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv);
@@ -78,7 +81,8 @@ protected:
 
     std::vector<layer_info> layers;
     
-    std::vector<Goldilocks2::Element> e_pow_inv;
+    std::vector<size_t> e_pow_inv_from, e_pow_inv;
+    ligeropcs_base pcs_e_pow_inv_from, pcs_e_pow_inv;
 };
 
 

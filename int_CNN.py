@@ -55,7 +55,9 @@ class ManualVGG16:
         self.input_q = (x*self.scale).to(torch.int64)
         x_q=self.input_q
         self.save_to_cache('a_q0', x_q)
-        self.save_to_cache('a_q0_label', y)
+        
+        one_hot_y = F.one_hot(y, num_classes=10)
+        self.save_to_cache('a_q0_label', one_hot_y)
 
         for block, layers in enumerate([(1, 2), (3, 4), (5, 6, 7), (8, 9, 10), (11, 12, 13)], start=1):
             #for lid in layers:

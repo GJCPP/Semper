@@ -517,9 +517,8 @@ bool prove_pool_layer(const VCG16::layer_info& layer,
         MultilinearPolynomial mle_input_zeros(input_zeros);
         auto pcs_input_zeros = ligero_commit_base(mle_input_zeros, rho_inv);
         // TODO 2. Check pcs_input_zeros = 0
-        divProver div_prover_sel(sel.data, input_zeros, sel.data, 2, false, rho_inv);
-        if (!divVerifier::execute_div_check(div_prover_sel, pcs_sel, pcs_input_zeros, pcs_sel, sec_param)) {
-            std::cout << "❌ I.2 Proving selector is boolean failed: div proof fails." << std::endl;
+        if (!prove_mle_product(mle_input_zeros, mle_sel, mle_rev_sel, pcs_input_zeros, pcs_sel, pcs_rev_sel, sec_param)) {
+            std::cout << "❌ I.2 Proving selector is boolean failed." << std::endl;
             return false;
         }
 
@@ -656,6 +655,302 @@ bool prove_pool_layer(const VCG16::layer_info& layer,
         }
         if (pcs_input_ones.open(input_cha, sec_param) != Goldilocks2::one()) {
             std::cout << "❌ IV.3 Proving pcs_input_ones is one failed." << std::endl;
+            return false;
+        }
+    }
+    return true;
+}
+
+bool prove_softmax(const VCG16::layer_info& layer,
+    size_t scale, size_t max_val,
+    const std::vector<size_t> exp_inv_from,
+    const std::vector<size_t> exp_inv,
+    ligeropcs_base pcs_exp_inv_from,
+    ligeropcs_base pcs_exp_inv,
+    size_t rho_inv, size_t sec_param) {
+    
+    const int batch = int(layer.input.shape(0));
+    const int img = int(layer.input.shape(1));
+    const int n = int(layer.input.shape(2));
+    const int logimg = find_ceiling_log2(img);
+    const int logn = find_ceiling_log2(n);
+
+    if (!is_power_of_2(img)) {
+        throw std::invalid_argument("prove_softmax: Image num must be a power of 2");
+    }
+    
+    for (int i = 0; i < batch; ++i) {
+        auto pcs_input = *layer.get_pcs_input(i);
+        auto pcs_d_input = *layer.get_pcs_d_input(i);
+        auto pcs_label = *layer.get_pcs_aux(i);
+
+        auto input = layer.input[i]; // [img, n]
+        auto d_input = layer.d_input[i]; // [img, n]
+        auto label = layer.aux[i];
+
+
+        auto mle_d_input = *layer.mle_d_input[i];
+        auto mle_label = *layer.mle_aux[i];
+
+        // 1. Scale input.
+        std::vector<Goldilocks2::Element> input_copy(img * (1ull << logn));
+        std::vector<size_t> new_shape = {size_t(img), 1ull << logn};
+        input.copy_to(input_copy.data(), new_shape);
+        auto [quo, rem] = get_quo_rem(input_copy, scale, true);
+        MultilinearPolynomial mle_quo(quo);
+        auto pcs_quo = ligero_commit_base(mle_quo, rho_inv);
+        auto pcs_rem = ligero_commit_base(rem, rho_inv);
+        divProver div_prover(input_copy, quo, rem, scale, true, rho_inv);
+        if (!divVerifier::execute_div_check(div_prover, pcs_input, pcs_quo, pcs_rem, sec_param)) {
+            std::cout << "❌ Proving softmax scale input failed." << std::endl;
+            return false;
+        }
+        // 2. Commit/Prove mask
+        array<Goldilocks2::Element> mask(new_shape);
+        for (int j = 0; j < img; ++j) {
+            for (int k = 0; k < n; ++k) {
+                mask(j, k) = Goldilocks2::one();
+            }
+        }
+        MultilinearPolynomial mle_mask(mask.view);
+        auto pcs_mask = ligero_commit_base(mle_mask, rho_inv);
+        std::vector<Goldilocks2::Element> mask_cha(logimg + logn);
+        std::vector<Goldilocks2::Element> first_cha(mask_cha.begin(), mask_cha.begin() + logimg);
+        std::vector<Goldilocks2::Element> second_cha(mask_cha.begin() + logimg, mask_cha.end());
+        Goldilocks2::Element factor = Goldilocks2::zero();
+        MLE_Eq mle_eq(first_cha);
+        factor = mle_eq.get_sum();
+        if (pcs_mask.open(mask_cha, sec_param) != factor * MLE_Pow(Goldilocks2::one(), logn, n - 1).evaluate(second_cha)) {
+            std::cout << "❌ Proving softmax mask failed." << std::endl;
+            return false;
+        }
+        // 3. Commit onehot selector
+        array_view<Goldilocks2::Element> view_quo(quo.data(), new_shape);
+        std::vector<Goldilocks2::Element> max(img);
+        array<Goldilocks2::Element> sel(new_shape), rev_sel(new_shape);
+        for (int j = 0; j < img; ++j) {
+            max[j] = view_quo(j, 0);
+            int ind = 0;
+            for (int k = 1; k < n; ++k) {
+                if (Goldilocks2::toS64(view_quo(j, k)) > Goldilocks2::toS64(max[j])) {
+                    max[j] = view_quo(j, k);
+                    ind = k;
+                }
+            }
+            sel(j, ind) = Goldilocks2::one();
+            for (int k = 0; k < (1 << logn); ++k) {
+                rev_sel(j, k) = Goldilocks2::one() - sel(j, k);
+            }
+        }
+        MultilinearPolynomial mle_max(max), mle_sel(sel), mle_rev_sel(rev_sel);
+        auto pcs_max = ligero_commit_base(mle_max, rho_inv);
+        auto pcs_sel = ligero_commit_base(mle_sel, rho_inv);
+        auto pcs_rev_sel = ligero_commit_base(mle_rev_sel, rho_inv);
+        // 3.1 Check sel is one-hot
+        auto sel_cha = random_vec_ext(logimg + logn);
+        MultilinearPolynomial mle_prod_sel = mle_sel * mle_rev_sel;
+        auto pcs_prod_sel = ligero_commit_base(mle_prod_sel, rho_inv);
+        if (pcs_sel.open(sel_cha, sec_param) != Goldilocks2::one() - pcs_rev_sel.open(sel_cha, sec_param)) {
+            std::cout << "❌ Proving softmax sel + rev_sel = 1 failed." << std::endl;
+            return false;
+        }
+        if (!prove_mle_product(mle_prod_sel, mle_sel, mle_rev_sel, pcs_prod_sel, pcs_sel, pcs_rev_sel, sec_param)) {
+            std::cout << "❌ Proving softmax sel * rev_sel = sel * rev_sel failed." << std::endl;
+            return false;
+        }
+        if (pcs_prod_sel.open(sel_cha, sec_param) != Goldilocks2::zero()) {
+            std::cout << "❌ Proving softmax sel boolean failed." << std::endl;
+            return false;
+        }
+        // 3.2 Prove max = shrink(sel * quo)
+        MultilinearPolynomial mle_sel_quo = mle_sel * mle_quo;
+        auto pcs_sel_quo = ligero_commit_base(mle_sel_quo, rho_inv);
+        if (!prove_mle_product(mle_sel_quo, mle_sel, mle_quo, pcs_sel_quo, pcs_sel, pcs_quo, sec_param)) {
+            std::cout << "❌ Proving softmax sel_quo = sel * quo failed." << std::endl;
+            return false;
+        }
+        auto max_cha = random_vec_ext(logimg);
+        auto mle_fix_sel_quo = mle_sel_quo;
+        mle_fix_sel_quo.fix(0, max_cha);
+        auto max_cha_val = pcs_max.open(max_cha, sec_param);
+        sProver spr(mle_fix_sel_quo);
+        if (!sVerifier::partial_sumcheck(spr, max_cha, max_cha_val, sec_param) ||
+            pcs_sel_quo.open(max_cha, sec_param) != max_cha_val) {
+            std::cout << "❌ Proving softmax max = shrink(sel * quo) failed." << std::endl;
+            return false;
+        }
+        // 4. Commit/Prove diff_masked = mask * (max - quo)
+        array<Goldilocks2::Element> diff(new_shape), diff_masked(new_shape);
+        for (int j = 0; j < img; ++j) {
+            for (int k = 0; k < (1 << logn); ++k) {
+                diff(j, k) = max[j] - view_quo(j, k);
+                diff_masked(j, k) = mask(j, k) * diff(j, k);
+            }
+        }
+        MultilinearPolynomial mle_diff(diff.view), mle_diff_masked(diff_masked.view);
+        auto pcs_diff = ligero_commit_base(mle_diff, rho_inv);
+        auto pcs_diff_masked = ligero_commit_base(mle_diff_masked, rho_inv);
+        auto diff_cha = random_vec_ext(logimg + logn);
+        std::vector<Goldilocks2::Element> diff_first_cha(diff_cha.begin(), diff_cha.begin() + logimg),
+                diff_second_cha(diff_cha.begin() + logimg, diff_cha.end());
+
+        if (pcs_diff.open(diff_cha, sec_param) != pcs_max.open(diff_first_cha, sec_param) * MLE_Eq(diff_second_cha).get_sum()
+                 - pcs_quo.open(diff_cha, sec_param)) {
+            std::cout << "❌ Proving softmax diff = max - quo failed." << std::endl;
+            return false;
+        }
+        if (!prove_mle_product(mle_diff_masked, mle_mask, mle_diff, pcs_diff_masked, pcs_mask, pcs_diff, sec_param)) {
+            std::cout << "❌ Proving softmax diff_masked = mask * diff failed." << std::endl;
+            return false;
+        }
+        // 5. Prove diff_masked >= 0
+        std::vector<Goldilocks2::Element> ones(diff_masked.data.size(), Goldilocks2::one());
+        auto pcs_ones = ligero_commit_base(ones, rho_inv);
+        // TODO: Check pcs_ones = 1
+        signProver sign_prover_diff_masked(diff_masked.data, ones, scale, 2 * max_val, false, rho_inv);
+        if (!signVerifier::execute_sign_check(sign_prover_diff_masked, pcs_diff_masked, pcs_ones, sec_param)) {
+            std::cout << "❌ Proving softmax diff_masked >= 0 failed: sign proof fails." << std::endl;
+            return false;
+        }
+        // 6. Prove diff_masked contains zero
+        std::vector<Goldilocks2::Element> zeros(img, Goldilocks2::zero());
+        MultilinearPolynomial mle_zeros(zeros);
+        auto pcs_zeros = ligero_commit_base(mle_zeros, rho_inv);
+        // TODO: Check pcs_zeros = 0
+        prodProver prod_prover(mle_diff_masked, mle_zeros, logn, rho_inv);
+        if (!prodVerifier::execute_prod_check(prod_prover, {logimg + logn, &pcs_diff_masked}, {logimg, &pcs_zeros}, sec_param)) {
+            std::cout << "❌ Proving softmax diff_masked contains zero failed." << std::endl;
+            return false;
+        }
+        // 7. Prove exp_diff = exp(diff_masked)
+        std::vector<size_t> exp_diff(img * (1 << logn)), diff_masked_vec(img * (1 << logn));
+        for (size_t j = 0; j != exp_diff.size(); ++j) {
+            diff_masked_vec[j] = diff_masked.data[j][0].fe;
+            exp_diff[j] = exp_inv[diff_masked_vec[j]];
+        }
+        MultilinearPolynomial mle_exp_diff(exp_diff);
+        auto pcs_exp_diff = ligero_commit_base(mle_exp_diff, rho_inv);
+        LogupProver logup_prover(diff_masked_vec, exp_diff, exp_inv_from, exp_inv);
+        if (!LogupVerifier::execute_logup(logup_prover, pcs_diff_masked, pcs_exp_diff, pcs_exp_inv_from, pcs_exp_inv, rho_inv, sec_param)) {
+            std::cout << "❌ Proving softmax exp(diff_masked) failed." << std::endl;
+            return false;
+        }
+        // 8. Prove exp_diff_masked = mask * exp_diff
+        array<Goldilocks2::Element> exp_diff_masked(new_shape);
+        for (int j = 0; j < img; ++j) {
+            for (int k = 0; k < (1 << logn); ++k) {
+                exp_diff_masked(j, k) = mask(j, k) * Goldilocks2::fromU64(exp_diff[j * (1 << logn) + k]);
+            }
+        }
+        MultilinearPolynomial mle_exp_diff_masked(exp_diff_masked.view);
+        auto pcs_exp_diff_masked = ligero_commit_base(mle_exp_diff_masked, rho_inv);
+        if (!prove_mle_product(mle_exp_diff_masked, mle_mask, mle_exp_diff,
+            pcs_exp_diff_masked, pcs_mask, pcs_exp_diff, sec_param)) {
+            std::cout << "❌ Proving softmax exp_diff_masked = mask * exp_diff failed." << std::endl;
+            return false;
+        }
+        // 8. Commit/Prove sum
+        std::vector<Goldilocks2::Element> sum(img);
+        for (size_t j = 0; j != img; ++j) {
+            for (size_t k = 0; k != (1 << logn); ++k) {
+                sum[j] += exp_diff_masked(j, k);
+            }
+        }
+        MultilinearPolynomial mle_sum(sum);
+        auto pcs_sum = ligero_commit_base(mle_sum, rho_inv);
+        std::vector<Goldilocks2::Element> sum_cha = random_vec_ext(logimg);
+        auto mle_exp_diff_masked_fixed = mle_exp_diff_masked;
+        mle_exp_diff_masked_fixed.fix(0, sum_cha);
+        sProver sum_prover(mle_exp_diff_masked_fixed);
+        Goldilocks2::Element sum_cha_val = pcs_sum.open(sum_cha, sec_param);
+        if (!sVerifier::partial_sumcheck(sum_prover, sum_cha, sum_cha_val, sec_param)
+            || pcs_exp_diff_masked.open(sum_cha, sec_param) != sum_cha_val) {
+            std::cout << "❌ Proving softmax sum failed." << std::endl;
+            return false;
+        }
+        array<Goldilocks2::Element> expand_sum(new_shape);
+        for (size_t j = 0; j != img; ++j) {
+            for (size_t k = 0; k != (1 << logn); ++k) {
+                expand_sum(j, k) = sum[j];
+            }
+        }
+        MultilinearPolynomial mle_expand_sum(expand_sum.view);
+        auto pcs_expand_sum = ligero_commit_base(mle_expand_sum, rho_inv);
+        sum_cha = random_vec_ext(logimg);
+        auto extra_cha = random_vec_ext(logn);
+        if (pcs_expand_sum.open(combine_challenges(sum_cha, extra_cha), sec_param) != pcs_sum.open(sum_cha, sec_param)
+                * MLE_Eq(extra_cha).get_sum()) {
+            std::cout << "❌ Proving softmax expand_sum = expand(sum) failed." << std::endl;
+            return false;
+        }
+        // 9. Prove d_quo = exp_diff_masked * scale / expand_sum
+        array<Goldilocks2::Element> d_quo(new_shape), d_rem(new_shape);
+        for (int j = 0; j < img; ++j) {
+            for (int k = 0; k < (1 << logn); ++k) {
+                d_quo(j, k) = Goldilocks2::fromS64(Goldilocks2::toS64(exp_diff_masked(j, k)) * int64_t(scale) /
+                    Goldilocks2::toS64(expand_sum(j, k)));
+                d_rem(j, k) = exp_diff_masked(j, k) * Goldilocks2::fromU64(scale) - d_quo(j, k) * expand_sum(j, k);
+            }
+        }
+        MultilinearPolynomial mle_d_quo(d_quo.view), mle_d_rem(d_rem.view);
+        auto pcs_d_quo = ligero_commit_base(mle_d_quo, rho_inv);
+        auto pcs_d_rem = ligero_commit_base(mle_d_rem, rho_inv);
+        MultilinearPolynomial mle_prod = mle_d_quo * mle_expand_sum;
+        auto pcs_prod = ligero_commit_base(mle_prod, rho_inv);
+        if (!prove_mle_product(mle_prod, mle_d_quo, mle_expand_sum,
+            pcs_prod, pcs_d_quo, pcs_expand_sum, sec_param)) {
+            std::cout << "❌ Proving softmax mle_prod = mle_d_quo * mle_expand_sum failed." << std::endl;
+            return false;
+        }
+        auto d_div_cha = random_vec_ext(logimg + logn);
+        if (pcs_exp_diff_masked.open(d_div_cha, sec_param) * Goldilocks2::fromU64(scale) != pcs_prod.open(d_div_cha, sec_param)
+            + pcs_d_rem.open(d_div_cha, sec_param)) {
+            std::cout << "❌ Proving softmax d_div = d_quo / expand_sum failed." << std::endl;
+            return false;
+        }
+        // 9.2 d_rem - sum < 0
+        MultilinearPolynomial mle_d_rem_sum = mle_d_rem - mle_expand_sum;
+        auto pcs_d_rem_sum = ligero_commit_base(mle_d_rem_sum, rho_inv);
+        auto d_rem_sum_cha = random_vec_ext(logimg + logn);
+        if (pcs_d_rem_sum.open(d_rem_sum_cha, sec_param) != pcs_d_rem.open(d_rem_sum_cha, sec_param) - pcs_expand_sum.open(d_rem_sum_cha, sec_param)) {
+            std::cout << "❌ Proving softmax d_rem_sum_cha = d_rem - sum failed." << std::endl;
+            return false;
+        }
+        std::vector<Goldilocks2::Element> input_zeros(img * (1 << logn));
+        MultilinearPolynomial mle_input_zeros(input_zeros);
+        auto pcs_input_zeros = ligero_commit_base(mle_input_zeros, rho_inv);
+        signProver sign_prover_d_rem_sum(mle_d_rem_sum.get_eval_table(), input_zeros, scale, 2 * max_val, false, rho_inv);
+        if (!signVerifier::execute_sign_check(sign_prover_d_rem_sum, pcs_d_rem_sum, pcs_input_zeros, sec_param)) {
+            std::cout << "❌ Proving softmax d_rem - sum < 0 failed: sign proof fails." << std::endl;
+            return false;
+        }
+        // 10. Prove d_input = (d_quo - label * scale) / img
+        MultilinearPolynomial mle_d_delta = mle_d_quo - mle_label * scale;
+        auto pcs_d_delta = ligero_commit_base(mle_d_delta, rho_inv);
+        auto delta_cha = random_vec_ext(logimg + logn);
+        if (pcs_d_delta.open(delta_cha, sec_param) != pcs_d_quo.open(delta_cha, sec_param) - Goldilocks2::fromU64(scale) * pcs_label.open(delta_cha, sec_param)) {
+            std::cout << "❌ Proving softmax d_delta = (d_quo - label * scale) failed." << std::endl;
+            return false;
+        }
+        auto d_input_rem = get_rem(mle_d_delta.get_eval_table(), img, mle_d_input.get_eval_table(), true);
+        auto pcs_d_input_rem = ligero_commit_base(d_input_rem, rho_inv);
+        divProver div_prover_d_input(mle_d_delta.get_eval_table(), mle_d_input.get_eval_table(), d_input_rem, img, true, rho_inv);
+        if (!divVerifier::execute_div_check(div_prover_d_input, pcs_d_delta, pcs_d_input, pcs_d_input_rem, sec_param)) {
+            std::cout << "❌ Proving softmax d_input = (d_quo - sel * scale) / n failed." << std::endl;
+            return false;
+        }
+        // 11. Check constants
+        auto input_cha = random_vec_ext(logimg + logn);
+        if (pcs_ones.open(input_cha, sec_param) != Goldilocks2::one()) {
+            std::cout << "❌ Proving pcs_ones is one failed." << std::endl;
+            return false;
+        }
+        if (pcs_input_zeros.open(input_cha, sec_param) != Goldilocks2::zero()) {
+            std::cout << "❌ Proving pcs_input_zeros is zero failed." << std::endl;
+            return false;
+        }
+        if (pcs_zeros.open(random_vec_ext(logimg), sec_param) != Goldilocks2::zero()) {
+            std::cout << "❌ Proving pcs_zeros is zero failed." << std::endl;
             return false;
         }
     }

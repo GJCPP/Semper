@@ -50,6 +50,11 @@ open_param::open_param(const std::vector<int>& log_shape, const oracle* pcs)
     }
 }
 
+open_param::open_param(int num_vars, const oracle* pcs)
+    : open_param(std::vector<int>{num_vars}, pcs)
+{
+}
+
 open_param::open_param(const open_param& other)
     : pcs(other.pcs), cha(other.cha), ele(other.ele), shape(other.shape), ord(other.ord), rev(other.rev), next(other.next)
 {

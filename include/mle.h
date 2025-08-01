@@ -43,6 +43,9 @@ public:
     virtual MultilinearPolynomial operator+(const MultilinearPolynomial& g) const;
     virtual MultilinearPolynomial operator-(const MultilinearPolynomial& g) const;
 
+    virtual MultilinearPolynomial operator*(const MultilinearPolynomial& g) const;
+    virtual MultilinearPolynomial operator*(size_t scale) const;
+
     // Cost O(2^num_vars)
     virtual Goldilocks2::Element get_sum() const;
 

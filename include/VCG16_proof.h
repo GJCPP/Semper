@@ -11,4 +11,6 @@ bool prove_relu_layer(const VCG16::layer_info& layer,
 
 bool prove_pool_layer(const VCG16::layer_info& layer, size_t scale, size_t max_val, size_t rho_inv, size_t sec_param);
 
+bool prove_softmax(const VCG16::layer_info& layer, size_t scale, size_t max_val, const std::vector<size_t> exp_inv_from, const std::vector<size_t> exp_inv, ligeropcs_base pcs_exp_inv_from, ligeropcs_base pcs_exp_inv, size_t rho_inv, size_t sec_param);
+
 bool prove_full_layer(const VCG16::layer_info& layer, size_t rho_inv, size_t sec_param);
