@@ -1,6 +1,7 @@
 #include "util.h"
 #include "logup.h"
 #include "e_pow_check.h"
+#include "ltn_check.h"
 
 eProver::eProver(const std::vector<size_t>& from, const std::vector<size_t>& to, size_t scale, size_t max_val, size_t rho_inv)
     : from(from), to(to), num(from.size()), scale(scale), max_val(max_val), rho_inv(rho_inv) {
@@ -23,25 +24,35 @@ LogupProver eProver::get_logup_prover(const std::vector<uint64_t>& e_from, const
     return LogupProver(from, to, e_from, e_to);
 }
 
-divProver eProver::prove_div_n(size_t n, ligeropcs_base& pcs_quo, ligeropcs_base& pcs_rem) {
-    auto [_quo, _rem] = get_quo_rem(from, n, false);
-    quo = std::move(_quo);
-    rem = std::move(_rem);
-    pcs_quo = ligero_commit_base(quo, rho_inv);
-    pcs_rem = ligero_commit_base(rem, rho_inv);
-    return divProver(from, quo, rem, n, false, rho_inv);
+ltnProver eProver::prove_ltn(uint64_t n) {
+    bar = n;
+    return ltnProver(from, Goldilocks2::fromU64(bar), scale, max_val, true, rho_inv);
 }
 
-signProver eProver::prove_sign(ligeropcs_base& pcs_sign, ligeropcs_base& pcs_rev_sign) {
-    sign.resize(num);
-    rev_sign.resize(num);
+ligeropcs_base eProver::commit_filtered_from() {
+    filtered_from = from;
     for (size_t i = 0; i < num; ++i) {
-        sign[i] = (rem[i] > 0) ? 1 : 0;
-        rev_sign[i] = 1 - sign[i];
+        if (from[i] >= bar) {
+            filtered_from[i] = 0; // Map to 0
+        }
     }
-    pcs_sign = ligero_commit_base(sign, rho_inv);
-    pcs_rev_sign = ligero_commit_base(rev_sign, rho_inv);
-    return signProver(sign, rev_sign, scale, max_val, true, rho_inv);
+    pcs_filtered_from = ligero_commit_base(filtered_from, rho_inv);
+    return pcs_filtered_from;
+}
+
+ligeropcs_base eProver::commit_masked_from() {
+    masked_from = from;
+    for (size_t i = 0; i < num; ++i) {
+        if (from[i] >= bar) {
+            masked_from[i] = bar - 1; // Map to max_val - 1
+        }
+    }
+    pcs_masked_from = ligero_commit_base(masked_from, rho_inv);
+    return pcs_masked_from;
+}
+
+LogupProver eProver::get_masked_logup_prover(const std::vector<uint64_t>& e_from, const std::vector<uint64_t>& e_to) {
+    return LogupProver(masked_from, to, e_from, e_to);
 }
 
 void eVerifier::init_e_table(size_t scale, size_t rho_inv) {
@@ -74,23 +85,56 @@ bool eVerifier::execute_check(eProver& prover, ligeropcs_base pcs_from, ligeropc
     const auto& e_pow_to = eVerifier::e_pow_to[scale];
     const auto& pcs_e_pow_from = eVerifier::pcs_e_pow_from[{scale, rho_inv}];
     const auto& pcs_e_pow_to = eVerifier::pcs_e_pow_to[{scale, rho_inv}];
-    const size_t n = e_pow_from.size();
+    const size_t bar = e_pow_from.size();
+    const size_t num = prover.get_num();
+    const int lognum = find_ceiling_log2(num);
     if (max_val < e_pow_from.size()) {
         // Just look up the table.
         auto logup_prover = prover.get_logup_prover(e_pow_from, e_pow_to);
         if (!LogupVerifier::execute_logup(logup_prover, pcs_from, pcs_to, pcs_e_pow_from, pcs_e_pow_to, rho_inv, sec_param)) {
+            std::cerr << "❌ eVerifier: execute_logup failed (pure lookup)." << std::endl;
             return false;
         }
     } else {
         // Step 1. Filter out [>= n] elements
-        ligeropcs_base pcs_quo, pcs_rem;
-        divProver div_prover = prover.prove_div_n(n, pcs_quo, pcs_rem);
-        if (!divVerifier::execute_div_check(div_prover, pcs_from, pcs_quo, pcs_rem, sec_param)) {
-            std::cerr << "❌ eVerifier: Division check failed." << std::endl;
+        ltnProver ltn_prover = prover.prove_ltn(bar);
+        ligeropcs_base pcs_ltn = ltn_prover.get_pcs_ltn();
+        if (!ltnVerifier::execute_ltn_check(
+            ltn_prover,
+            pcs_from,
+            pcs_ltn,
+            Goldilocks2::fromU64(bar),
+            max_val, true, sec_param)) {
+            std::cerr << "❌ eVerifier: execute_ltn_check failed." << std::endl;
+            return false;
+        }
+        ligeropcs_base pcs_rev_ltn = ltn_prover.get_pcs_rev_ltn();
+        ligeropcs_base pcs_filtered_from = prover.commit_filtered_from();
+        if (!prove_mle_product(
+            prover.get_filtered_from(), ltn_prover.get_ltn(), prover.get_from(),
+            pcs_filtered_from, pcs_ltn, pcs_from, sec_param)) {
+            std::cerr << "❌ eVerifier: prove_mle_product failed." << std::endl;
+            return false;
+        }
+
+        // Step 2. Prove masked_from = filtered_from + rev_ltn * (bar - 1)
+        ligeropcs_base pcs_masked_from = prover.commit_masked_from();
+        auto mask_cha = random_vec_ext(lognum);
+        if (pcs_masked_from.open(mask_cha, sec_param) != pcs_filtered_from.open(mask_cha, sec_param) + 
+            pcs_rev_ltn.open(mask_cha, sec_param) * Goldilocks2::fromU64(bar - 1)) {
+            std::cerr << "❌ eVerifier: masked_from != filtered_from + rev_ltn * (max_val - 1)" << std::endl;
+            return false;
+        }
+
+        // Step 3. Look up with masked_from
+        LogupProver logup_prover = prover.get_masked_logup_prover(e_pow_from, e_pow_to);
+        if (!LogupVerifier::execute_logup(
+            logup_prover, pcs_masked_from, pcs_to, pcs_e_pow_from, pcs_e_pow_to, rho_inv, sec_param)) {
+            std::cerr << "❌ eVerifier: execute_logup failed (masked lookup)." << std::endl;
             return false;
         }
     }
-    return false;
+    return true;
 }
 
 

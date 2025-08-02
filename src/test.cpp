@@ -12,6 +12,7 @@
 #include "sign_check.h"
 #include "prod_check.h"
 #include "ltn_check.h"
+#include "e_pow_check.h"
 
 #define CNT_TEST 100
 
@@ -691,6 +692,34 @@ bool test_ltn_check() {
     return true;
 }
 
+bool test_e_pow_check() {
+    for (int cnt = 0; cnt < CNT_TEST; ++cnt) {
+        srand(cnt);
+        int logn = rand() % 10 + 1;
+        int logscale = rand() % 10 + 4;
+        size_t n = (1ull << logn), scale = (1ull << logscale);
+        size_t max_val = (1ull << (rand() % 10 + logscale));
+        size_t rho_inv = 2;
+        std::vector<uint64_t> a(n), b(n);
+        for (size_t i = 0; i < n; ++i) {
+            uint64_t v = rand() % max_val;
+            a[i] = v;
+            b[i] = std::round(std::exp(-double(v) / double(scale)) * scale);
+        }
+        eProver prover(a, b, scale, max_val, rho_inv);
+        auto pcs_a = ligero_commit_base(a, 2);
+        auto pcs_b = ligero_commit_base(b, 2);
+        if (!eVerifier::execute_check(
+            prover,
+            pcs_a,
+            pcs_b,
+            32)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool run_test() {
     srand(79);
     if (!test_arithmetic()) {
@@ -751,6 +780,10 @@ bool run_test() {
     }
     if (!test_ltn_check()) {
         std::cout << "test_ltn_check failed" << std::endl;
+        return false;
+    }
+    if (!test_e_pow_check()) {
+        std::cout << "test_e_pow_check failed" << std::endl;
         return false;
     }
     std::cout << "All tests passed" << std::endl;

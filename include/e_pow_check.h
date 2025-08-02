@@ -5,26 +5,35 @@
 #include "ligero.h"
 #include "mle.h"
 #include "logup.h"
-#include "div_check.h"
-#include "sign_check.h"
+#include "ltn_check.h"
 class eProver {
 public:
     eProver(const std::vector<uint64_t>& from, const std::vector<uint64_t>& to, size_t scale, size_t max_val, size_t rho_inv);
 
-    inline size_t get_scale() { return scale; }
-    inline size_t get_max_val() { return max_val; }
-    inline size_t get_rho_inv() { return rho_inv; }
+    inline size_t get_scale() const { return scale; }
+    inline size_t get_max_val() const { return max_val; }
+    inline size_t get_rho_inv() const { return rho_inv; }
+    inline const std::vector<uint64_t>& get_from() const { return from; }
+    inline size_t get_num() const { return num; }
 
     LogupProver get_logup_prover(const std::vector<uint64_t>& e_from, const std::vector<uint64_t>& e_to);
 
-    // Prove from = quo * n + rem
-    divProver prove_div_n(size_t n, ligeropcs_base& pcs_quo, ligeropcs_base& pcs_rem);
-    
-    // Prove sign = [rem > 0]
-    signProver prove_sign(ligeropcs_base& pcs_sign, ligeropcs_base& pcs_rev_sign);
+    ltnProver prove_ltn(uint64_t bar);
+
+    // Map element [>= bar] to 0
+    ligeropcs_base commit_filtered_from();
+    inline const std::vector<uint64_t>& get_filtered_from() const { return filtered_from; }
+
+    // Map element [>= bar] to max_val - 1
+    ligeropcs_base commit_masked_from();
+
+    LogupProver get_masked_logup_prover(const std::vector<uint64_t>& e_from, const std::vector<uint64_t>& e_to);
 protected:
-    std::vector<uint64_t> from, to, quo, rem, sign, rev_sign;
+    std::vector<uint64_t> from, to, filtered_from, masked_from;
     size_t num, scale, max_val, rho_inv;
+    size_t bar;
+
+    ligeropcs_base pcs_filtered_from, pcs_masked_from;
 };
 
 class eVerifier {
