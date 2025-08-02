@@ -11,6 +11,7 @@
 #include "div_check.h"
 #include "sign_check.h"
 #include "prod_check.h"
+#include "ltn_check.h"
 
 #define CNT_TEST 100
 
@@ -650,6 +651,46 @@ bool test_prod_check() {
     return true;
 }
 
+bool test_ltn_check() {
+    for (int cnt = 0; cnt < CNT_TEST; ++cnt) {
+        srand(cnt);
+        int logn = rand() % 10 + 1;
+        size_t n = (1ull << logn);
+        std::vector<Goldilocks2::Element> a(n);
+        Goldilocks2::Element b = Goldilocks2::fromS64(rand() % 1000);
+        for (size_t i = 0; i < n; ++i) {
+            a[i] = Goldilocks2::fromS64((rand() % 1999) - 999);
+        }
+        bool strict = rand() % 2 == 0;
+        ltnProver prover(a, b, 1<<14, 1000, strict, 2);
+        auto ltn = prover.get_ltn();
+        for (size_t i = 0; i < n; ++i) {
+            if (strict) {
+                if ((Goldilocks2::toS64(a[i]) < Goldilocks2::toS64(b)) ^ (ltn[i] == Goldilocks2::one())) {
+                    std::cerr << "Strict LTN manual check failed at index " << i << std::endl;
+                    return false;
+                }
+            } else {
+                if ((Goldilocks2::toS64(a[i]) <= Goldilocks2::toS64(b)) ^ (ltn[i] == Goldilocks2::one())) {
+                    std::cerr << "Non-strict LTN manual check failed at index " << i << std::endl;
+                    return false;
+                }
+            }
+        }
+        auto pcs_a = ligero_commit_base(a, 2);
+        auto pcs_ltn = prover.get_pcs_ltn();
+        if (!ltnVerifier::execute_ltn_check(
+            prover,
+            pcs_a,
+            pcs_ltn,
+            b,
+            1000, strict, 32)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool run_test() {
     srand(79);
     if (!test_arithmetic()) {
@@ -706,6 +747,10 @@ bool run_test() {
     }
     if (!test_prod_check()) {
         std::cout << "test_prod_check failed" << std::endl;
+        return false;
+    }
+    if (!test_ltn_check()) {
+        std::cout << "test_ltn_check failed" << std::endl;
         return false;
     }
     std::cout << "All tests passed" << std::endl;

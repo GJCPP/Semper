@@ -17,6 +17,33 @@ LogupProver::LogupProver(const table_base& f_1, const table_base& f_2, const tab
     calculate_multiplicities();
 }
 
+LogupProver::LogupProver(const table_ext& f_1, const table_ext& f_2, const table_ext& t_1, const table_ext& t_2)
+    : polyg(find_ceiling_log2(f_1.size())), polyh(find_ceiling_log2(f_2.size())) {
+    f1.resize(f_1.size());
+    f2.resize(f_2.size());
+    t1.resize(t_1.size());
+    t2.resize(t_2.size());
+    if (f1.size() != f2.size()) throw std::invalid_argument("LogupProver: f1 and f2 must have the same size.");
+    if (t1.size() != t2.size()) throw std::invalid_argument("LogupProver: t1 and t2 must have the same size.");
+    for (size_t i = 0; i < f_1.size(); ++i) {
+        f1[i] = f_1[i][0].fe;
+        f2[i] = f_2[i][0].fe;
+        if (f_1[i][1].fe || f_2[i][1].fe) {
+            throw std::invalid_argument("LogupProver: arguments must be in base field.");
+        }
+    }
+    for (size_t i = 0; i < t_1.size(); ++i) {
+        t1[i] = t_1[i][0].fe;
+        t2[i] = t_2[i][0].fe;
+        if (t_1[i][1].fe || t_2[i][1].fe) {
+            throw std::invalid_argument("LogupProver: arguments must be in base field.");
+        }
+    }
+    pad(f1, t1[0]);
+    pad(f2, t2[0]);
+    calculate_multiplicities();
+}
+
 // in the real case, t1 and t2 are sorted vectors (ranges)
 void LogupProver::calculate_multiplicities() {
     set_timer("calculate c");

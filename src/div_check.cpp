@@ -19,7 +19,7 @@ divProver::divProver(
     uint64_t denominator, bool allow_neg_rem, uint64_t rho_inv)
     : denom(denominator), allow_neg_rem(allow_neg_rem), rho_inv(rho_inv)
 {
-    // Step 1. Store num and quo, compute rem
+    // Step 1. Store num and quo and rem
     if (num.size() != quo.size() || num.size() != rem.size()) {
         throw std::invalid_argument("divProver: Numerator, quotient and remainder must match in sizes");
     }
@@ -45,6 +45,30 @@ divProver::divProver(
     init_zeros(num.size());
 }
 
+
+divProver::divProver(
+    const std::vector<uint64_t>& num,
+    const std::vector<uint64_t>& quo,
+    const std::vector<uint64_t>& rem,
+    uint64_t denominator, bool allow_neg_rem, uint64_t rho_inv)
+    : denom(denominator), allow_neg_rem(allow_neg_rem), rho_inv(rho_inv)
+{
+    // Step 1. Store num and quo and rem
+    if (num.size() != quo.size() || num.size() != rem.size()) {
+        throw std::invalid_argument("divProver: Numerator, quotient and remainder must match in sizes");
+    }
+    num_u64 = num;
+    quo_u64 = quo;
+    rem_u64 = rem;
+
+    num_vars = find_ceiling_log2(num.size());
+
+    // Step 2. Init range&valid
+    init_range(denominator, allow_neg_rem, rho_inv);
+
+    // Step 3. Init zeros
+    init_zeros(num.size());
+}
 
 void divProver::init_range(uint64_t denominator, bool allow_neg_rem, uint64_t rho_inv) {
     if (denom == 0) {
@@ -123,6 +147,25 @@ std::array<std::vector<Goldilocks2::Element>, 2> get_quo_rem(
     return {quo, rem};
 }
 
+std::array<std::vector<uint64_t>, 2> get_quo_rem(
+    const std::vector<uint64_t>& num,
+    uint64_t den,
+    bool allow_neg_rem) {
+
+    std::vector<uint64_t> quo(num.size()), rem(num.size());
+    for (size_t i = 0; i < num.size(); ++i) {
+        int64_t quo_val = Goldilocks2::toS64(Goldilocks2::fromU64(num[i])) / int64_t(den);
+        int64_t rem_val = Goldilocks2::toS64(Goldilocks2::fromU64(num[i])) - quo_val * int64_t(den);
+        if (!allow_neg_rem && rem_val < 0) {
+            quo_val -= 1;
+            rem_val += den;
+        }
+        quo[i] = Goldilocks2::fromS64(quo_val)[0].fe;
+        rem[i] = Goldilocks2::fromS64(rem_val)[0].fe;
+    }
+    return {quo, rem};
+}
+
 std::vector<Goldilocks2::Element> get_rem(
     const std::vector<Goldilocks2::Element>& num,
     uint64_t den,
@@ -167,7 +210,11 @@ bool divVerifier::execute_div_check(
     // Step 1. Prove pcs_num = pcs_quo * denom + pcs_rem
     std::vector<Goldilocks2::Element> cha = random_vec_ext(prover.get_num_vars());
     if (pcs_num.open(cha, sec_param) != pcs_quo.open(cha, sec_param) * Goldilocks2::fromU64(prover.get_denom()) + pcs_rem.open(cha, sec_param)) {
-        std::cerr << "Div check failed: pcs_num != pcs_quo * denom + pcs_rem" << std::endl;
+        std::cerr << "❌ Div check failed: pcs_num != pcs_quo * denom + pcs_rem" << std::endl;
+        std::cerr << "pcs_num: " << pcs_num.open(cha, sec_param) << std::endl;
+        std::cerr << "pcs_quo: " << pcs_quo.open(cha, sec_param) << std::endl;
+        std::cerr << "pcs_rem: " << pcs_rem.open(cha, sec_param) << std::endl;
+        std::cerr << "denom: " << prover.get_denom() << std::endl;
         return false;
     }
     // Step 2. Check if pcs_rem is in the valid range
@@ -178,7 +225,7 @@ bool divVerifier::execute_div_check(
         prover.get_pcs_range(),
         prover.get_pcs_valid(),
         prover.rho_inv, sec_param)) {
-        std::cerr << "Div check failed: Logup verification failed" << std::endl;
+        std::cerr << "❌ Div check failed: Logup verification failed" << std::endl;
         return false;
     }
 

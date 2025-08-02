@@ -10,6 +10,12 @@ std::array<std::vector<Goldilocks2::Element>, 2> get_quo_rem(
     uint64_t den,
     bool allow_neg_rem);
 
+
+std::array<std::vector<uint64_t>, 2> get_quo_rem(
+    const std::vector<uint64_t>& num,
+    uint64_t den,
+    bool allow_neg_rem);
+
 std::vector<Goldilocks2::Element> get_rem(
     const std::vector<Goldilocks2::Element>& num,
     uint64_t den,
@@ -25,6 +31,12 @@ public:
         const std::vector<Goldilocks2::Element>& num,
         const std::vector<Goldilocks2::Element>& quo,
         const std::vector<Goldilocks2::Element>& rem,
+        uint64_t denominator, bool allow_neg_rem, uint64_t rho_inv);
+
+    divProver(
+        const std::vector<uint64_t>& num,
+        const std::vector<uint64_t>& quo,
+        const std::vector<uint64_t>& rem,
         uint64_t denominator, bool allow_neg_rem, uint64_t rho_inv);
 
     inline int get_num_vars() const { return num_vars; }

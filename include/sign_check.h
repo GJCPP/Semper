@@ -16,6 +16,10 @@ public:
     signProver(const std::vector<Goldilocks2::Element>& vec,
             const std::vector<Goldilocks2::Element>& sign,
             uint64_t scale, uint64_t max_val, bool strict_positive, uint64_t rho_inv);
+            
+    signProver(const std::vector<uint64_t>& vec,
+            const std::vector<uint64_t>& sign,
+            uint64_t scale, uint64_t max_val, bool strict_positive, uint64_t rho_inv);
 
     divProver next_prover(ligeropcs_base& pcs_quo, ligeropcs_base& pcs_rem, signProver& next_prover) const;
 

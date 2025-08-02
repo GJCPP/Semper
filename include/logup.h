@@ -32,6 +32,7 @@ public:
 
     // Prove (f1[i], f2[i]) in { (t1[i], t2[i]) }
     LogupProver(const table_base& f1, const table_base& f2, const table_base& t1, const table_base& t2);
+    LogupProver(const table_ext& f1, const table_ext& f2, const table_ext& t1, const table_ext& t2);
     void calculate_multiplicities();
     void calculate_gh(const Goldilocks2::Element& gamma, const Goldilocks2::Element& lambda);
     LogupDef::pcs_base commit_c(const uint64_t& rho_inv);
