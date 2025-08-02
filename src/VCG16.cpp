@@ -127,22 +127,8 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, 
         {}, // d_weight = {}
         "a_q0_label");
 
-
-    init_e_pow();
 }
 
-
-void VCG16::init_e_pow() {
-    e_pow_inv.resize(max_val);
-    e_pow_inv_from.resize(max_val);
-    for (int64_t i = 0; i < max_val; ++i) {
-        e_pow_inv_from[i] = i;
-        e_pow_inv[i] = Goldilocks2::toU64(Goldilocks2::fromS64(std::round(std::exp(static_cast<double>(-i) / scale) * scale)))[0];
-        // TODO : To be optimized
-    }
-    pcs_e_pow_inv_from = ligero_commit_base(e_pow_inv_from, rho_inv);
-    pcs_e_pow_inv = ligero_commit_base(e_pow_inv, rho_inv);
-}
 
 bool VCG16::check(size_t n_samples) const {
     for (auto& layer : layers) {
@@ -373,7 +359,7 @@ bool VCG16::check(size_t n_samples) const {
                 std::cout << "Checking layer " << layer.name << std::endl;
                 for (size_t i = 0; i < layer.input.shape(0) && pass; ++i) {
                     std::cout << "Checking layer " << layer.name << " (forward) for mini-batch " << i << std::endl;
-                    pass &= check_softmax(layer.input[i], layer.output[i], layer.aux[i], e_pow_inv, scale);
+                    pass &= check_softmax(layer.input[i], layer.output[i], layer.aux[i], scale);
                 }
                 if (!pass) {
                     std::cout << "❌ Layer " << layer.name << " failed. (forward)" << std::endl;
@@ -426,8 +412,7 @@ bool VCG16::prove(size_t sec_param) {
             //     break;
 
             case layer_type::softmax:
-                if (!prove_softmax(layer, scale, max_val, e_pow_inv_from, e_pow_inv,
-                                   pcs_e_pow_inv_from, pcs_e_pow_inv, rho_inv, sec_param)) {
+                if (!prove_softmax(layer, scale, max_val, rho_inv, sec_param)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
                     return false;
                 }

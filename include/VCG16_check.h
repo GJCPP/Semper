@@ -108,6 +108,5 @@ bool check_softmax(
     const array_view<Goldilocks2::Element>& input, // [N, C]
     const array_view<Goldilocks2::Element>& output, // [N, C]
     const array_view<Goldilocks2::Element>& label,
-    const std::vector<size_t>& e_pow_inv,
     int64_t scale
 );

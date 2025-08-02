@@ -10,6 +10,7 @@
 #include "div_check.h"
 #include "sign_check.h"
 #include "prod_check.h"
+#include "e_pow_check.h"
 
 bool prove_conv(
     int N, int img,
@@ -663,10 +664,6 @@ bool prove_pool_layer(const VCG16::layer_info& layer,
 
 bool prove_softmax(const VCG16::layer_info& layer,
     size_t scale, size_t max_val,
-    const std::vector<size_t> exp_inv_from,
-    const std::vector<size_t> exp_inv,
-    ligeropcs_base pcs_exp_inv_from,
-    ligeropcs_base pcs_exp_inv,
     size_t rho_inv, size_t sec_param) {
     
     const int batch = int(layer.input.shape(0));
@@ -826,13 +823,13 @@ bool prove_softmax(const VCG16::layer_info& layer,
         std::vector<size_t> exp_diff(img * (1 << logn)), diff_masked_vec(img * (1 << logn));
         for (size_t j = 0; j != exp_diff.size(); ++j) {
             diff_masked_vec[j] = diff_masked.data[j][0].fe;
-            exp_diff[j] = exp_inv[diff_masked_vec[j]];
         }
+        exp_diff = eVerifier::get_exp_inv(diff_masked_vec, scale, rho_inv);
         MultilinearPolynomial mle_exp_diff(exp_diff);
         auto pcs_exp_diff = ligero_commit_base(mle_exp_diff, rho_inv);
-        LogupProver logup_prover(diff_masked_vec, exp_diff, exp_inv_from, exp_inv);
-        if (!LogupVerifier::execute_logup(logup_prover, pcs_diff_masked, pcs_exp_diff, pcs_exp_inv_from, pcs_exp_inv, rho_inv, sec_param)) {
-            std::cout << "❌ Proving softmax exp(diff_masked) failed." << std::endl;
+        eProver e_prover(diff_masked_vec, exp_diff, scale, max_val, rho_inv);
+        if (!eVerifier::execute_check(e_prover, pcs_diff_masked, pcs_exp_diff, sec_param)) {
+            std::cout << "❌ Proving softmax exp(diff_masked) * scale failed." << std::endl;
             return false;
         }
         // 8. Prove exp_diff_masked = mask * exp_diff

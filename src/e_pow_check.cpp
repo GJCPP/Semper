@@ -20,6 +20,29 @@ eProver::eProver(const std::vector<size_t>& from, const std::vector<size_t>& to,
     eVerifier::init_e_table(scale, rho_inv);
 }
 
+eProver::eProver(const std::vector<Goldilocks2::Element>& from_e, const std::vector<Goldilocks2::Element>& to_e, size_t scale, size_t max_val, size_t rho_inv)
+    : num(from_e.size()), scale(scale), max_val(max_val), rho_inv(rho_inv) {
+    
+    if (from_e.size() != to_e.size()) {
+        throw std::invalid_argument("eProver: Size of 'from' and 'to' vectors must be the same.");
+    }
+    if (!is_power_of_2(from_e.size())) {
+        throw std::invalid_argument("eProver: Size of 'from' vector must be a power of 2.");
+    }
+    from.resize(num);
+    to.resize(num);
+    for (size_t i = 0; i < num; ++i) {
+        from[i] = from_e[i][0].fe;
+        to[i] = to_e[i][0].fe;
+    }
+    for (const auto& v : from) {
+        if (v >= max_val) {
+            throw std::invalid_argument("eProver: Elements in 'from' vector must be less than max_val.");
+        }
+    }
+    eVerifier::init_e_table(scale, rho_inv);
+}
+
 LogupProver eProver::get_logup_prover(const std::vector<uint64_t>& e_from, const std::vector<uint64_t>& e_to) {
     return LogupProver(from, to, e_from, e_to);
 }
@@ -135,6 +158,18 @@ bool eVerifier::execute_check(eProver& prover, ligeropcs_base pcs_from, ligeropc
         }
     }
     return true;
+}
+
+std::vector<size_t> eVerifier::get_exp_inv(const std::vector<size_t>& from, size_t scale, size_t rho_inv) {
+    init_e_table(scale, rho_inv);
+    std::vector<size_t> ret(from.size());
+    auto& e_to = eVerifier::e_pow_to[scale];
+    size_t bar = e_to.size();
+    for (size_t i = 0; i < from.size(); ++i) {
+        if (from[i] < bar) ret[i] = e_to[from[i]];
+        else ret[i] = 0;
+    }
+    return ret;
 }
 
 

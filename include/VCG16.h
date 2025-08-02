@@ -63,7 +63,6 @@ public:
                     const std::string& aux = "");
 
 protected:
-    void init_e_pow();
 
     int epoch, minibatch, img_per_batch;
     int64_t scale, max_val, sqr_val;
@@ -80,9 +79,6 @@ protected:
     array_view<Goldilocks2::Element> input_data, input_label;
 
     std::vector<layer_info> layers;
-    
-    std::vector<size_t> e_pow_inv_from, e_pow_inv;
-    ligeropcs_base pcs_e_pow_inv_from, pcs_e_pow_inv;
 };
 
 

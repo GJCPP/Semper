@@ -9,6 +9,7 @@
 class eProver {
 public:
     eProver(const std::vector<uint64_t>& from, const std::vector<uint64_t>& to, size_t scale, size_t max_val, size_t rho_inv);
+    eProver(const std::vector<Goldilocks2::Element>& from, const std::vector<Goldilocks2::Element>& to, size_t scale, size_t max_val, size_t rho_inv);
 
     inline size_t get_scale() const { return scale; }
     inline size_t get_max_val() const { return max_val; }
@@ -41,6 +42,7 @@ public:
     friend class eProver;
     static void init_e_table(size_t scale, size_t rho_inv);
     static bool execute_check(eProver& prover, ligeropcs_base pcs_from, ligeropcs_base pcs_to, size_t sec_param);
+    static std::vector<size_t> get_exp_inv(const std::vector<size_t>& from, size_t scale, size_t rho_inv);
 protected:
     static std::map<size_t, std::vector<uint64_t>> e_pow_from, e_pow_to;    
     static std::map<std::array<size_t, 2>, ligeropcs_base> pcs_e_pow_from, pcs_e_pow_to;
