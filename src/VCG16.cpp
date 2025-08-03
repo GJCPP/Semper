@@ -384,32 +384,33 @@ bool VCG16::prove(size_t sec_param) {
         std::cout << "Proving layer " << layer.name << std::endl;
         auto start = std::chrono::high_resolution_clock::now();
         switch (layer.type) {
-            // case layer_type::conv:
-            //     if (!prove_conv_layer(layer, rho_inv, sec_param)) {
-            //         std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
-            //         return false;
-            //     }
-            //     break;
+            case layer_type::conv:
+                if (!prove_conv_layer(layer, rho_inv, sec_param)) {
+                    std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
+                    return false;
+                }
+                break;
 
-            // case layer_type::full:
-            //     if (!prove_full_layer(layer, rho_inv, sec_param)) {
-            //         std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
-            //         return false;
-            //     }
-            //     break;
+            case layer_type::full:
+                if (!prove_full_layer(layer, rho_inv, sec_param)) {
+                    std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
+                    return false;
+                }
+                break;
 
-            // case layer_type::relu:
-            //     if (!prove_relu_layer(layer, scale, max_val, sqr_val, rho_inv, sec_param)) {
-            //         std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
-            //         return false;
-            //     }
+            case layer_type::relu:
+                if (!prove_relu_layer(layer, scale, max_val, sqr_val, rho_inv, sec_param)) {
+                    std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
+                    return false;
+                }
+                break;
 
-            // case layer_type::pool:
-            //     if (!prove_pool_layer(layer, scale, max_val, rho_inv, sec_param)) {
-            //         std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
-            //         return false;
-            //     }
-            //     break;
+            case layer_type::pool:
+                if (!prove_pool_layer(layer, scale, max_val, rho_inv, sec_param)) {
+                    std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
+                    return false;
+                }
+                break;
 
             case layer_type::softmax:
                 if (!prove_softmax(layer, scale, max_val, rho_inv, sec_param)) {
