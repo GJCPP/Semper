@@ -418,6 +418,13 @@ bool VCG16::prove(size_t sec_param) {
                 }
                 break;
 
+            case layer_type::flat:
+                if (!prove_flat_layer(layer, rho_inv, sec_param)) {
+                    std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
+                    return false;
+                }
+                break;
+
             default:
                 break;
         }

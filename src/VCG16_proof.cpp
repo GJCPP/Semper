@@ -953,3 +953,48 @@ bool prove_softmax(const VCG16::layer_info& layer,
     }
     return true;
 }
+
+bool prove_flat_layer(const VCG16::layer_info& layer, size_t rho_inv, size_t sec_param) {
+    const int batch = layer.input.shape(0);
+    const int img = layer.input.shape(1);
+    const int C = layer.input.shape(2);
+    const int logimg = find_ceiling_log2(img);
+    const int logC = find_ceiling_log2(C);
+    if (layer.input.shape(3) != 1 || layer.input.shape(4) != 1) {
+        throw std::invalid_argument("prove_flat_layer: Input shape must be [batch, img, C, 1, 1]");
+    }
+    for (int i = 0; i != batch; ++i) {
+        auto pcs_input = *layer.get_pcs_input(i);
+        auto pcs_output = *layer.get_pcs_output(i);
+        auto pcs_d_input = *layer.get_pcs_d_input(i);
+        auto pcs_d_output = *layer.get_pcs_d_output(i);
+
+        auto output_cha = random_vec_ext(logimg + logC);
+        auto input_cha = output_cha;
+        input_cha.push_back(Goldilocks2::zero());
+        input_cha.push_back(Goldilocks2::zero());
+        // Check value
+        if (pcs_input.open(input_cha, sec_param) != pcs_output.open(output_cha, sec_param)) {
+            std::cout << "❌ Proving input = output failed." << std::endl;
+            return false;
+        }
+        if (pcs_d_input.open(input_cha, sec_param) != pcs_d_output.open(output_cha, sec_param)) {
+            std::cout << "❌ Proving d_input = d_output failed." << std::endl;
+            return false;
+        }
+        // Check zero
+        for (int j = 1; j != 4; ++j) {
+            input_cha[logimg + logC] = (j & 1) ? Goldilocks2::one() : Goldilocks2::zero();
+            input_cha[logimg + logC + 1] = (j >> 1) ? Goldilocks2::one() : Goldilocks2::zero();
+            if (pcs_input.open(input_cha, sec_param) != Goldilocks2::zero()) {
+                std::cout << "❌ Proving output is zero failed." << std::endl;
+                return false;
+            }
+            if (pcs_d_input.open(input_cha, sec_param) != Goldilocks2::zero()) {
+                std::cout << "❌ Proving d_output is zero failed." << std::endl;
+                return false;
+            }
+        }
+    }
+    return true;
+}
