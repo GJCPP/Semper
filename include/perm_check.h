@@ -40,4 +40,27 @@ public:
     static bool execute_check(pdProver& prover, const oracle *pcs_f1, const oracle *pcs_f2, Goldilocks2::Element claim, uint64_t rho_inv, uint64_t sec_param);
 };
 
+class setProver {
+public:
+    setProver(const std::vector<MLE*> f1, const std::vector<MLE*> f2);
+
+    
+
+    inline int get_n() const { return n; }
+    inline int get_num_vars() const { return num_vars; }
+    
+    std::array<ligeropcs_ext, 2> combine(const std::vector<Goldilocks2::Element>& cha, uint64_t rho_inv);
+
+    pdProver get_pd_prover();
+
+protected:
+    std::vector<std::unique_ptr<MLE>> f1, f2;
+    MLE set1, set2;
+    int n, num_vars;
+};
+
+class setVerifier {
+public:
+    static bool execute_check(setProver& prover, const std::vector<const oracle *>& pcs_f1, const std::vector<const oracle *>& pcs_f2, uint64_t rho_inv, uint64_t sec_param);
+};
 

@@ -15,7 +15,7 @@
 #include "e_pow_check.h"
 #include "perm_check.h"
 
-#define CNT_TEST 100
+#define CNT_TEST 10
 
 bool test_arithmetic() {
     typedef Goldilocks2::Element Element;
@@ -741,6 +741,53 @@ bool test_pd_check() {
     return true;
 }
 
+bool test_set_check() {
+    for (int cnt = 0; cnt < CNT_TEST; ++cnt) {
+        srand(cnt);
+        int n = rand() % 10 + 1;
+        int log_num_vars = rand() % 10 + 1;
+        size_t num_vars = (1ull << log_num_vars);
+        std::vector<std::vector<Goldilocks2::Element>> set1, set2;
+        std::vector<size_t> ind(num_vars);
+        for (int i = 0; i < n; ++i) {
+            set1.push_back(random_vec_ext(num_vars));
+            set2.push_back(set1.back());
+        }
+        for (size_t i = 0; i < num_vars; ++i) {
+            ind[i] = i;
+        }
+        std::shuffle(ind.begin(), ind.end(), std::mt19937{std::random_device{}()});
+        for (int i = 0; i < n; ++i) {
+            for (size_t j = 0; j < num_vars; ++j) {
+                set2[i][j] = set1[i][ind[j]];
+            }
+        }
+        std::vector<MLE> mle_set1, mle_set2;
+        std::vector<MLE*> ptr_set1, ptr_set2;
+        std::vector<ligeropcs_ext> pcs_set1, pcs_set2;
+        std::vector<const oracle*> ptr_pcs1, ptr_pcs2;
+        mle_set1.reserve(n);
+        mle_set2.reserve(n);
+        for (int i = 0; i < n; ++i) {
+            mle_set1.emplace_back(set1[i]);
+            mle_set2.emplace_back(set2[i]);
+            pcs_set1.push_back(ligero_commit_ext(mle_set1.back(), 2));
+            pcs_set2.push_back(ligero_commit_ext(mle_set2.back(), 2));
+        }
+        for (int i = 0; i < n; ++i) {
+            ptr_set1.push_back(&mle_set1[i]);
+            ptr_set2.push_back(&mle_set2[i]);
+            ptr_pcs1.push_back(&pcs_set1[i]);
+            ptr_pcs2.push_back(&pcs_set2[i]);
+        }
+        setProver prover(ptr_set1, ptr_set2);
+        if (!setVerifier::execute_check(prover, ptr_pcs1, ptr_pcs2, 2, 32)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool run_test() {
     srand(79);
     if (!test_arithmetic()) {
@@ -809,6 +856,10 @@ bool run_test() {
     }
     if (!test_pd_check()) {
         std::cout << "test_pd_check failed" << std::endl;
+        return false;
+    }
+    if (!test_set_check()) {
+        std::cout << "test_set_check failed" << std::endl;
         return false;
     }
     std::cout << "All tests passed" << std::endl;

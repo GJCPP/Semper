@@ -84,6 +84,8 @@ protected:
     int num_vars;
 };
 
+typedef MultilinearPolynomial MLE;
+
 // mle_aux_info process_challenges(
 //     int n,
 //     const std::vector<size_t>& shape,
