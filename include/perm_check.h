@@ -42,7 +42,7 @@ public:
 
 class setProver {
 public:
-    setProver(const std::vector<MLE*> f1, const std::vector<MLE*> f2);
+    setProver(const std::vector<const MLE*>& f1, const std::vector<const MLE*>& f2);
 
     
 
@@ -64,3 +64,30 @@ public:
     static bool execute_check(setProver& prover, const std::vector<const oracle *>& pcs_f1, const std::vector<const oracle *>& pcs_f2, uint64_t rho_inv, uint64_t sec_param);
 };
 
+class permProverBase {
+public:
+    
+    // prove f2(pi(x)) = f1(x)
+    permProverBase(const MLE& _f1, const MLE& _f2, const std::vector<size_t>& _perm);
+
+    const std::vector<size_t>& get_perm() const { return perm; }
+    size_t get_size() const { return sz; }
+
+    // return null pcs if padding is not needed
+    ligeropcs_base commit_pad_f1(uint64_t rho_inv);
+
+    setProver get_set_prover(const MLE& id_perm, const MLE& perm);
+
+protected:
+    MLE f1, f2;
+    std::vector<size_t> perm;
+    size_t sz;
+
+    MLE pad_f1;
+};
+
+
+class permVerifierBase {
+public:
+    static bool execute_check(permProverBase& prover, const oracle *pcs_f1, const oracle *pcs_f2, uint64_t rho_inv, uint64_t sec_param);
+};

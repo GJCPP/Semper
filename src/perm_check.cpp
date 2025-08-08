@@ -81,7 +81,7 @@ p3Prover pdProver::prove_init(const std::vector<Goldilocks2::Element>& cha) {
     return p3Prover(MLE_Eq(cha), std::move(v_0), *f2);
 }
 
-setProver::setProver(const std::vector<MultilinearPolynomial*> set1, const std::vector<MultilinearPolynomial*> set2) {
+setProver::setProver(const std::vector<const MLE*>& set1, const std::vector<const MLE*>& set2) {
     if (set1.size() != set2.size()) {
         throw std::invalid_argument("setProver::setProver: f1 and f2 must have same length");
     }
@@ -154,6 +154,85 @@ bool setVerifier::execute_check(
     pdProver pd_prover = prover.get_pd_prover();
     if (!pdVerifier::execute_check(pd_prover, &pcs_set1, &pcs_set2, Goldilocks2::one(), rho_inv, sec_param)) {
         std::cerr << "setVerifier::execute_check : product check fails" << std::endl;
+        return false;
+    }
+    return true;
+}
+
+
+// prove f2(pi(x)) = f1(x)
+permProverBase::permProverBase(const MLE& _f1, const MLE& _f2, const std::vector<size_t>& _perm)
+    : f1(_f1), f2(_f2), perm(_perm) {
+    auto& evs1(f1.get_eval_table()), &evs2(f2.get_eval_table());
+    sz = evs2.size();
+    if (evs1.size() > evs2.size()) {
+        throw std::invalid_argument("permProver::permProver : f1 must have size no larger than f2");
+    }
+    if (perm.size() != evs1.size()) {
+        throw std::invalid_argument("permProver::permProver : permutation vector must have same size as f1");
+    }
+#ifdef DEBUG
+    for (size_t i = 0; i < evs1.size(); ++i) {
+        if (evs1[i] != evs2[perm[i]]) {
+            throw std::invalid_argument("permProver::permProver : f2(pi(x)) != f1(x)");
+        }
+    }
+#endif
+}
+
+ligeropcs_base permProverBase::commit_pad_f1(uint64_t rho_inv) {
+    const auto& evs1(f1.get_eval_table()), &evs2(f2.get_eval_table());
+    const size_t n1 = evs1.size(), n2 = evs2.size();
+    std::vector<bool> vis(n2);
+    if (n1 == n2) {
+        pad_f1 = f1;
+        return {};
+    }
+    std::vector<Goldilocks2::Element> new_evs(n2);
+    for (size_t i = 0; i < n1; ++i) {
+        vis[perm[i]] = true;
+        new_evs[i] = evs1[i];
+    }
+    perm.resize(n2);
+    size_t next = 0;
+    for (size_t i = n1; i < n2; ++i) {
+        while (vis[next]) ++next;
+        new_evs[i] = evs2[next];
+        perm[i] = next;
+        ++next;
+    }
+    pad_f1 = new_evs;
+    return ligero_commit_base(pad_f1, rho_inv);
+}
+
+setProver permProverBase::get_set_prover(const MLE& id_perm, const MLE& perm) {
+    std::vector<const MLE*> set1, set2;
+    set1 = { &perm, &pad_f1 };
+    set2 = { &id_perm, &f2 };
+    return setProver(set1, set2);
+}
+
+bool permVerifierBase::execute_check(
+    permProverBase& prover,
+    const oracle* pcs_f1, const oracle* pcs_f2,
+    uint64_t rho_inv, uint64_t sec_param) {
+
+    auto _pcs_pad_f1 = prover.commit_pad_f1(rho_inv);
+    const oracle *pcs_pad_f1 = _pcs_pad_f1.empty() ? pcs_f1 : &_pcs_pad_f1;
+    
+    // Compute MLE for permutation & identity permutation
+    size_t sz = prover.get_size();
+    std::vector<size_t> id_perm(sz);
+    for (size_t i = 0; i != sz; ++i) id_perm[i] = i;
+    MLE mle_id_perm(id_perm);
+    MLE mle_perm(prover.get_perm());
+
+    setProver set_prover = prover.get_set_prover(mle_id_perm, mle_perm);
+    std::vector<const oracle*> pcs_vec1, pcs_vec2;
+    pcs_vec1 = { &mle_perm, pcs_pad_f1 };
+    pcs_vec2 = { &mle_id_perm, pcs_f2 };
+    if (!setVerifier::execute_check(set_prover, pcs_vec1, pcs_vec2, rho_inv, sec_param)) {
+        std::cerr << "permVerifierBase::execute_check : set check fails" << std::endl;
         return false;
     }
     return true;

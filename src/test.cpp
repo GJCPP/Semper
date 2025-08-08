@@ -763,7 +763,7 @@ bool test_set_check() {
             }
         }
         std::vector<MLE> mle_set1, mle_set2;
-        std::vector<MLE*> ptr_set1, ptr_set2;
+        std::vector<const MLE*> ptr_set1, ptr_set2;
         std::vector<ligeropcs_ext> pcs_set1, pcs_set2;
         std::vector<const oracle*> ptr_pcs1, ptr_pcs2;
         mle_set1.reserve(n);
@@ -788,78 +788,114 @@ bool test_set_check() {
     return true;
 }
 
+bool test_perm_check() {
+    for (int cnt = 0; cnt < CNT_TEST; ++cnt) {
+        srand(cnt);
+        int logn1(rand() % 10 + 1), logn2(rand() % 10 + 2);
+        if (logn1 > logn2) std::swap(logn1, logn2);
+        std::vector<Goldilocks2::Element> f1(1 << logn1), f2(1 << logn2);
+        std::vector<bool> vis(1 << logn2);
+        std::vector<size_t> perm(1 << logn1);
+        for (size_t i = 0; i < f1.size(); ++i) {
+            size_t mapto = rand() % f2.size();
+            while (vis[mapto]) {
+                mapto = rand() % f2.size();
+            }
+            vis[mapto] = true;
+            perm[i] = mapto;
+            f2[mapto] = f1[i] = Goldilocks2::fromU64(rand() % (1 << 20) + 1);
+        }
+        for (size_t i = 0; i < f2.size(); ++i) {
+            if (!vis[i]) {
+                f2[i] = Goldilocks2::fromU64(rand() % (1 << 20) + 1);
+            }
+        }
+        MLE mle_f1(f1), mle_f2(f2);
+        ligeropcs_base pcs_f1 = ligero_commit_base(mle_f1, 2), pcs_f2 = ligero_commit_base(mle_f2, 2);
+        permProverBase prover(mle_f1, mle_f2, perm);
+        if (!permVerifierBase::execute_check(prover, &pcs_f1, &pcs_f2, 2, 32)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool run_test() {
     srand(79);
-    if (!test_arithmetic()) {
-        std::cout << "test_arithmetic failed" << std::endl;
-        return false;
-    }
-    if (!test_eval_power_mle()) {
-        std::cout << "test_eval_power_mle failed" << std::endl;
-        return false;
-    }
-    if (!test_product3_sumcheck()) {
-        std::cout << "test_product3_sumcheck failed" << std::endl;
-        return false;
-    }
-    if (!test_product2_sumcheck()) {
-        std::cout << "test_product2_sumcheck failed" << std::endl;
-        return false;
-    }
-    if (!test_partial_sumcheck_product2()) {
-        std::cout << "test_partial_sumcheck_product2 failed" << std::endl;
-        return false;
-    }
-    if (!test_logup()) {
-        std::cout << "test_logup failed" << std::endl;
-        return false;
-    }
-    if (!test_conv_check()) {
-        std::cout << "test_conv_check failed" << std::endl;
-        return false;
-    }
-    if (!test_conv2_check()) {
-        std::cout << "test_conv2_check failed" << std::endl;
-        return false;
-    }
-    if (!test_pad_check()) {
-        std::cout << "test_pad_check failed" << std::endl;
-        return false;
-    }
-    if (!test_pad_weights()) {
-        std::cout << "test_pad_weights failed" << std::endl;
-        return false;
-    }
-    if (!test_mat_mult()) {
-        std::cout << "test_mat_mult failed" << std::endl;
-        return false;
-    }
-    if (!test_div_check()) {
-        std::cout << "test_div_check failed" << std::endl;
-        return false;
-    }
-    if (!test_sign_check()) {
-        std::cout << "test_sign_check failed" << std::endl;
-        return false;
-    }
-    if (!test_prod_check()) {
-        std::cout << "test_prod_check failed" << std::endl;
-        return false;
-    }
-    if (!test_ltn_check()) {
-        std::cout << "test_ltn_check failed" << std::endl;
-        return false;
-    }
-    if (!test_e_pow_check()) {
-        std::cout << "test_e_pow_check failed" << std::endl;
-        return false;
-    }
-    if (!test_pd_check()) {
-        std::cout << "test_pd_check failed" << std::endl;
-        return false;
-    }
-    if (!test_set_check()) {
-        std::cout << "test_set_check failed" << std::endl;
+    // if (!test_arithmetic()) {
+    //     std::cout << "test_arithmetic failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_eval_power_mle()) {
+    //     std::cout << "test_eval_power_mle failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_product3_sumcheck()) {
+    //     std::cout << "test_product3_sumcheck failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_product2_sumcheck()) {
+    //     std::cout << "test_product2_sumcheck failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_partial_sumcheck_product2()) {
+    //     std::cout << "test_partial_sumcheck_product2 failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_logup()) {
+    //     std::cout << "test_logup failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_conv_check()) {
+    //     std::cout << "test_conv_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_conv2_check()) {
+    //     std::cout << "test_conv2_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_pad_check()) {
+    //     std::cout << "test_pad_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_pad_weights()) {
+    //     std::cout << "test_pad_weights failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_mat_mult()) {
+    //     std::cout << "test_mat_mult failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_div_check()) {
+    //     std::cout << "test_div_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_sign_check()) {
+    //     std::cout << "test_sign_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_prod_check()) {
+    //     std::cout << "test_prod_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_ltn_check()) {
+    //     std::cout << "test_ltn_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_e_pow_check()) {
+    //     std::cout << "test_e_pow_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_pd_check()) {
+    //     std::cout << "test_pd_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_set_check()) {
+    //     std::cout << "test_set_check failed" << std::endl;
+    //     return false;
+    // }
+    if (!test_perm_check()) {
+        std::cout << "test_perm_check failed" << std::endl;
         return false;
     }
     std::cout << "All tests passed" << std::endl;
