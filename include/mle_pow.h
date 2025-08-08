@@ -16,6 +16,8 @@ public:
 
     // Cost O(degree^2)
     Goldilocks2::Element evaluate(const std::vector<Goldilocks2::Element>& point) const override;
+
+    inline int get_num_vars() const override { return num_vars; }
     
 protected:
     Goldilocks2::Element beta;

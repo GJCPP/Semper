@@ -13,6 +13,7 @@
 #include "prod_check.h"
 #include "ltn_check.h"
 #include "e_pow_check.h"
+#include "perm_check.h"
 
 #define CNT_TEST 100
 
@@ -303,7 +304,7 @@ bool test_conv2_check() {
     for (int cnt(0); cnt != CNT_TEST; ++cnt) {
         srand(cnt);
         size_t padding = rand() % 4;
-        size_t C = rand() % 10 + 1, D = rand() % 5 + 1, n = 1 << (rand() % 3 + 1), m = 3;
+        size_t C = rand() % 5 + 1, D = rand() % 5 + 1, n = 1 << (rand() % 3 + 1), m = 3;
         size_t on = n + 2 * padding - m + 1;
         // X: C x n x n, W: C x D x m x m, Y: D x on x on
         std::vector<Goldilocks2::Element> X(C * n * n);
@@ -393,7 +394,7 @@ bool test_pad_weights() {
     for (int cnt(0); cnt != CNT_TEST; ++cnt) {
         srand(cnt);
         size_t padding = rand() % 4;
-        size_t C = rand() % 10 + 1, D = rand() % 5 + 1, n = 1 << (rand() % 3 + 3), m = rand() % 3 + 2;
+        size_t C = rand() % 5 + 1, D = rand() % 5 + 1, n = 1 << (rand() % 3 + 3), m = rand() % 3 + 2;
         size_t on = n + 2 * padding - m + 1;
         // X: C x n x n, W: C x D x m x m, Y: D x on x on
         array<Goldilocks2::Element> X({C, n, n});
@@ -515,7 +516,8 @@ bool test_mat_mult() {
 
 bool test_logup() {
     for (int cnt(0); cnt != CNT_TEST; ++cnt) {
-        size_t fsize = 2 << (rand() % 10), tsize = 4 << (rand() % 10);
+        srand(cnt);
+        size_t fsize = 4 << (rand() % 10), tsize = 4 << (rand() % 10);
         std::vector<std::pair<uint64_t, uint64_t>> t(tsize);
         std::vector<bool> vis(1 << 18);
         for (size_t i = 0; i < tsize; ++i) {
@@ -537,7 +539,6 @@ bool test_logup() {
         std::vector<uint64_t> f1(fsize);
         std::vector<uint64_t> f2(f1.size());
 
-        srand(cnt);
         for (size_t i = 0; i < f1.size(); ++i) {
             size_t r = rand() % t1.size();
             f1[i] = t1[r];
@@ -720,6 +721,26 @@ bool test_e_pow_check() {
     return true;
 }
 
+bool test_pd_check() {
+    for (int cnt = 0; cnt < CNT_TEST; ++cnt) {
+        srand(cnt);
+        int logn = rand() % 10 + 2;
+        size_t n = (1ull << logn);
+        auto f1 = random_vec_ext(n), f2 = random_vec_ext(n);
+        Goldilocks2::Element pd = Goldilocks2::one();
+        for (size_t i = 0; i != n; ++i) {
+            pd *= f1[i] / f2[i];
+        }
+        MultilinearPolynomial mle_f1(f1), mle_f2(f2);
+        ligeropcs_ext pcs_f1(ligero_commit_ext(mle_f1, 2)), pcs_f2(ligero_commit_ext(mle_f2, 2));
+        pdProver prover(mle_f1, mle_f2);
+        if (!pdVerifier::execute_check(prover, &pcs_f1, &pcs_f2, pd, 2, 32)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool run_test() {
     srand(79);
     if (!test_arithmetic()) {
@@ -784,6 +805,10 @@ bool run_test() {
     }
     if (!test_e_pow_check()) {
         std::cout << "test_e_pow_check failed" << std::endl;
+        return false;
+    }
+    if (!test_pd_check()) {
+        std::cout << "test_pd_check failed" << std::endl;
         return false;
     }
     std::cout << "All tests passed" << std::endl;

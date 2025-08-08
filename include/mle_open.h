@@ -8,7 +8,7 @@
 #include "goldilocks_quadratic_ext.h"
 #include "array_view.h"
 
-class open_param{
+class open_param : public oracle{
 public:
     open_param(const array_view<Goldilocks2::Element>& mle, const oracle *pcs);
     open_param(const std::vector<int>& log_shape, const oracle *pcs);
@@ -20,9 +20,23 @@ public:
     open_param parse_all(const std::vector<Goldilocks2::Element>& r) const;
 
     open_param operator()(const std::vector<Goldilocks2::Element>& r) const;
+    open_param operator()(const Goldilocks2::Element& r) const;
 
     Goldilocks2::Element open(size_t sec_param) const;
 
+    
+    inline Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const override {
+        return parse_all(z).open(sec_param);
+    }
+
+    inline int get_num_vars() const override {
+        int ret = 0;
+        for (int i = next; i < static_cast<int>(shape.size()); ++i) {
+            ret += shape[i];
+        }
+        return ret;
+    }
+    
     const oracle *pcs;
     std::vector<Goldilocks2::Element> cha; // combined challenges
     std::vector<int> ele; // pointers to the starting element

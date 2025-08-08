@@ -26,6 +26,8 @@ public:
 
     // Only provide basic commitment operations
     Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const;
+
+    int get_num_vars() const override;
 };
 
 class ligeropcs_ext : public oracle {
@@ -42,6 +44,8 @@ public:
 
     // Only provide basic commitment operations
     Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const;
+
+    int get_num_vars() const override;
 };
 
 class ligeroProver_base {
@@ -58,6 +62,8 @@ public:
     std::vector<Goldilocks2::Element> lincomb(const std::vector<Goldilocks2::Element>& r) const;
     std::vector<MerkleTree_base::MTPayload> open_cols(const std::vector<size_t>& indexes) const;
 
+    inline int get_num_vars() const { return num_vars; }
+
 private:
     // mle is a multilinear polynomial whose evaluations over the hypercube are all base field elements 
     // MultilinearPolynomial mle;
@@ -68,8 +74,8 @@ private:
     std::vector<Goldilocks::Element> M;
     // encoded matrix
     std::vector<std::vector<Goldilocks::Element>> codewords;
-    // mle
-    const MultilinearPolynomial *mle;
+    // number of variables
+    int num_vars;
     // merkle hash tree of codewords
     MerkleTree_base mt_t;
 };
@@ -87,6 +93,7 @@ public:
     std::vector<Goldilocks2::Element> lincomb(const std::vector<Goldilocks2::Element>& r) const;
     std::vector<MerkleTree_ext::MTPayload> open_cols(const std::vector<size_t>& indexes) const;
 
+    inline int get_num_vars() const { return num_vars; }
 private:
     // MultilinearPolynomial mle;
 
@@ -96,6 +103,8 @@ private:
     std::vector<Goldilocks2::Element> M;
     // encoded matrix
     std::vector<std::vector<Goldilocks2::Element>> codewords;
+    // number of variables
+    int num_vars;
     // merkle hash tree of codewords
     MerkleTree_ext mt_t;
 };

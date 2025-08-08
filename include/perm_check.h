@@ -1,0 +1,43 @@
+#pragma once
+
+#include "mle.h"
+#include "ligero.h"
+#include "util.h"
+#include "product3_sumcheck.h"
+
+inline bool zero_check(const oracle* pcs, uint64_t sec_param) {
+    auto cha = random_vec_ext(pcs->get_num_vars());
+    return pcs->open(cha, sec_param) == Goldilocks2::zero();
+}
+
+// prove \prod f1/f2 = s.
+class pdProver {
+public:
+    pdProver(const MultilinearPolynomial& num, const MultilinearPolynomial& den)
+        : f1(num.clone()), f2(den.clone()), num_vars(num.get_num_vars()) {
+        if (f1->get_num_vars() != f2->get_num_vars()) {
+            throw std::invalid_argument("prodProver: f1 and f2 must have the same number of variables");
+        }
+    }
+
+    inline int get_num_vars() const { return num_vars; }
+
+    ligeropcs_ext commit_v(uint64_t rho_inv);
+
+    // prove v(1, x) = v(x, 0) v(x, 1)
+    p3Prover prove_trans(const std::vector<Goldilocks2::Element>& cha);
+    
+    // prove f1(x) = v(0, x) f2(x)
+    p3Prover prove_init(const std::vector<Goldilocks2::Element>& cha);
+protected:
+    std::unique_ptr<MultilinearPolynomial> f1, f2;
+    int num_vars;
+    MultilinearPolynomial v;
+};
+
+class pdVerifier {
+public:
+    static bool execute_check(pdProver& prover, const oracle *pcs_f1, const oracle *pcs_f2, Goldilocks2::Element claim, uint64_t rho_inv, uint64_t sec_param);
+};
+
+

@@ -19,7 +19,7 @@ public:
     MultilinearPolynomial(const std::vector<std::vector<std::vector<Goldilocks2::Element>>>& evaluations);
     MultilinearPolynomial(const std::vector<uint64_t>& val_table);
     MultilinearPolynomial(const array_view<Goldilocks2::Element>& evaluations);
-    int get_num_vars() const { return num_vars; }
+    inline int get_num_vars() const override { return num_vars; }
 
     virtual std::unique_ptr<MultilinearPolynomial> clone() const {
         return std::make_unique<MultilinearPolynomial>(*this);

@@ -90,6 +90,11 @@ open_param open_param::operator()(const std::vector<Goldilocks2::Element>& r) co
     return fix(r);
 }
 
+open_param open_param::operator()(const Goldilocks2::Element& r) const
+{
+    return fix({r});
+}
+
 Goldilocks2::Element open_param::open(size_t sec_param) const {
     return pcs->open(cha, sec_param);
 }

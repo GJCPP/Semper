@@ -32,19 +32,18 @@ std::vector<Goldilocks2::Element> rsencode(const std::vector<Goldilocks2::Elemen
     return eval_with_ntt(data, data.size() * rho_inv);
 }
 
-ligeroProver_base::ligeroProver_base(const MultilinearPolynomial& w, const uint64_t& rho_inv)
-    : rho_inv(rho_inv)
-{
-    const std::vector<Goldilocks2::Element>& eval_table = w.get_eval_table();
-    size_t l = find_ceiling_log2(eval_table.size());
+ligeroProver_base::ligeroProver_base(const MultilinearPolynomial& w, const uint64_t& rho_inv) 
+    :rho_inv(rho_inv) {
+    const auto& evals = w.get_eval_table();
+    num_vars = find_ceiling_log2(evals.size());
 
     // 2^l = a * b
-    a = 1ull << (l >> 1);       //floor(l/2)
-    b = a << (l & 1);           //ceil(l/2)
-    M.resize(1ull << l, Goldilocks::zero());
+    a = 1ull << (num_vars >> 1);       //floor(l/2)
+    b = a << (num_vars & 1);           //ceil(l/2)
+    M.resize(1ull << num_vars, Goldilocks::zero());
     codelen = b * rho_inv;
-    for (size_t i = 0; i < eval_table.size(); ++i) {
-        M[i] = eval_table[i][0];
+    for (size_t i = 0; i < evals.size(); ++i) {
+        M[i] = evals[i][0];
     }
     for (size_t i = 0; i < a; ++i) {
         std::vector<Goldilocks::Element> dataline(b);
@@ -54,18 +53,17 @@ ligeroProver_base::ligeroProver_base(const MultilinearPolynomial& w, const uint6
         codewords.push_back(rsencode(dataline, rho_inv));
     }
     mt_t = MerkleTree_base(codewords);
-    mle = &w;
 }
 
 
 ligeroProver_base::ligeroProver_base(const std::vector<Goldilocks::Element>& w, const uint64_t& rho_inv) :rho_inv(rho_inv), M(w) {
     // stevals = w.get_eval_table();
-    size_t l = find_ceiling_log2(w.size());
+    num_vars = find_ceiling_log2(w.size());
 
     // 2^l = a * b
-    a = 1ull << (l >> 1);       //floor(l/2)
-    b = a << (l & 1);           //ceil(l/2)
-    M.resize(1ull << l, Goldilocks::zero());
+    a = 1ull << (num_vars >> 1);       //floor(l/2)
+    b = a << (num_vars & 1);           //ceil(l/2)
+    M.resize(1ull << num_vars, Goldilocks::zero());
     codelen = b * rho_inv;
     // for (size_t i = 0; i < w.size(); ++i) {
     //     M[i] = w[i]; // Seems redundant
@@ -82,14 +80,14 @@ ligeroProver_base::ligeroProver_base(const std::vector<Goldilocks::Element>& w, 
 
 ligeroProver_base::ligeroProver_base(const std::vector<uint64_t>& w, const uint64_t& rho_inv) :rho_inv(rho_inv) {
     // stevals = w.get_eval_table();
-    size_t l = find_ceiling_log2(w.size());
+    num_vars = find_ceiling_log2(w.size());
     // std::cout << l << '\n';
 
     // 2^l = a * b
-    a = 1ull << (l >> 1);       //floor(l/2)
-    b = a << (l & 1);           //ceil(l/2)
+    a = 1ull << (num_vars >> 1);       //floor(l/2)
+    b = a << (num_vars & 1);           //ceil(l/2)
     set_timer("make matrix");
-    M.resize(1ull << l, Goldilocks::zero());
+    M.resize(1ull << num_vars, Goldilocks::zero());
     codelen = b * rho_inv;
     for (size_t i = 0; i < w.size(); ++i) {
         M[i] = Goldilocks::fromU64(w[i]);
@@ -147,11 +145,11 @@ ligeroProver_ext::ligeroProver_ext(const MultilinearPolynomial& w, const uint64_
 }
 
 ligeroProver_ext::ligeroProver_ext(const std::vector<Goldilocks2::Element>& w, const uint64_t& rho_inv) :rho_inv(rho_inv), M(w)  {
-    size_t l = find_ceiling_log2(w.size());
-    M.resize(1ull << l, Goldilocks2::zero());
+    num_vars = find_ceiling_log2(w.size());
+    M.resize(1ull << num_vars, Goldilocks2::zero());
     // 2^l = a * b
-    a = 1ull << (l >> 1);       //floor(l/2)
-    b = a << (l & 1);           //ceil(l/2)
+    a = 1ull << (num_vars >> 1);       //floor(l/2)
+    b = a << (num_vars & 1);           //ceil(l/2)
     codelen = b * rho_inv;
     for (size_t i = 0; i < w.size(); ++i) {
         M[i] = w[i];
@@ -410,10 +408,18 @@ Goldilocks2::Element ligeropcs_base::open(const std::vector<Goldilocks2::Element
     return ligeroVerifier::open(*this, z, sec_param);
 }
 
+int ligeropcs_base::get_num_vars() const {
+    return prover->get_num_vars();
+}
+
 ligeropcs_ext::ligeropcs_ext(const MerkleDef::Digest& mthash, const std::shared_ptr<ligeroProver_ext>& prover, const size_t& num_rows, const size_t& num_cols)
     : mthash(mthash), prover(prover), num_rows(num_rows), num_cols(num_cols) {
 }
 
 Goldilocks2::Element ligeropcs_ext::open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const {
     return ligeroVerifier::open(*this, z, sec_param);
+}
+
+int ligeropcs_ext::get_num_vars() const {
+    return prover->get_num_vars();
 }
