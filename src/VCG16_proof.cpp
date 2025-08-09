@@ -21,12 +21,26 @@ bool prove_conv(
     const array_view<Goldilocks2::Element>& X, // [C, n, n]
     const array_view<Goldilocks2::Element>& W, // [C, D, m, m]
     const array_view<Goldilocks2::Element>& Y, // [D, on, on]
+    const array_view<Goldilocks2::Element>& ori_Y,
     std::vector<size_t>& mapfrom,
     std::vector<size_t>& mapto,
     size_t rho_inv, size_t sec_param) {
 
     auto prover = make_conv2_prover(C, D, n, m, padding, X, W, Y, mapto);
-    prover.init_ori_Y(Y);
+    prover.init_ori_Y(ori_Y);
+
+    // Check mapfrom & mapto with Y and prover.triple.Y
+    // std::cout << "(34) Manually check mapfrom & to..." << std::endl;
+    // MLE _ori_Y = ori_Y;
+    // for (size_t i = 0; i != mapfrom.size(); ++i) {
+    //     if (_ori_Y.get_eval_table()[mapfrom[i]] != prover.triple.Y->get_eval_table()[mapto[i]]) {
+    //         std::cerr << "(34) Map check failed at " << i << std::endl;
+    //         std::cerr << "mapfrom = " << mapfrom[i] << " -> mapto = " << mapto[i] << std::endl;
+    //         throw;
+    //     }
+    // }
+    // std::cout << "(34) Manually check mapfrom & to done." << std::endl;
+
 
     // if (!prover.triple.check()) {
     //     std::cout << "❌ Conv triple check failed." << std::endl;
@@ -92,6 +106,7 @@ bool prove_conv(
 
         auto start_pad = std::chrono::high_resolution_clock::now();
 
+        size_t up_on = (1ull << find_ceiling_log2(on));
         std::vector<size_t> mapto(OC * on * on);
         std::vector<size_t> mapfrom;
         for (size_t i = 0; i != mapto.size(); ++i) mapto[i] = i;
@@ -99,7 +114,7 @@ bool prove_conv(
         for (size_t i = 0; i != OC; ++i) {
             for (size_t j = 0; j != on; ++j) {
                 for (size_t k = 0; k != on; ++k) {
-                    mapfrom.push_back(i * on * on + j * on + k);
+                    mapfrom.push_back(i * up_on * up_on + j * up_on + k);
                 }
             }
         }
@@ -108,6 +123,18 @@ bool prove_conv(
             iW,
             iY,
             pW, pY, new_m, new_padding, mapto, pad_right_bottom);
+
+        // check mapfrom & mapto with iY & pY
+        // std::cout << "(126) Manually check mapfrom & to..." << std::endl;
+        // MLE _Y = iY;
+        // for (size_t i = 0; i != mapfrom.size(); ++i) {
+        //     if (_Y.get_eval_table()[mapfrom[i]] != pY.view.kth(mapto[i])) {
+        //         std::cerr << "(126) Mapfrom check failed at " << i << std::endl;
+        //         std::cerr << "mapfrom = " << mapfrom[i] << " -> mapto = " << mapto[i] << std::endl;
+        //         throw;
+        //     }
+        // }
+        // std::cout << "(126) Manually check mapfrom & to done." << std::endl;
 
         // if (!random_check_conv(X, W, Y, padding, 1000)) {
         //     std::cout << "❌ Random check failed." << std::endl;
@@ -140,6 +167,7 @@ bool prove_conv(
         if (!prove_conv(N, j, IC, OC, in, new_m, new_padding,
             oX, oW, oY,
             pX, pW, pY, 
+            iY,
             mapfrom, mapto,
             rho_inv, sec_param)) return false;
         std::chrono::duration<double> elapsed_prove = std::chrono::high_resolution_clock::now() - start_pad;
@@ -286,7 +314,7 @@ bool prove_full(
     return mat_mult_verifier::execute_mat_mult_check(prover, oX, oW, oY, sec_param);
 }
 
-bool prove_full_layer(const VCG16::layer_info& layer, uint64_t rho_inv, size_t sec_param) {
+bool prove_full_layer(const VCG16::layer_info& layer, size_t rho_inv, size_t sec_param) {
     const int batch = int(layer.input.shape(0));
     // Prove forward
     for (int i = 0; i < batch; ++i) {

@@ -59,6 +59,34 @@ public:
         return data[index];
     }
 
+    T& kth(size_t index) {
+        std::vector<size_t> ind(data_shape.size());
+        std::vector<size_t> sz(data_shape.size());
+        sz.back() = 1;
+        for (int i = int(data_shape.size()) - 1; i != 0; --i) {
+            sz[i - 1] = sz[i] * data_shape[i];
+        }
+        for (size_t i = 0; i < data_shape.size(); ++i) {
+            ind[i] = index / sz[i];
+            index %= sz[i];
+        }
+        return (*this)(ind);
+    }
+    
+    const T& kth(size_t index) const {
+        std::vector<size_t> ind(data_shape.size());
+        std::vector<size_t> sz(data_shape.size());
+        sz.back() = 1;
+        for (int i = int(data_shape.size()) - 1; i != 0; --i) {
+            sz[i - 1] = sz[i] * data_shape[i];
+        }
+        for (size_t i = 0; i < data_shape.size(); ++i) {
+            ind[i] = index / sz[i];
+            index %= sz[i];
+        }
+        return (*this)(ind);
+    }
+
     void reorder(const std::vector<int>& ind) {
         if (ind.size() != static_cast<size_t>(dims)) {
             throw std::runtime_error("array_view: Indices size does not match");
