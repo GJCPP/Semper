@@ -14,7 +14,7 @@ inline bool zero_check(const oracle* pcs, uint64_t sec_param) {
 class pdProver {
 public:
     pdProver(const MultilinearPolynomial& num, const MultilinearPolynomial& den)
-        : f1(num.clone()), f2(den.clone()), num_vars(num.get_num_vars()) {
+        : f1(&num), f2(&den), num_vars(num.get_num_vars()) {
         if (f1->get_num_vars() != f2->get_num_vars()) {
             throw std::invalid_argument("prodProver: f1 and f2 must have the same number of variables");
         }
@@ -30,7 +30,7 @@ public:
     // prove f1(x) = v(0, x) f2(x)
     p3Prover prove_init(const std::vector<Goldilocks2::Element>& cha);
 protected:
-    std::unique_ptr<MultilinearPolynomial> f1, f2;
+    const MLE *f1, *f2;
     int num_vars;
     MultilinearPolynomial v;
 };
@@ -54,7 +54,7 @@ public:
     pdProver get_pd_prover();
 
 protected:
-    std::vector<std::unique_ptr<MLE>> f1, f2;
+    std::vector<const MLE *> f1, f2;
     MLE set1, set2;
     int n, num_vars;
 };
@@ -68,26 +68,33 @@ class permProverBase {
 public:
     
     // prove f2(pi(x)) = f1(x)
-    permProverBase(const MLE& _f1, const MLE& _f2, const std::vector<size_t>& _perm);
+    permProverBase(const std::vector<size_t>& _perm);
 
     const std::vector<size_t>& get_perm() const { return perm; }
     size_t get_size() const { return sz; }
 
+    void add_mle(const MLE& f1, const MLE& f2);
+
     // return null pcs if padding is not needed
-    ligeropcs_base commit_pad_f1(uint64_t rho_inv);
+    std::vector<ligeropcs_base> commit_pad_f1(uint64_t rho_inv);
 
     setProver get_set_prover(const MLE& id_perm, const MLE& perm);
 
 protected:
-    MLE f1, f2;
+    std::vector<const MLE *> f1, f2;
     std::vector<size_t> perm;
     size_t sz;
 
-    MLE pad_f1;
+    std::vector<MLE> pad_f1;
 };
 
 
 class permVerifierBase {
 public:
-    static bool execute_check(permProverBase& prover, const oracle *pcs_f1, const oracle *pcs_f2, uint64_t rho_inv, uint64_t sec_param);
+    void add_pcs(const oracle *pcs_f1, const oracle *pcs_f2);
+
+    bool execute_check(permProverBase& prover, uint64_t rho_inv, uint64_t sec_param);
+
+protected:
+    std::vector<const oracle*> pcs_f1, pcs_f2;
 };
