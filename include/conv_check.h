@@ -9,6 +9,7 @@
 #include "mle_convker.h"
 #include "array_view.h"
 #include "mle_open.h"
+#include "perm_check.h"
 
 class convProver;
 class convVerifier;
@@ -57,6 +58,8 @@ public:
     convProver(const convTriple& triple);
     convProver(convTriple&& triple);
 
+    void init_ori_Y(const MultilinearPolynomial& Y);
+
     // Fix beta and r_D, return the p2_prover for the RHS
     p2Prover fix_beta_r_D(const Goldilocks2::Element& beta, const std::vector<Goldilocks2::Element>& r_D);
 
@@ -72,11 +75,13 @@ public:
      */
     std::array<p2Prover, 2> fix_r_C(const std::vector<Goldilocks2::Element>& r_C);
 
+    mapProverBase get_map_prover(const std::vector<size_t>& mapfrom, const std::vector<size_t>& mapto);
+
     convTriple triple;
 protected:
     // std::unique_ptr<MultilinearPolynomial> X_prime, W_prime;
     Goldilocks2::Element beta;
-
+    MultilinearPolynomial ori_Y;
 };
 
 class convVerifier {
@@ -86,6 +91,8 @@ public:
         open_param X_open,
         open_param W_open,
         open_param Y_open,
+        const std::vector<size_t>& mapfrom,
+        const std::vector<size_t>& mapto,
         size_t rho_inv,
         size_t sec_param,
         bool base_com = false);
@@ -107,7 +114,8 @@ convProver make_conv2_prover(
     size_t C, size_t D, size_t n, size_t m, size_t padding,
     const array_view<Goldilocks2::Element>& X, // in_channels x n x n
     const array_view<Goldilocks2::Element>& W, // in_channels x out_channels x m x m
-    const array_view<Goldilocks2::Element>& Y // out_channels x (n + 2 * padding - m + 1) x (n + 2 * padding - m + 1)
+    const array_view<Goldilocks2::Element>& Y, // out_channels x (n + 2 * padding - m + 1) x (n + 2 * padding - m + 1)
+    std::vector<size_t>& mapto
 );
 
 // If m is not power of 2, pad W to make it power of 2
@@ -120,4 +128,5 @@ void pad_weights(
     array<Goldilocks2::Element>& Y_pad,
     size_t& new_m,
     size_t& new_padding_x,
+    std::vector<size_t>& mapto,
     bool pad_right_bottom);

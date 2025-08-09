@@ -72,6 +72,8 @@ std::vector<Goldilocks2::Element> random_vec_ext(const size_t& n);
 
 void random_vec_ext(Goldilocks2::Element* arr, const size_t& n);
 
+void random_vec_u64(Goldilocks2::Element* arr, const size_t& n);
+
 std::vector<uint64_t> trange(const uint64_t& lbound, const uint64_t& ubound);
 
 void alert(const std::string& mes);
@@ -138,3 +140,4 @@ std::vector<T> flatten_2d(const array_view<T>& vec, size_t padding, T pad_val = 
     }
     return res;
 }
+

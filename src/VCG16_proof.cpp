@@ -21,9 +21,12 @@ bool prove_conv(
     const array_view<Goldilocks2::Element>& X, // [C, n, n]
     const array_view<Goldilocks2::Element>& W, // [C, D, m, m]
     const array_view<Goldilocks2::Element>& Y, // [D, on, on]
+    std::vector<size_t>& mapfrom,
+    std::vector<size_t>& mapto,
     size_t rho_inv, size_t sec_param) {
 
-    auto prover = make_conv2_prover(C, D, n, m, padding, X, W, Y);
+    auto prover = make_conv2_prover(C, D, n, m, padding, X, W, Y, mapto);
+    prover.init_ori_Y(Y);
 
     // if (!prover.triple.check()) {
     //     std::cout << "❌ Conv triple check failed." << std::endl;
@@ -41,7 +44,7 @@ bool prove_conv(
     oW.rev[2] = oW.rev[2] ^ true;
     oW.rev[3] = oW.rev[3] ^ true;
 
-    if (!convVerifier::execute_convcheck_2d(prover, oX, oW, oY, rho_inv, sec_param, true)) {
+    if (!convVerifier::execute_convcheck_2d(prover, oX, oW, oY, mapfrom, mapto, rho_inv, sec_param, true)) {
         return false;
     }
     return true;
@@ -59,18 +62,18 @@ bool prove_conv(
     const int N = X.shape(0), IC = X.shape(1), in = X.shape(2), OC = Y.shape(1), on = Y.shape(2);
     const int m = W.shape(2);
 
-    assert(X.shape(0) == N);
-    assert(X.shape(1) == IC);
-    assert(X.shape(2) == in);
-    assert(X.shape(3) == in);
-    assert(W.shape(0) == OC);
-    assert(W.shape(1) == IC);
-    assert(W.shape(2) == m);
-    assert(W.shape(3) == m);
-    assert(Y.shape(0) == N);
-    assert(Y.shape(1) == OC);
-    assert(Y.shape(2) == on);
-    assert(Y.shape(3) == on);
+    assert(X.shape(0) == static_cast<size_t>(N));
+    assert(X.shape(1) == static_cast<size_t>(IC));
+    assert(X.shape(2) == static_cast<size_t>(in));
+    assert(X.shape(3) == static_cast<size_t>(in));
+    assert(W.shape(0) == static_cast<size_t>(OC));
+    assert(W.shape(1) == static_cast<size_t>(IC));
+    assert(W.shape(2) == static_cast<size_t>(m));
+    assert(W.shape(3) == static_cast<size_t>(m));
+    assert(Y.shape(0) == static_cast<size_t>(N));
+    assert(Y.shape(1) == static_cast<size_t>(OC));
+    assert(Y.shape(2) == static_cast<size_t>(on));
+    assert(Y.shape(3) == static_cast<size_t>(on));
     assert(on == in + 2 * padding - m + 1);
 
 
@@ -89,11 +92,22 @@ bool prove_conv(
 
         auto start_pad = std::chrono::high_resolution_clock::now();
 
+        std::vector<size_t> mapto(OC * on * on);
+        std::vector<size_t> mapfrom;
+        for (size_t i = 0; i != mapto.size(); ++i) mapto[i] = i;
+        mapfrom.reserve(OC * on * on);
+        for (size_t i = 0; i != OC; ++i) {
+            for (size_t j = 0; j != on; ++j) {
+                for (size_t k = 0; k != on; ++k) {
+                    mapfrom.push_back(i * on * on + j * on + k);
+                }
+            }
+        }
         pad_weights(IC, OC, in, m, padding,
             iX,
             iW,
             iY,
-            pW, pY, new_m, new_padding, pad_right_bottom);
+            pW, pY, new_m, new_padding, mapto, pad_right_bottom);
 
         // if (!random_check_conv(X, W, Y, padding, 1000)) {
         //     std::cout << "❌ Random check failed." << std::endl;
@@ -125,7 +139,9 @@ bool prove_conv(
 
         if (!prove_conv(N, j, IC, OC, in, new_m, new_padding,
             oX, oW, oY,
-            pX, pW, pY, rho_inv, sec_param)) return false;
+            pX, pW, pY, 
+            mapfrom, mapto,
+            rho_inv, sec_param)) return false;
         std::chrono::duration<double> elapsed_prove = std::chrono::high_resolution_clock::now() - start_pad;
         // std::cout << "prove_conv time: " << elapsed_prove.count() << " seconds" << std::endl;
         prove_time += elapsed_prove.count();

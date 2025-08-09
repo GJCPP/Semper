@@ -73,7 +73,7 @@ public:
     const std::vector<size_t>& get_perm() const { return perm; }
     size_t get_size() const { return sz; }
 
-    void add_mle(const MLE& f1, const MLE& f2);
+    void add_mle(const MLE *f1, const MLE *f2);
 
     // return null pcs if padding is not needed
     std::vector<ligeropcs_base> commit_pad_f1(uint64_t rho_inv);
@@ -97,4 +97,36 @@ public:
 
 protected:
     std::vector<const oracle*> pcs_f1, pcs_f2;
+};
+
+class mapProverBase {
+public:
+    mapProverBase(const std::vector<size_t>& from, const std::vector<size_t>& to);
+
+    void add_mle(const MLE *mle_from, const MLE *mle_to);
+    
+    int get_right_num_vars() const { return right_num_vars; }
+    int get_pad_num_vars() const { return pad_num_vars; }
+    
+    std::vector<ligeropcs_base> commit_right(uint64_t rho_inv) const;
+    
+    permProverBase get_perm_prover();
+    
+protected:
+    int left_num_vars, right_num_vars, pad_num_vars;
+    size_t left_size, right_size;
+    std::vector<const MLE*> left;
+    std::vector<MLE> right;
+    std::vector<size_t> map_from, map_to, mapto;
+
+    void init_map(const MLE *mle_from, const MLE *mle_to);
+};
+
+class mapVerifierBase {
+public:
+    void add_pcs(const oracle *left, const oracle *right);
+
+    bool execute_check(mapProverBase& prover, uint64_t rho_inv, uint64_t sec_param);
+protected:
+    std::vector<const oracle*> pcs_left, pcs_right;
 };

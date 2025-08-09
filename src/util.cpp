@@ -131,6 +131,13 @@ void random_vec_ext(Goldilocks2::Element* arr, const size_t& n) {
     }
 }
 
+void random_vec_u64(Goldilocks2::Element *arr, const size_t& n) {
+    #pragma omp parallel for
+    for (size_t i = 0; i < n; ++i) {
+        arr[i] = { Goldilocks::fromU64(rand() % (1 << 10)), Goldilocks::zero() };
+    }
+}
+
 std::vector<uint64_t> trange(const uint64_t& lbound, const uint64_t& ubound) {
     assert(lbound <= ubound);
     std::vector<uint64_t> res;

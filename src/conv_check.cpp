@@ -10,6 +10,10 @@ convProver::convProver(convTriple&& triple)
     : triple(std::move(triple)) {
 }
 
+void convProver::init_ori_Y(const MultilinearPolynomial& Y) {
+    ori_Y = Y;
+}
+
 
 bool convTriple::check() const {
     bool ret = true;
@@ -69,6 +73,12 @@ std::array<p2Prover, 2> convProver::fix_r_C(const std::vector<Goldilocks2::Eleme
     };
 }
 
+mapProverBase convProver::get_map_prover(const std::vector<size_t>& mapfrom, const std::vector<size_t>& mapto) {
+    auto prover = mapProverBase(mapfrom, mapto);
+    prover.add_mle(&ori_Y, triple.Y.get());
+    return prover;
+}
+
 convProver make_conv_prover(
     const std::vector<std::vector<Goldilocks2::Element>>& X, // in_channels x N
     const std::vector<std::vector<std::vector<Goldilocks2::Element>>>& W, // in_channels x out_channels x kernel_size
@@ -85,7 +95,8 @@ convProver make_conv2_prover(
     size_t padding,
     const array_view<Goldilocks2::Element>& X,
     const array_view<Goldilocks2::Element>& W,
-    const array_view<Goldilocks2::Element>& Y) {
+    const array_view<Goldilocks2::Element>& Y,
+    std::vector<size_t>& mapto) {
 
     size_t in = n + 2 * padding;
     size_t on = in - m + 1;
@@ -128,6 +139,8 @@ convProver make_conv2_prover(
     }
 
     // Fill Y_1d with Y
+    std::vector<size_t> next_hop(Y.size());
+    size_t up_new_Y_len = (1ull << find_ceiling_log2(new_Y_len));
 #pragma omp parallel for
     for (size_t d = 0; d < D; ++d) {
         for (size_t i = 0; i < on; ++i) {
@@ -136,6 +149,7 @@ convProver make_conv2_prover(
                 assert(deg < new_Y_len);
                 Y_1d[d][deg] = Y(d, i, j);
                 Y_1d_visited[d][deg] = true;
+                next_hop[(d * on + i) * on + j] = d * up_new_Y_len + deg;
             }
         }
         for (size_t i = 0; i < new_Y_len; ++i) {
@@ -165,6 +179,11 @@ convProver make_conv2_prover(
         }
     }
 
+    // update mapto
+    for (auto& i : mapto) {
+        i = next_hop[i];
+    }
+
     return convProver(convTriple(C, new_in * new_in, D, new_in * m,
         std::make_unique<MultilinearPolynomial>(std::move(X_1d)),
         std::make_unique<MLE_Convker>(W, C, D, new_in, m),
@@ -181,6 +200,7 @@ void pad_weights(
     array<Goldilocks2::Element>& Y_pad,
     size_t& new_m,
     size_t& new_padding_X,
+    std::vector<size_t>& mapto,
     bool pad_right_bottom) {
 
     assert(X.shape(0) == C);
@@ -235,8 +255,9 @@ void pad_weights(
         }
     }
 
-
     size_t y_sz = Y.shape(1);
+    size_t on = Y_pad.view.shape(1); // Output size
+    std::vector<size_t> next_hop(Y.size());
 
     for (size_t d = 0; d < D; ++d) {
         auto Y_view_d = Y[d];
@@ -245,19 +266,24 @@ void pad_weights(
         for (size_t i = 0; i < y_sz; ++i) {
             auto Y_view_i = Y_view_d[i];
             auto Y_pad_view_i = pad_right_bottom ? Y_pad_view_d[i + pad_m] : Y_pad_view_d[i];
-
+            size_t ind = pad_right_bottom ? i + pad_m : i;
             for (size_t j = 0; j < y_sz; ++j) {
                 if (pad_right_bottom) {
                     Y_pad_view_i(j + pad_m) = Y_view_i(j);
+                    next_hop[(d * y_sz + i) * y_sz + j] = (j + pad_m) + (d * on + ind) * on;
                 }
                 else {
                     Y_pad_view_i(j) = Y_view_i(j);
+                    next_hop[(d * y_sz + i) * y_sz + j] = j + (d * on + ind) * on;
                 }
             }
         }
     }
 
-    size_t on = Y_pad.view.shape(1); // Output size
+    // update mapto
+    for (auto& i : mapto) {
+        i = next_hop[i];
+    }
 
     for (int64_t i = 0; i < int64_t(on); ++i) {
         int64_t x = i - new_padding_X;
@@ -306,6 +332,8 @@ bool convVerifier::execute_convcheck_2d(
     open_param X,
     open_param W,
     open_param Y,
+    const std::vector<size_t>& mapfrom,
+    const std::vector<size_t>& mapto,
     size_t rho_inv,
     size_t sec_param,
     bool base_com) {
@@ -317,6 +345,17 @@ bool convVerifier::execute_convcheck_2d(
     else {
         pcs_flat_Y = std::make_unique<ligeropcs_ext>(ligero_commit_ext(*prover.triple.Y, rho_inv));
     }
+
+    
+    // copy constraint between Y and Y_flatten
+    mapProverBase perm_prover = prover.get_map_prover(mapfrom, mapto);
+    mapVerifierBase perm_verifier;
+    perm_verifier.add_pcs(&Y, pcs_flat_Y.get());
+    if (!perm_verifier.execute_check(perm_prover, rho_inv, sec_param)) {
+        std::cerr << "convVerifier::execute_convcheck_2d : perm check fail" << std::endl;
+        return false;
+    }
+
 
     std::array<const oracle*, 3> ora_1d = {
         X.pcs, W.pcs, pcs_flat_Y.get()
@@ -379,7 +418,6 @@ bool convVerifier::execute_convcheck_2d(
     if (res != claim->at(0).claim) {
         return false;
     }
-    // TODO copy constraint between Y and Y_flatten
     return true;
 }
 
