@@ -52,6 +52,8 @@ public:
 
     bool prove(size_t sec_param);
 
+    bool prove_input(size_t sec_param);
+
     void add_layer(layer_type type,
                     const std::string& name,
                     const std::string& input,
@@ -68,7 +70,7 @@ protected:
     int64_t scale, max_val, sqr_val;
     uint64_t rho_inv;
     
-    cnpy::npz_t filedata; // responsible for releasing data
+    cnpy::npz_t dataset, filedata; // responsible for releasing data
     
     std::map<std::string, std::unique_ptr<Goldilocks2::Element[]>> data;
     std::map<std::string, std::vector<size_t>> data_shape;
@@ -76,7 +78,9 @@ protected:
     std::map<std::string, std::vector<std::shared_ptr<MultilinearPolynomial>>> mle;
     std::map<std::string, std::vector<std::shared_ptr<ligeropcs_base>>> pcs;
 
-    array_view<Goldilocks2::Element> input_data, input_label;
+    MLE mle_dataset_input, mle_dataset_label, mle_input, mle_label, mle_index;
+    ligeropcs_base pcs_dataset_input, pcs_dataset_label, pcs_input, pcs_label, pcs_index;
+    array_view<Goldilocks2::Element> dataset_input, dataset_label, input, label, input_index;
 
     std::vector<layer_info> layers;
 };

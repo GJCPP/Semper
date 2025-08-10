@@ -3,11 +3,13 @@
 #include "VCG16.h"
 #include "VCG16_check.h"
 #include "VCG16_proof.h"
+#include "perm_check.h"
 
 // static std::unordered_map<size_t, size_t> relu_map = {};
 
 VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv)
     : epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * scale), rho_inv(rho_inv) {
+    dataset = loadDataset(data_dir);
     filedata = loadEpochData(data_dir, epoch);
     std::vector<std::string> keys;
     std::vector<cnpy::NpyArray*> values;
@@ -15,7 +17,10 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, 
         keys.push_back(key);
         values.push_back(&value);
     }
-    
+    for (auto& [key, value] : dataset) {
+        keys.push_back(key);
+        values.push_back(&value);
+    }
     for (size_t i = 0; i < keys.size(); ++i) {
         std::string key = keys[i];
 
@@ -46,8 +51,23 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, 
     minibatch = data_shape["a_q0"][0];
     img_per_batch = data_shape["a_q0"][1];
 
-    input_data = array_view<Goldilocks2::Element>(data["a_q0"].get(), data_shape["a_q0"]);
-    input_label = array_view<Goldilocks2::Element>(data["a_q0_label"].get(), data_shape["a_q0_label"]);
+    dataset_input = array_view<Goldilocks2::Element>(data["dataset_inputs"].get(), data_shape["dataset_inputs"]);
+    dataset_label = array_view<Goldilocks2::Element>(data["dataset_labels"].get(), data_shape["dataset_labels"]);
+    input = array_view<Goldilocks2::Element>(data["input"].get(), data_shape["input"]);
+    label = array_view<Goldilocks2::Element>(data["label"].get(), data_shape["label"]);
+    input_index = array_view<Goldilocks2::Element>(data["index"].get(), data_shape["index"]);
+
+    mle_dataset_input = dataset_input;
+    mle_dataset_label = dataset_label;
+    mle_input = input;
+    mle_label = label;
+    mle_index = input_index;
+
+    pcs_dataset_input = ligero_commit_base(dataset_input, rho_inv);
+    pcs_dataset_label = ligero_commit_base(dataset_label, rho_inv);
+    pcs_input = ligero_commit_base(input, rho_inv);
+    pcs_label = ligero_commit_base(label, rho_inv);
+    pcs_index = ligero_commit_base(input_index, rho_inv);
 
     std::vector<std::vector<int>> conv_layers = {{1, 2}, {3, 4}, {5, 6, 7}, {8, 9, 10}, {11, 12, 13}};
     int ind_pool = 1;
@@ -380,6 +400,10 @@ bool VCG16::check(size_t n_samples) const {
 }
 
 bool VCG16::prove(size_t sec_param) {
+    if (!prove_input(sec_param)) {
+        std::cout << "❌ Input layer failed." << std::endl;
+        return false;
+    }
     for (auto& layer : layers) {
         std::cout << "Proving layer " << layer.name << std::endl;
         auto start = std::chrono::high_resolution_clock::now();
@@ -435,6 +459,100 @@ bool VCG16::prove(size_t sec_param) {
 
     }
     return false;
+}
+
+bool VCG16::prove_input(size_t sec_param) {
+    // input_data : [batch, img, channel, wide, height]
+    size_t batch = input.shape(0),
+            img = input.shape(1),
+            channel = input.shape(2),
+            wide = input.shape(3),
+            height = input.shape(4);
+    int log_batch = find_ceiling_log2(batch),
+        log_img = find_ceiling_log2(img),
+        log_channel = find_ceiling_log2(channel),
+        log_wide = find_ceiling_log2(wide),
+        log_height = find_ceiling_log2(height);
+    size_t up_batch = (1ull << log_batch),
+            up_img = (1ull << log_img),
+            up_channel = (1ull << log_channel),
+            up_wide = (1ull << log_wide),
+            up_height = (1ull << log_height);
+    std::vector<size_t> from, to;
+    from.reserve(img * channel * wide * height);
+    to.reserve(img * channel * wide * height);
+    for (size_t b = 0; b != batch; ++b) {
+        size_t ind_b = b * up_img * up_channel * up_wide * up_height;
+
+        for (size_t i = 0; i != img; ++i) {
+            size_t ind_i = ind_b + i * up_channel * up_wide * up_height;
+            size_t ind_to_i = input_index(b, i)[0].fe * up_channel * up_wide * up_height;
+
+            for (size_t c = 0; c != channel; ++c) {
+                size_t ind_c = ind_i + c * up_wide * up_height;
+                size_t ind_to_c = ind_to_i + c * up_wide * up_height;
+
+                for (size_t w = 0; w != wide; ++w) {
+                    size_t ind_w = ind_c + w * up_height;
+                    size_t ind_to_w = ind_to_c + w * up_height;
+
+                    for (size_t h = 0; h != height; ++h) {
+                        from.push_back(ind_w + h);
+                        to.push_back(ind_to_w + h);
+                    }
+                }
+            }
+        }
+    }
+    // Check that input is subset of dataset_input
+    mapProverBase prover(from, to);
+    prover.add_mle(&mle_input, &mle_dataset_input);
+    mapVerifierBase verifier;
+    verifier.add_pcs(&pcs_input, &pcs_dataset_input);
+    if (!verifier.execute_check(prover, rho_inv, sec_param)) {
+        std::cout << "❌ Input permutation check failed." << std::endl;
+        return false;
+    }
+
+    std::vector<size_t> label_from, label_to;
+    label_from.reserve(batch * img);
+    label_to.reserve(batch * img);
+    for (size_t b = 0; b != batch; ++b) {
+        for (size_t i = 0; i != img; ++i) {
+            label_from.push_back(b * up_img + i);
+            label_to.push_back(input_index(b, i)[0].fe);
+        }
+    }
+    mapProverBase label_prover(label_from, label_to);
+    label_prover.add_mle(&mle_label, &mle_dataset_label);
+    mapVerifierBase label_verifier;
+    label_verifier.add_pcs(&pcs_label, &pcs_dataset_label);
+    if (!label_verifier.execute_check(label_prover, rho_inv, sec_param)) {
+        std::cout << "❌ Label permutation check failed." << std::endl;
+        return false;
+    }
+
+    // Check that input is used as the input of a0 layer
+    auto cha = random_vec_ext(mle_input.get_num_vars() - log_batch);
+    for (size_t b = 0; b != batch; ++b) {
+        std::vector<Goldilocks2::Element> prefix(log_batch);
+        for (size_t i = 0; i != log_batch; ++i) {
+            prefix[i] = ((b >> (log_batch - i - 1)) & 1) ? Goldilocks2::one() : Goldilocks2::zero();
+        }
+        prefix = combine_challenges(prefix, cha);
+        auto pcs_layer0_input = layers[0].get_pcs_input(b);
+        if (pcs_layer0_input->open(cha, sec_param) != pcs_input.open(prefix, sec_param)) {
+            std::cout << "❌ Input is not used as the input of a0 layer." << std::endl;
+            return false;
+        }
+        auto pcs_output_label = layers.back().get_pcs_aux(b);
+        if (pcs_output_label->open(cha, sec_param) != pcs_output_label->open(prefix, sec_param)) {
+            std::cout << "❌ Output label is not used as the output of the last layer." << std::endl;
+            return false;
+        }
+    }
+
+    return true;
 }
 
 void VCG16::add_layer(layer_type type,

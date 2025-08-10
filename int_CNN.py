@@ -315,6 +315,15 @@ def quantized_softmax(logits_q: torch.Tensor, scale: int) -> torch.Tensor:
 
     return softmax
 
+class IndexedDataset(torch.utils.data.Dataset):
+    def __init__(self, dataset):
+        self.dataset = dataset
+    def __len__(self):
+        return len(self.dataset)
+    def __getitem__(self, idx):
+        x, y = self.dataset[idx]
+        return x, y, idx
+
 def train_manual():
     transform = transforms.Compose([
     transforms.ToTensor(),
@@ -323,14 +332,20 @@ def train_manual():
     dataset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
     loader = DataLoader(dataset , batch_size=32, shuffle=True)
     subset = Subset(dataset, indices=range(1024))
-    loader = DataLoader(subset, batch_size=32, shuffle=True)
+    indexed_subset = IndexedDataset(subset)  # Wrap to include indices
+    loader = DataLoader(indexed_subset, batch_size=32, shuffle=True)
     model = ManualVGG16()
     lr=0.01
     S=[]
 
     # Create directory for saving data
     os.makedirs('training_trace', exist_ok=True)
-
+    # Save dataset before training
+    np.savez('training_trace/dataset.npz',
+            dataset_inputs=np.stack([(subset[i][0] * model.scale).to(torch.int64).numpy()
+                            for i in range(len(subset))]),
+            dataset_labels=np.array([subset[i][1] for i in range(len(subset))], dtype=np.int64))
+    
     for epoch in range(1):
         correct = total = 0
         correct2= 0
@@ -338,15 +353,14 @@ def train_manual():
         epoch_data = []
         epoch_weights = {}
 
-        for x, y in loader:
+        for x, y, idxs in loader:
             cnt+=1
             if cnt == 2:
                 break
             # Save input data and labels
-            epoch_data.append({
-                'input': x.numpy(),
-                'labels': y.numpy()
-            })
+            model.save_to_cache('input', (x * model.scale).to(torch.int64))
+            model.save_to_cache('label', y.to(torch.int64))
+            model.save_to_cache('index', idxs.to(torch.int64))
 
             with torch.no_grad():
                 z3_q = model.forward(x, y) // model.scale
