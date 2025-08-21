@@ -21,6 +21,7 @@ public:
 
     open_param operator()(const std::vector<Goldilocks2::Element>& r) const;
     open_param operator()(const Goldilocks2::Element& r) const;
+    open_param operator()(size_t r) const;
 
     Goldilocks2::Element open(size_t sec_param) const;
 

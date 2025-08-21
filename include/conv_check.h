@@ -75,7 +75,7 @@ public:
      */
     std::array<p2Prover, 2> fix_r_C(const std::vector<Goldilocks2::Element>& r_C);
 
-    mapProverBase get_map_prover(const std::vector<size_t>& mapfrom, const std::vector<size_t>& mapto);
+    mapProver get_map_prover(const std::vector<size_t>& mapfrom, const std::vector<size_t>& mapto);
 
     convTriple triple;
 protected:
@@ -95,7 +95,7 @@ public:
         const std::vector<size_t>& mapto,
         size_t rho_inv,
         size_t sec_param,
-        bool base_com = false);
+        bool ext = false);
 protected:
     static std::optional<std::array<challenge_claim, 2>> execute_convcheck(
                                                             convProver& prover,

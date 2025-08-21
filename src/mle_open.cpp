@@ -90,9 +90,17 @@ open_param open_param::operator()(const std::vector<Goldilocks2::Element>& r) co
     return fix(r);
 }
 
-open_param open_param::operator()(const Goldilocks2::Element& r) const
-{
+open_param open_param::operator()(const Goldilocks2::Element& r) const {
     return fix({r});
+}
+
+open_param open_param::operator()(size_t r) const {
+    int len = shape[next];
+    std::vector<Goldilocks2::Element> vec(len);
+    for (int i = 0; i < len; ++i) {
+        vec[i] = ((r >> (len - i - 1)) & 1) ? Goldilocks2::one() : Goldilocks2::zero();
+    }
+    return fix(vec);
 }
 
 Goldilocks2::Element open_param::open(size_t sec_param) const {

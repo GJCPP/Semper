@@ -380,7 +380,7 @@ bool test_conv2_check() {
             return false;
         }
 
-        if (!convVerifier::execute_convcheck_2d(prover, op_x, op_w, op_y, mapfrom, mapto, 2, 32)) {
+        if (!convVerifier::execute_convcheck_2d(prover, op_x, op_w, op_y, mapfrom, mapto, 2, 32, true)) {
             return false;
         }
     }
@@ -500,7 +500,7 @@ bool test_pad_weights() {
         //     return false;
         // }
 
-        if (!convVerifier::execute_convcheck_2d(prover, op_x, op_w, op_w, mapfrom, mapto, 2, 32)) {
+        if (!convVerifier::execute_convcheck_2d(prover, op_x, op_w, op_w, mapfrom, mapto, 2, 32, true)) {
             return false;
         }
     }
@@ -863,8 +863,8 @@ bool test_perm_check() {
         }
         std::vector<MLE> mle_f1, mle_f2;
         std::vector<ligeropcs_base> pcs_f1, pcs_f2;
-        permProverBase prover(perm);
-        permVerifierBase verifier;
+        permProver prover(perm, false);
+        permVerifier verifier;
         for (int i = 0; i != n; ++i) {
             mle_f1.emplace_back(f1[i]);
             mle_f2.emplace_back(f2[i]);
@@ -923,8 +923,8 @@ bool test_map_check() {
 
         std::vector<MLE> mle_f1, mle_f2;
         std::vector<ligeropcs_base> pcs_f1, pcs_f2;
-        mapProverBase prover(perm_from, perm_to);
-        mapVerifierBase verifier;
+        mapProver prover(perm_from, perm_to, false);
+        mapVerifier verifier;
         for (int i = 0; i != len; ++i) {
             mle_f1.emplace_back(f1[i]);
             mle_f2.emplace_back(f2[i]);

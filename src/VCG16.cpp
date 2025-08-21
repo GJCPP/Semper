@@ -400,10 +400,12 @@ bool VCG16::check(size_t n_samples) const {
 }
 
 bool VCG16::prove(size_t sec_param) {
-    if (!prove_input(sec_param)) {
-        std::cout << "❌ Input layer failed." << std::endl;
-        return false;
-    }
+    // auto start_prove_input = std::chrono::high_resolution_clock::now();
+    // if (!prove_input(sec_param)) {
+    //     std::cout << "❌ Input layer failed." << std::endl;
+    //     return false;
+    // }
+    // std::cout << "✅ Input proved in " << std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start_prove_input).count() << " seconds." << std::endl;
     for (auto& layer : layers) {
         std::cout << "Proving layer " << layer.name << std::endl;
         auto start = std::chrono::high_resolution_clock::now();
@@ -505,9 +507,9 @@ bool VCG16::prove_input(size_t sec_param) {
         }
     }
     // Check that input is subset of dataset_input
-    mapProverBase prover(from, to);
+    mapProver prover(from, to, false);
     prover.add_mle(&mle_input, &mle_dataset_input);
-    mapVerifierBase verifier;
+    mapVerifier verifier;
     verifier.add_pcs(&pcs_input, &pcs_dataset_input);
     if (!verifier.execute_check(prover, rho_inv, sec_param)) {
         std::cout << "❌ Input permutation check failed." << std::endl;
@@ -523,9 +525,9 @@ bool VCG16::prove_input(size_t sec_param) {
             label_to.push_back(input_index(b, i)[0].fe);
         }
     }
-    mapProverBase label_prover(label_from, label_to);
+    mapProver label_prover(label_from, label_to, false);
     label_prover.add_mle(&mle_label, &mle_dataset_label);
-    mapVerifierBase label_verifier;
+    mapVerifier label_verifier;
     label_verifier.add_pcs(&pcs_label, &pcs_dataset_label);
     if (!label_verifier.execute_check(label_prover, rho_inv, sec_param)) {
         std::cout << "❌ Label permutation check failed." << std::endl;

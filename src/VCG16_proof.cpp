@@ -13,11 +13,10 @@
 #include "e_pow_check.h"
 
 bool prove_conv(
-    int N, int img,
     size_t C, size_t D, size_t n, size_t m, size_t padding,
-    open_param oX, // [N, C, n, n]
+    open_param oX, // [C, n, n]
     open_param oW, // [C, D, m, m]
-    open_param oY, // [N, D, on, on]
+    open_param oY, // [D, on, on]
     const array_view<Goldilocks2::Element>& X, // [C, n, n]
     const array_view<Goldilocks2::Element>& W, // [C, D, m, m]
     const array_view<Goldilocks2::Element>& Y, // [D, on, on]
@@ -26,20 +25,23 @@ bool prove_conv(
     std::vector<size_t>& mapto,
     size_t rho_inv, size_t sec_param) {
 
+    std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
     auto prover = make_conv2_prover(C, D, n, m, padding, X, W, Y, mapto);
+    std::chrono::duration<double> duration = std::chrono::high_resolution_clock::now() - start;
+    std::cout << "make_conv2_prover done in: " << duration << "s." << std::endl;
     prover.init_ori_Y(ori_Y);
 
     // Check mapfrom & mapto with Y and prover.triple.Y
-    // std::cout << "(34) Manually check mapfrom & to..." << std::endl;
+    // std::cout << "(" << __LINE__ << ") Manually check mapfrom & to..." << std::endl;
     // MLE _ori_Y = ori_Y;
     // for (size_t i = 0; i != mapfrom.size(); ++i) {
     //     if (_ori_Y.get_eval_table()[mapfrom[i]] != prover.triple.Y->get_eval_table()[mapto[i]]) {
-    //         std::cerr << "(34) Map check failed at " << i << std::endl;
+    //         std::cerr << "(" << __LINE__ << " Map check failed at " << i << std::endl;
     //         std::cerr << "mapfrom = " << mapfrom[i] << " -> mapto = " << mapto[i] << std::endl;
     //         throw;
     //     }
     // }
-    // std::cout << "(34) Manually check mapfrom & to done." << std::endl;
+    // std::cout << "(" << __LINE__ << ") Manually check mapfrom & to done." << std::endl;
 
 
     // if (!prover.triple.check()) {
@@ -47,20 +49,16 @@ bool prove_conv(
     //     return false;
     // }
 
-    int l = find_ceiling_log2(N);
-    std::vector<Goldilocks2::Element> pre(l);
-    for (int i = 0; i < l; ++i) {
-        pre[l - i - 1] = ((img >> i) & 1) ? Goldilocks2::one() : Goldilocks2::zero();
-    }
-
-    oX = oX.fix(pre);
-    oY = oY.fix(pre);
     oW.rev[2] = oW.rev[2] ^ true;
     oW.rev[3] = oW.rev[3] ^ true;
 
+    
+    start = std::chrono::high_resolution_clock::now();
     if (!convVerifier::execute_convcheck_2d(prover, oX, oW, oY, mapfrom, mapto, rho_inv, sec_param, true)) {
         return false;
     }
+    duration = std::chrono::high_resolution_clock::now() - start;
+    std::cout << "execute_convcheck_2d done in: " << duration << "s." << std::endl;
     return true;
 }
 
@@ -90,90 +88,107 @@ bool prove_conv(
     assert(Y.shape(3) == static_cast<size_t>(on));
     assert(on == in + 2 * padding - m + 1);
 
-
-    auto& iW = W;
-    double pad_time = 0, prove_time = 0;
-    for (int j = 0; j < N; ++j) {
-        std::cout << j << " ";
-        std::cout.flush();
-
-        auto iX = X[j]; // [C, n, n]
-        auto iY = Y[j]; // [OC, on, on]
-        auto& pX = iX;
-        array<Goldilocks2::Element> pW; // [OC, IC, m, m]
-        array<Goldilocks2::Element> pY; // [OC, on, on]
-        size_t new_m, new_padding;
-
-        auto start_pad = std::chrono::high_resolution_clock::now();
-
-        size_t up_on = (1ull << find_ceiling_log2(on));
-        std::vector<size_t> mapto(OC * on * on);
-        std::vector<size_t> mapfrom;
-        for (size_t i = 0; i != mapto.size(); ++i) mapto[i] = i;
-        mapfrom.reserve(OC * on * on);
-        for (size_t i = 0; i != OC; ++i) {
-            for (size_t j = 0; j != on; ++j) {
-                for (size_t k = 0; k != on; ++k) {
-                    mapfrom.push_back(i * up_on * up_on + j * up_on + k);
+    // Step 1. Combine conv with same kernel
+    
+    array<Goldilocks2::Element> cX, cY;
+    cX.init({size_t(IC), size_t(in), size_t(in)});
+    cY.init({size_t(OC), size_t(on), size_t(on)});
+    auto c_cha = random_vec_ext(N);
+    for (int i = 0; i < N; ++i) {
+        for (int a = 0; a != IC; ++a) {
+            for (int b = 0; b != in; ++b) {
+                for (int c = 0; c != in; ++c) {
+                    cX(a, b, c) += c_cha[i] * X(i, a, b, c);
                 }
             }
         }
-        pad_weights(IC, OC, in, m, padding,
-            iX,
-            iW,
-            iY,
-            pW, pY, new_m, new_padding, mapto, pad_right_bottom);
-
-        // check mapfrom & mapto with iY & pY
-        // std::cout << "(126) Manually check mapfrom & to..." << std::endl;
-        // MLE _Y = iY;
-        // for (size_t i = 0; i != mapfrom.size(); ++i) {
-        //     if (_Y.get_eval_table()[mapfrom[i]] != pY.view.kth(mapto[i])) {
-        //         std::cerr << "(126) Mapfrom check failed at " << i << std::endl;
-        //         std::cerr << "mapfrom = " << mapfrom[i] << " -> mapto = " << mapto[i] << std::endl;
-        //         throw;
-        //     }
-        // }
-        // std::cout << "(126) Manually check mapfrom & to done." << std::endl;
-
-        // if (!random_check_conv(X, W, Y, padding, 1000)) {
-        //     std::cout << "❌ Random check failed." << std::endl;
-        //     return false;
-        // } else {
-        //     std::cout << "✅ Random check passed." << std::endl;
-        // }
-
-        // if (!random_check_single_conv(pX, pW, pY, new_padding, 1000)) {
-        //     std::cout << "❌ Random single check failed." << std::endl;
-        //     return false;
-        // } else {
-        //     std::cout << "✅ Random single check passed." << std::endl;
-        // }
-
-
-
-        std::chrono::duration<double> elapsed_pad = std::chrono::high_resolution_clock::now() - start_pad;
-
-        pad_time += elapsed_pad.count();
-        // std::cout << "pad_weights time: " << elapsed_pad.count() << " seconds" << std::endl;
-        start_pad = std::chrono::high_resolution_clock::now();
-
-        pW.view.swap_dim(0, 1); // [IC, OC, m, m]
-
-        open_param oX(X, pcs_input);
-        open_param oW(pW, pcs_weight);
-        open_param oY(Y, pcs_output);
-
-        if (!prove_conv(N, j, IC, OC, in, new_m, new_padding,
-            oX, oW, oY,
-            pX, pW, pY, 
-            iY,
-            mapfrom, mapto,
-            rho_inv, sec_param)) return false;
-        std::chrono::duration<double> elapsed_prove = std::chrono::high_resolution_clock::now() - start_pad;
-        // std::cout << "prove_conv time: " << elapsed_prove.count() << " seconds" << std::endl;
-        prove_time += elapsed_prove.count();
     }
+    for (int i = 0; i < N; ++i) {
+        for (int a = 0; a != OC; ++a) {
+            for (int b = 0; b != on; ++b) {
+                for (int c = 0; c != on; ++c) {
+                    cY(a, b, c) += c_cha[i] * Y(i, a, b, c);
+                }
+            }
+        }
+    }
+    auto pcs_cX = ligero_commit_ext(cX.view, rho_inv);
+    auto pcs_cY = ligero_commit_ext(cY.view, rho_inv);
+
+    auto cX_cha = random_vec_ext(pcs_cX.get_num_vars());
+    auto cY_cha = random_vec_ext(pcs_cY.get_num_vars());
+
+    auto claim_cX = pcs_cX.open(cX_cha, sec_param), 
+         claim_cY = pcs_cY.open(cY_cha, sec_param);
+    
+    auto res_cX = Goldilocks2::zero(), res_cY = Goldilocks2::zero();
+    
+    open_param oX(X, pcs_input);
+    open_param oY(Y, pcs_output);
+
+    for (int i = 0; i != N; ++i) {
+        res_cX += c_cha[i] * oX(size_t(i)).open(cX_cha, sec_param);
+        res_cY += c_cha[i] * oY(size_t(i)).open(cY_cha, sec_param);
+    }
+
+    if (res_cX != claim_cX || res_cY != claim_cY) {
+        std::cerr << "(" << __LINE__ << ") Conv check failed." << std::endl;
+        return false;
+    }
+
+
+    // Step 2. Padding
+    auto& iW = W;
+    double pad_time = 0, prove_time = 0;
+
+    auto iX = cX.view; // [C, n, n]
+    auto iY = cY.view; // [OC, on, on]
+    auto& pX = iX;
+    array<Goldilocks2::Element> pW; // [OC, IC, m, m]
+    array<Goldilocks2::Element> pY; // [OC, on, on]
+    size_t new_m, new_padding;
+
+    auto start_pad = std::chrono::high_resolution_clock::now();
+
+    size_t up_on = (1ull << find_ceiling_log2(on));
+    std::vector<size_t> mapto(OC * on * on);
+    std::vector<size_t> mapfrom;
+    for (size_t i = 0; i != mapto.size(); ++i) mapto[i] = i;
+    mapfrom.reserve(OC * on * on);
+    for (size_t i = 0; i != OC; ++i) {
+        for (size_t j = 0; j != on; ++j) {
+            for (size_t k = 0; k != on; ++k) {
+                mapfrom.push_back(i * up_on * up_on + j * up_on + k);
+            }
+        }
+    }
+    pad_weights(IC, OC, in, m, padding,
+        iX,
+        iW,
+        iY,
+        pW, pY, new_m, new_padding, mapto, pad_right_bottom);
+
+    std::chrono::duration<double> elapsed_pad = std::chrono::high_resolution_clock::now() - start_pad;
+
+    pad_time += elapsed_pad.count();
+    // std::cout << "pad_weights time: " << elapsed_pad.count() << " seconds" << std::endl;
+    start_pad = std::chrono::high_resolution_clock::now();
+
+    pW.view.swap_dim(0, 1); // [IC, OC, m, m]
+
+    open_param open_cX(cX, &pcs_cX);
+    open_param oW(pW, pcs_weight);
+    open_param open_cY(cY, &pcs_cY);
+
+    if (!prove_conv(IC, OC, in, new_m, new_padding,
+        open_cX, oW, open_cY,
+        pX, pW, pY, 
+        iY,
+        mapfrom, mapto,
+        rho_inv, sec_param)) return false;
+    std::chrono::duration<double> elapsed_prove = std::chrono::high_resolution_clock::now() - start_pad;
+    // std::cout << "prove_conv time: " << elapsed_prove.count() << " seconds" << std::endl;
+    prove_time += elapsed_prove.count();
     std::cout << std::endl << "pad time = " << pad_time << "s, prove time = " << prove_time << "s" << std::endl;
 
     return true;

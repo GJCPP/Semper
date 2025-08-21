@@ -64,11 +64,11 @@ public:
     static bool execute_check(setProver& prover, const std::vector<const oracle *>& pcs_f1, const std::vector<const oracle *>& pcs_f2, uint64_t rho_inv, uint64_t sec_param);
 };
 
-class permProverBase {
+class permProver {
 public:
     
     // prove f2(pi(x)) = f1(x)
-    permProverBase(const std::vector<size_t>& _perm);
+    permProver(const std::vector<size_t>& _perm, bool ext);
 
     const std::vector<size_t>& get_perm() const { return perm; }
     size_t get_size() const { return sz; }
@@ -76,11 +76,12 @@ public:
     void add_mle(const MLE *f1, const MLE *f2);
 
     // return null pcs if padding is not needed
-    std::vector<ligeropcs_base> commit_pad_f1(uint64_t rho_inv);
+    std::vector<std::unique_ptr<oracle>> commit_pad_f1(uint64_t rho_inv);
 
     setProver get_set_prover(const MLE& id_perm, const MLE& perm);
 
 protected:
+    bool ext;
     std::vector<const MLE *> f1, f2;
     std::vector<size_t> perm;
     size_t sz;
@@ -89,30 +90,31 @@ protected:
 };
 
 
-class permVerifierBase {
+class permVerifier {
 public:
     void add_pcs(const oracle *pcs_f1, const oracle *pcs_f2);
 
-    bool execute_check(permProverBase& prover, uint64_t rho_inv, uint64_t sec_param);
+    bool execute_check(permProver& prover, uint64_t rho_inv, uint64_t sec_param);
 
 protected:
     std::vector<const oracle*> pcs_f1, pcs_f2;
 };
 
-class mapProverBase {
+class mapProver {
 public:
-    mapProverBase(const std::vector<size_t>& from, const std::vector<size_t>& to);
+    mapProver(const std::vector<size_t>& from, const std::vector<size_t>& to, bool ext);
 
     void add_mle(const MLE *mle_from, const MLE *mle_to);
     
     int get_right_num_vars() const { return right_num_vars; }
     int get_pad_num_vars() const { return pad_num_vars; }
     
-    std::vector<ligeropcs_base> commit_right(uint64_t rho_inv) const;
+    std::vector<std::unique_ptr<oracle>> commit_right(uint64_t rho_inv) const;
     
-    permProverBase get_perm_prover();
+    permProver get_perm_prover();
     
 protected:
+    bool ext;
     int left_num_vars, right_num_vars, pad_num_vars;
     size_t left_size, right_size;
     std::vector<const MLE*> left;
@@ -122,11 +124,11 @@ protected:
     void init_map(const MLE *mle_from, const MLE *mle_to);
 };
 
-class mapVerifierBase {
+class mapVerifier {
 public:
     void add_pcs(const oracle *left, const oracle *right);
 
-    bool execute_check(mapProverBase& prover, uint64_t rho_inv, uint64_t sec_param);
+    bool execute_check(mapProver& prover, uint64_t rho_inv, uint64_t sec_param);
 protected:
     std::vector<const oracle*> pcs_left, pcs_right;
 };

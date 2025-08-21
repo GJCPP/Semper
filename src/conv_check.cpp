@@ -1,3 +1,5 @@
+#include <chrono>
+
 #include "conv_check.h"
 #include "mle_pow.h"
 #include "pad_check.h"
@@ -73,8 +75,8 @@ std::array<p2Prover, 2> convProver::fix_r_C(const std::vector<Goldilocks2::Eleme
     };
 }
 
-mapProverBase convProver::get_map_prover(const std::vector<size_t>& mapfrom, const std::vector<size_t>& mapto) {
-    auto prover = mapProverBase(mapfrom, mapto);
+mapProver convProver::get_map_prover(const std::vector<size_t>& mapfrom, const std::vector<size_t>& mapto) {
+    auto prover = mapProver(mapfrom, mapto, true);
     prover.add_mle(&ori_Y, triple.Y.get());
     return prover;
 }
@@ -336,10 +338,10 @@ bool convVerifier::execute_convcheck_2d(
     const std::vector<size_t>& mapto,
     size_t rho_inv,
     size_t sec_param,
-    bool base_com) {
+    bool ext) {
 
     std::unique_ptr<oracle> pcs_flat_Y;
-    if (base_com) {
+    if (!ext) {
         pcs_flat_Y = std::make_unique<ligeropcs_base>(ligero_commit_base(*prover.triple.Y, rho_inv));
     }
     else {
@@ -348,13 +350,17 @@ bool convVerifier::execute_convcheck_2d(
 
     
     // copy constraint between Y and Y_flatten
-    mapProverBase perm_prover = prover.get_map_prover(mapfrom, mapto);
-    mapVerifierBase perm_verifier;
+    
+    std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
+    mapProver perm_prover = prover.get_map_prover(mapfrom, mapto);
+    mapVerifier perm_verifier;
     perm_verifier.add_pcs(&Y, pcs_flat_Y.get());
     if (!perm_verifier.execute_check(perm_prover, rho_inv, sec_param)) {
         std::cerr << "convVerifier::execute_convcheck_2d : perm check fail" << std::endl;
         return false;
     }
+    std::chrono::duration<double> duration = std::chrono::high_resolution_clock::now() - start;
+    // std::cout << "map_check done in: " << duration.count() << "s." << std::endl;
 
 
     std::array<const oracle*, 3> ora_1d = {

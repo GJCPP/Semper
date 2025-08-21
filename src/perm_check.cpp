@@ -158,11 +158,11 @@ bool setVerifier::execute_check(
 
 
 // prove f2(pi(x)) = f1(x)
-permProverBase::permProverBase(const std::vector<size_t>& _perm)
-    : perm(_perm) {
+permProver::permProver(const std::vector<size_t>& _perm, bool _ext)
+    : perm(_perm), ext(_ext) {
 }
 
-void permProverBase::add_mle(const MLE *new_f1, const MLE *new_f2) {
+void permProver::add_mle(const MLE *new_f1, const MLE *new_f2) {
     f1.push_back(new_f1);
     f2.push_back(new_f2);
     const auto& evs1(new_f1->get_eval_table()), &evs2(new_f2->get_eval_table());
@@ -189,7 +189,7 @@ void permProverBase::add_mle(const MLE *new_f1, const MLE *new_f2) {
 #endif
 }
 
-std::vector<ligeropcs_base> permProverBase::commit_pad_f1(uint64_t rho_inv) {
+std::vector<std::unique_ptr<oracle>> permProver::commit_pad_f1(uint64_t rho_inv) {
     const size_t n1 = (1 << f1[0]->get_num_vars()), n2 = (1 << f2[0]->get_num_vars());
     const size_t len = f1.size();
     if (n1 == n2) {
@@ -224,17 +224,21 @@ std::vector<ligeropcs_base> permProverBase::commit_pad_f1(uint64_t rho_inv) {
         perm[i] = next;
         ++next;
     }
-    std::vector<ligeropcs_base> ret;
+    std::vector<std::unique_ptr<oracle>> ret;
     pad_f1.reserve(len);
     ret.reserve(len);
     for (size_t i = 0; i < len; ++i) {
         pad_f1.emplace_back(new_evs[i]);
-        ret.push_back(ligero_commit_base(pad_f1.back(), rho_inv));
+        if (ext) {
+            ret.push_back(std::make_unique<ligeropcs_ext>(ligero_commit_ext(pad_f1.back(), rho_inv)));
+        } else {
+            ret.push_back(std::make_unique<ligeropcs_base>(ligero_commit_base(pad_f1.back(), rho_inv)));
+        }
     }
     return ret;
 }
 
-setProver permProverBase::get_set_prover(const MLE& id_perm, const MLE& perm) {
+setProver permProver::get_set_prover(const MLE& id_perm, const MLE& perm) {
     std::vector<const MLE*> set1, set2;
     const size_t len = f1.size();
     set1.reserve(len + 1);
@@ -248,8 +252,8 @@ setProver permProverBase::get_set_prover(const MLE& id_perm, const MLE& perm) {
     return setProver(set1, set2);
 }
 
-bool permVerifierBase::execute_check(
-    permProverBase& prover,
+bool permVerifier::execute_check(
+    permProver& prover,
     uint64_t rho_inv, uint64_t sec_param) {
 
     auto _pcs_pad_f1 = prover.commit_pad_f1(rho_inv);
@@ -259,7 +263,7 @@ bool permVerifierBase::execute_check(
     } else {
         pcs_pad_f1.reserve(pcs_f1.size());
         for (auto& p : _pcs_pad_f1) {
-            pcs_pad_f1.push_back(&p);
+            pcs_pad_f1.push_back(p.get());
         }
     }
     
@@ -285,24 +289,24 @@ bool permVerifierBase::execute_check(
     return true;
 }
 
-void permVerifierBase::add_pcs(const oracle* new_pcs_f1, const oracle* new_pcs_f2) {
+void permVerifier::add_pcs(const oracle* new_pcs_f1, const oracle* new_pcs_f2) {
     pcs_f1.push_back(new_pcs_f1);
     pcs_f2.push_back(new_pcs_f2);
 }
 
-mapProverBase::mapProverBase(const std::vector<size_t>& _map_from, const std::vector<size_t>& _map_to) 
-    : map_from(_map_from), map_to(_map_to) {
+mapProver::mapProver(const std::vector<size_t>& _map_from, const std::vector<size_t>& _map_to, bool _ext) 
+    : map_from(_map_from), map_to(_map_to), ext(_ext) {
     if (!std::is_sorted(map_from.begin(), map_from.end())) {
-        throw std::invalid_argument("mapProverBase::mapProverBase : map_from must be sorted");
+        throw std::invalid_argument("mapProver::mapProver : map_from must be sorted");
     }
 }
 
-void mapProverBase::add_mle(const MLE* mle_from, const MLE* mle_to) {
+void mapProver::add_mle(const MLE* mle_from, const MLE* mle_to) {
     if (mapto.empty()) {
         init_map(mle_from, mle_to);
     }
     if (mle_from->get_num_vars() != left_num_vars) {
-        throw std::invalid_argument("mapProverBase::add_mle : mle_from has incorrect number of variables");
+        throw std::invalid_argument("mapProver::add_mle : mle_from has incorrect number of variables");
     }
     auto& evs_left = mle_from->get_eval_table();
     auto evs_right = mle_to->get_eval_table();
@@ -311,7 +315,7 @@ void mapProverBase::add_mle(const MLE* mle_from, const MLE* mle_to) {
     
     for (size_t i = 0; i != left_size; ++i) {
         if (mapto[i] < ori_right_size && evs_left[i] != evs_right[mapto[i]]) {
-            throw std::invalid_argument("mapProverBase::add_mle : evaluation tables do not match");
+            throw std::invalid_argument("mapProver::add_mle : evaluation tables do not match");
         }
         evs_right[mapto[i]] = evs_left[i];
     }
@@ -320,17 +324,21 @@ void mapProverBase::add_mle(const MLE* mle_from, const MLE* mle_to) {
     right.emplace_back(evs_right);
 }
 
-std::vector<ligeropcs_base> mapProverBase::commit_right(uint64_t rho_inv) const {
-    std::vector<ligeropcs_base> right_pcs;
+std::vector<std::unique_ptr<oracle>> mapProver::commit_right(uint64_t rho_inv) const {
+    std::vector<std::unique_ptr<oracle>> right_pcs;
     right_pcs.reserve(right.size());
     for (const auto& mle : right) {
-        right_pcs.push_back(ligero_commit_base(mle, rho_inv));
+        if (ext) {
+            right_pcs.push_back(std::make_unique<ligeropcs_ext>(ligero_commit_ext(mle, rho_inv)));
+        } else {
+            right_pcs.push_back(std::make_unique<ligeropcs_base>(ligero_commit_base(mle, rho_inv)));
+        }
     }
     return right_pcs;
 }
 
-permProverBase mapProverBase::get_perm_prover() {
-    permProverBase prover(mapto);
+permProver mapProver::get_perm_prover() {
+    permProver prover(mapto, ext);
     size_t len = left.size();
     for (size_t i = 0; i != len; ++i) {
         prover.add_mle(left[i], &right[i]);
@@ -338,7 +346,7 @@ permProverBase mapProverBase::get_perm_prover() {
     return prover;
 }
 
-void mapProverBase::init_map(const MLE* mle_from, const MLE* mle_to) {
+void mapProver::init_map(const MLE* mle_from, const MLE* mle_to) {
     left_num_vars = mle_from->get_num_vars();
     right_num_vars = std::max(left_num_vars, mle_to->get_num_vars()) + 1;
     pad_num_vars = right_num_vars - mle_to->get_num_vars();
@@ -361,12 +369,12 @@ void mapProverBase::init_map(const MLE* mle_from, const MLE* mle_to) {
 }
 
 
-void mapVerifierBase::add_pcs(const oracle* left, const oracle* right) {
+void mapVerifier::add_pcs(const oracle* left, const oracle* right) {
     pcs_left.push_back(left);
     pcs_right.push_back(right);
 }
 
-bool mapVerifierBase::execute_check(mapProverBase& prover, uint64_t rho_inv, uint64_t sec_param) {
+bool mapVerifier::execute_check(mapProver& prover, uint64_t rho_inv, uint64_t sec_param) {
     // 1. Commit/Check padded right
     size_t len = pcs_left.size();
     int right_num_vars = prover.get_right_num_vars(), pad_num_vars = prover.get_pad_num_vars();
@@ -376,19 +384,19 @@ bool mapVerifierBase::execute_check(mapProverBase& prover, uint64_t rho_inv, uin
     for (int i = 0; i != pad_num_vars; ++i) cha[i] = Goldilocks2::zero();
 
     for (size_t i = 0; i != len; ++i) {
-        if (pcs_right[i]->open(small_cha, sec_param) != pcs_pad_right[i].open(cha, sec_param)) {
-            std::cerr << "mapVerifierBase::execute_check : pcs_right and pcs_pad_right do not match" << std::endl;
+        if (pcs_right[i]->open(small_cha, sec_param) != pcs_pad_right[i]->open(cha, sec_param)) {
+            std::cerr << "mapVerifier::execute_check : pcs_right and pcs_pad_right do not match" << std::endl;
             return false;
         }
     }
     // 2. Perform perm check.
-    permProverBase perm_prover = prover.get_perm_prover();
-    permVerifierBase perm_verifier;
+    permProver perm_prover = prover.get_perm_prover();
+    permVerifier perm_verifier;
     for (size_t i = 0; i != len; ++i) {
-        perm_verifier.add_pcs(pcs_left[i], &pcs_pad_right[i]);
+        perm_verifier.add_pcs(pcs_left[i], pcs_pad_right[i].get());
     }
     if (!perm_verifier.execute_check(perm_prover, rho_inv, sec_param)) {
-        std::cerr << "mapVerifierBase::execute_check : perm check fails" << std::endl;
+        std::cerr << "mapVerifier::execute_check : perm check fails" << std::endl;
         return false;
     }
     return true;
