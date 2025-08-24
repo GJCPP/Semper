@@ -168,7 +168,7 @@ bool prove_conv(
     
     std::map<std::string, array<Goldilocks2::Element>> witness;
     if (!wit.empty()) {
-        witness = wit.get_conv_wit_forward(c_cha);
+        witness = wit.get_conv_wit(c_cha);
     }
 
     // Step 2. Padding
@@ -241,6 +241,8 @@ bool prove_conv_forward(const VCG16::layer_info& layer, VCG16::conv_wit wit, int
     size_t n = layer.input.shape(3);
     size_t m = layer.weight.shape(3);
 
+    wit.set_forward();
+
     for (int i = 0; i < bat; ++i) {
         double pad_time = 0, prove_time = 0;
         auto pcs_input = layer.get_pcs_input(i);
@@ -258,13 +260,15 @@ bool prove_conv_forward(const VCG16::layer_info& layer, VCG16::conv_wit wit, int
     return true;
 }
 
-bool prove_conv_backward_dW(const VCG16::layer_info& layer, int padding, size_t rho_inv, size_t sec_param) {
+bool prove_conv_backward_dW(const VCG16::layer_info& layer,  VCG16::conv_wit wit, int padding, size_t rho_inv, size_t sec_param) {
     int bat = int(layer.input.shape(0));
     int img = int(layer.input.shape(1));
     size_t C = layer.input.shape(2);
     size_t D = layer.output.shape(2);
     size_t n = layer.input.shape(3);
     size_t m = layer.weight.shape(3);
+
+    wit.set_dW();
 
     for (int i = 0; i < bat; ++i) {
         double pad_time = 0, prove_time = 0;
@@ -279,7 +283,7 @@ bool prove_conv_backward_dW(const VCG16::layer_info& layer, int padding, size_t 
         dY.swap_dim(0, 1); // [D, N, on, on]
         dW.swap_dim(0, 1); // [C, D, m, m]
 
-        if (!prove_conv({}, padding,
+        if (!prove_conv(wit, padding,
             pcs_input.get(), pcs_d_output.get(), pcs_d_weight.get(),
             X, dY, dW,
             true,
@@ -288,13 +292,15 @@ bool prove_conv_backward_dW(const VCG16::layer_info& layer, int padding, size_t 
     return true;
 }
 
-bool prove_conv_backward_dX(const VCG16::layer_info& layer, int padding, size_t rho_inv, size_t sec_param) {
+bool prove_conv_backward_dX(const VCG16::layer_info& layer, VCG16::conv_wit wit, int padding, size_t rho_inv, size_t sec_param) {
     int bat = int(layer.input.shape(0));
     int img = int(layer.input.shape(1));
     size_t C = layer.input.shape(2);
     size_t D = layer.output.shape(2);
     size_t n = layer.input.shape(3);
     size_t m = layer.weight.shape(3);
+
+    wit.set_dX();
 
     for (int i = 0; i < bat; ++i) {
         auto pcs_d_output = layer.get_pcs_d_output(i);
@@ -308,7 +314,7 @@ bool prove_conv_backward_dX(const VCG16::layer_info& layer, int padding, size_t 
         W.reverse(2);
         W.reverse(3); // [C, D, m, m]
 
-        if (!prove_conv({}, padding,
+        if (!prove_conv(wit, padding,
             pcs_d_output.get(), pcs_weight.get(), pcs_d_input.get(),
             dY, W, dX,
             false,
@@ -337,13 +343,13 @@ bool prove_conv_layer(const VCG16::layer_info& layer, VCG16::conv_wit wit, size_
     }
 
     std::cout << "Proving backward dW:";
-    if (!prove_conv_backward_dW(layer, padding, rho_inv, sec_param)) {
+    if (!prove_conv_backward_dW(layer, wit, padding, rho_inv, sec_param)) {
         std::cout << "❌ Proving backward dW failed." << std::endl;
         return false;
     }
 
     std::cout << "Proving backward dX:";
-    if (!prove_conv_backward_dX(layer, padding, rho_inv, sec_param)) {
+    if (!prove_conv_backward_dX(layer, wit, padding, rho_inv, sec_param)) {
         std::cout << "❌ Proving backward dX failed." << std::endl;
         return false;
     }

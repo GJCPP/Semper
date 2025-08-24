@@ -15,5 +15,13 @@ cnpy::npz_t loadConvWitForward(const std::string& dir, int epoch, int batch, int
     return cnpy::npz_load(data_file);
 }
 
+cnpy::npz_t loadConvWitDW(const std::string& dir, int epoch, int batch, int conv_id) {
+    std::string data_file = std::format("{}/epoch_{}_witness/batch_{}/conv_{}_dW.npz", dir, epoch, batch, conv_id);
+    return cnpy::npz_load(data_file);
+}
 
+cnpy::npz_t loadConvWitDX(const std::string& dir, int epoch, int batch, int conv_id) {
+    std::string data_file = std::format("{}/epoch_{}_witness/batch_{}/conv_{}_dX.npz", dir, epoch, batch, conv_id);
+    return cnpy::npz_load(data_file);
+}
 

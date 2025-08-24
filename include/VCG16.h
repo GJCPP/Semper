@@ -50,28 +50,38 @@ public:
     class conv_wit {
     public:
         conv_wit() = default;
-        conv_wit(const std::string& data_dir, int epoch, int batch_sz, int conv_id)
-             : data_dir(data_dir), epoch(epoch), batch_sz(batch_sz), conv_id(conv_id) {}
+        conv_wit(const std::string& data_dir, int epoch, int conv_id)
+             : data_dir(data_dir), epoch(epoch), conv_id(conv_id) {}
 
         bool empty() const { return data_dir.empty(); }
 
-        std::map<std::string, array<Goldilocks2::Element>> get_conv_wit_forward(const std::vector<Goldilocks2::Element>& alpha) const {
-            auto res = to_field(loadConvWitForward(data_dir, epoch, 0, conv_id));
-            /*
-                X: [N, C, in]
-                W: [C, D, k]
-                Y: [N, D, on]
-            */
+        std::map<std::string, array<Goldilocks2::Element>> get_conv_wit(const std::vector<Goldilocks2::Element>& alpha) const {
+            std::map<std::string, array<Goldilocks2::Element>> res;
+            switch (state) {
+            case 0:
+                res = to_field(loadConvWitForward(data_dir, epoch, 0, conv_id));
+                break;
+            case 1:
+                res = to_field(loadConvWitDW(data_dir, epoch, 0, conv_id));
+                break;
+            case 2:
+                res = to_field(loadConvWitDX(data_dir, epoch, 0, conv_id));
+                break;
+            }
+            
             auto& X = res["X"], &W = res["W"], &Y = res["Y"];
             int C = X.view.shape(1), in = X.view.shape(2),
                 D = Y.view.shape(1), on = Y.view.shape(2);
-            if (X.view.shape(0) != batch_sz || Y.view.shape(0) != batch_sz) {
+            auto batch_sz = X.view.shape(0);
+            if (Y.view.shape(0) != batch_sz) {
                 throw std::runtime_error("conv_wit::get_conv_wit_forward: Batch size mismatch");
             }
             if (alpha.size() != batch_sz) {
                 throw std::runtime_error("conv_wit::get_conv_wit_forward: Alpha size mismatch");
             }
-            array<Goldilocks2::Element> rX, rY, rpY;
+
+            // Combine X and Y
+            array<Goldilocks2::Element> rX, rY;
             rX.init({size_t(C), size_t(in)});
             rY.init({size_t(D), size_t(on)});
             for (int i = 0; i != batch_sz; ++i) {
@@ -93,9 +103,14 @@ public:
             return ret;
         }
 
+        void set_forward() { state = 0; }
+        void set_dW() { state = 1; }
+        void set_dX() { state = 2; }
+
     protected:
         std::string data_dir;
-        int epoch, batch_sz, conv_id;
+        int epoch, conv_id;
+        int state; // 0, 1, 2 for forward, dW, dX
 
         static std::map<std::string, array<Goldilocks2::Element>> to_field(const cnpy::npz_t& data) {
             std::map<std::string, array<Goldilocks2::Element>> res;

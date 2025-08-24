@@ -411,7 +411,7 @@ bool VCG16::prove(size_t sec_param) {
         auto start = std::chrono::high_resolution_clock::now();
         switch (layer.type) {
             case layer_type::conv:
-                if (!prove_conv_layer(layer, conv_wit(data_dir, epoch, img_per_batch, layer.id), rho_inv, sec_param)) {
+                if (!prove_conv_layer(layer, conv_wit(data_dir, epoch, layer.id), rho_inv, sec_param)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
                     return false;
                 }

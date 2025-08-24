@@ -37,7 +37,7 @@ file(GLOB DEP_SOURCES
 )
 add_library(goldilocks STATIC ${DEP_SOURCES})
 link_directories(${CMAKE_SOURCE_DIR}/cnpy/build)
-target_compile_options(goldilocks PRIVATE -O3 -mavx2 -MMD -MP -pthread -fopenmp)
+target_compile_options(goldilocks PRIVATE -O3 -mavx2 -MMD -MP -pthread)
 # target_compile_options(goldilocks PRIVATE -O2 -mavx2 -MMD -MP -pthread)
 find_package(OpenMP REQUIRED)
 target_link_libraries(goldilocks PRIVATE
@@ -67,7 +67,7 @@ target_sources(bench PRIVATE ${SOURCES})
 # set(CMAKE_CXX_FLAGS_DEBUG "-g -DDEBUG")
 
 target_compile_options(bench PRIVATE
-    $<$<CONFIG:Release>:-Wall -O3 -mavx2> -fopenmp
+    $<$<CONFIG:Release>:-Wall -O3 -mavx2>
     $<$<CONFIG:Debug>:-Wall -g -DDEBUG -mavx2 -fopenmp>)
 
 # Use "cmake -DCMAKE_CXX_COMPILER=g++-13 -DCMAKE_BUILD_TYPE=Debug .." to build in debug mode
