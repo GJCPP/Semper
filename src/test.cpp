@@ -334,7 +334,8 @@ bool test_conv2_check() {
             }
         }
 
-        pad_weights(C, D, n, m, padding, X_view, W_view, Y_view, W_pad, Y_pad, m, padding, mapto, true);
+        pad_weights(C, D, n, m, padding, X_view, W_view, Y_view, W_pad, Y_pad, m, padding, true);
+        pad_weights_map(C, D, n, m, padding, m, padding, mapto, true);
 
         // check mapfrom & mapto with p3 & Y_pad
         for (size_t i = 0; i != mapfrom.size(); ++i) {
@@ -458,7 +459,8 @@ bool test_pad_weights() {
                 }
             }
         }
-        pad_weights(C, D, n, m, padding, X.view, W.view, Y.view, W_pad, Y_pad, m, padding, mapto, pad_right_bottom);
+        pad_weights(C, D, n, m, padding, X.view, W.view, Y.view, W_pad, Y_pad, m, padding, pad_right_bottom);
+        pad_weights_map(C, D, n, m, padding, m, padding, mapto, pad_right_bottom);
 
         // check mapfrom & mapto with p3 & Y_pad
         for (size_t i = 0; i != mapfrom.size(); ++i) {

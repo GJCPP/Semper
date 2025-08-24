@@ -1,4 +1,5 @@
 #include <chrono>
+#include <map>
 
 #include "conv_check.h"
 #include "mle_pow.h"
@@ -193,6 +194,55 @@ convProver make_conv2_prover(
         new_padding, find_ceiling_log2(new_in), find_ceiling_log2(m)));
 }
 
+convProver make_conv2_prover_wit(
+    size_t C,
+    size_t D,
+    size_t n,
+    size_t m,
+    size_t padding,
+    const array<Goldilocks2::Element>& X_1d,
+    const array<Goldilocks2::Element>& W,
+    const array<Goldilocks2::Element>& Y_1d,
+    std::vector<size_t>& mapto) {
+
+    size_t in = n + 2 * padding;
+    size_t on = in - m + 1;
+    // size_t Y_len = in * in + m * in - 1;
+
+    assert(is_power_of_2(n));
+
+    size_t new_in = 1ull << find_ceiling_log2(in);
+    size_t new_padding = ((new_in - n) >> 1);
+    // size_t new_on = new_in - m + 1;
+    size_t new_Y_len = new_in * new_in + m * new_in - 1;
+    size_t y_sz = D * on * on;
+
+    // Fill Y_1d with Y
+    std::vector<size_t> next_hop(y_sz);
+    size_t up_new_Y_len = (1ull << find_ceiling_log2(new_Y_len));
+#pragma omp parallel for
+    for (size_t d = 0; d < D; ++d) {
+        for (size_t i = 0; i < on; ++i) {
+            for (size_t j = 0; j < on; ++j) {
+                size_t deg = i * new_in + j + (new_in + 1) * (m + new_padding - padding - 1);
+                assert(deg < new_Y_len);
+                next_hop[(d * on + i) * on + j] = d * up_new_Y_len + deg;
+            }
+        }
+    }
+
+    // update mapto
+    for (auto& i : mapto) {
+        i = next_hop[i];
+    }
+
+    return convProver(convTriple(C, new_in * new_in, D, new_in * m,
+        std::make_unique<MultilinearPolynomial>(X_1d.view),
+        std::make_unique<MLE_Convker>(W.view, C, D, new_in, m),
+        std::make_unique<MultilinearPolynomial>(Y_1d.view),
+        new_padding, find_ceiling_log2(new_in), find_ceiling_log2(m)));
+}
+
 void pad_weights(
     size_t C, size_t D, size_t n, size_t m, size_t padding_X,
     const array_view<Goldilocks2::Element>& X,
@@ -202,7 +252,6 @@ void pad_weights(
     array<Goldilocks2::Element>& Y_pad,
     size_t& new_m,
     size_t& new_padding_X,
-    std::vector<size_t>& mapto,
     bool pad_right_bottom) {
 
     assert(X.shape(0) == C);
@@ -259,7 +308,7 @@ void pad_weights(
 
     size_t y_sz = Y.shape(1);
     size_t on = Y_pad.view.shape(1); // Output size
-    std::vector<size_t> next_hop(Y.size());
+    // std::vector<size_t> next_hop(Y.size());
 
     for (size_t d = 0; d < D; ++d) {
         auto Y_view_d = Y[d];
@@ -272,20 +321,20 @@ void pad_weights(
             for (size_t j = 0; j < y_sz; ++j) {
                 if (pad_right_bottom) {
                     Y_pad_view_i(j + pad_m) = Y_view_i(j);
-                    next_hop[(d * y_sz + i) * y_sz + j] = (j + pad_m) + (d * on + ind) * on;
+                    // next_hop[(d * y_sz + i) * y_sz + j] = (j + pad_m) + (d * on + ind) * on;
                 }
                 else {
                     Y_pad_view_i(j) = Y_view_i(j);
-                    next_hop[(d * y_sz + i) * y_sz + j] = j + (d * on + ind) * on;
+                    // next_hop[(d * y_sz + i) * y_sz + j] = j + (d * on + ind) * on;
                 }
             }
         }
     }
 
-    // update mapto
-    for (auto& i : mapto) {
-        i = next_hop[i];
-    }
+    // // update mapto
+    // for (auto& i : mapto) {
+    //     i = next_hop[i];
+    // }
 
     for (int64_t i = 0; i < int64_t(on); ++i) {
         int64_t x = i - new_padding_X;
@@ -319,6 +368,46 @@ void pad_weights(
                 Y_pad.view(d, i, j) = acc; // directly write result
             }
         }
+    }
+}
+
+void pad_weights_map(
+    size_t C, size_t D, size_t n, size_t m, size_t padding_X,
+    size_t& new_m, size_t& new_padding_X,
+    std::vector<size_t>& mapto,
+    bool pad_right_bottom) {
+    
+    if (is_power_of_2(m)) {
+        new_m = m;
+        new_padding_X = padding_X;
+        return;
+    }
+
+    new_m = 1ull << find_ceiling_log2(m);
+    size_t pad_m = new_m - m;
+    new_padding_X = padding_X + pad_m;
+
+    size_t y_sz = n + 2 * padding_X - m + 1;
+    size_t on = n + 2 * new_padding_X - new_m + 1; // Output size
+    std::vector<size_t> next_hop(D * y_sz * y_sz);
+
+    for (size_t d = 0; d < D; ++d) {
+
+        for (size_t i = 0; i < y_sz; ++i) {
+            size_t ind = pad_right_bottom ? i + pad_m : i;
+            for (size_t j = 0; j < y_sz; ++j) {
+                if (pad_right_bottom) {
+                    next_hop[(d * y_sz + i) * y_sz + j] = (j + pad_m) + (d * on + ind) * on;
+                } else {
+                    next_hop[(d * y_sz + i) * y_sz + j] = j + (d * on + ind) * on;
+                }
+            }
+        }
+    }
+
+    // update mapto
+    for (auto& i : mapto) {
+        i = next_hop[i];
     }
 }
 

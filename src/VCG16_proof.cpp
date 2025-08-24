@@ -17,6 +17,7 @@ bool prove_conv(
     open_param oX, // [C, n, n]
     open_param oW, // [C, D, m, m]
     open_param oY, // [D, on, on]
+    const std::map<std::string, array<Goldilocks2::Element>>& wit,
     const array_view<Goldilocks2::Element>& X, // [C, n, n]
     const array_view<Goldilocks2::Element>& W, // [C, D, m, m]
     const array_view<Goldilocks2::Element>& Y, // [D, on, on]
@@ -26,7 +27,33 @@ bool prove_conv(
     size_t rho_inv, size_t sec_param) {
 
     std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
-    auto prover = make_conv2_prover(C, D, n, m, padding, X, W, Y, mapto);
+    // auto _mapto = mapto;
+    auto prover = wit.empty() ?
+             make_conv2_prover(C, D, n, m, padding, X, W, Y, mapto) :
+             make_conv2_prover_wit(C, D, n, m, padding, wit.at("X"), wit.at("W"), wit.at("Y"), mapto);
+    // auto prover = make_conv2_prover(C, D, n, m, padding, X, W, Y, mapto);
+    
+    // DEBUG: Compare _prover.triple.X, W, Y with prover.triple.X, W, Y using a lambda.
+    // auto compare_arrays = [](const auto& a, const auto& b, const std::string& name) {
+    //     if (a.size() != b.size()) {
+    //         std::cerr << "Debug: _prover.triple." << name << " and prover.triple." << name << " have different sizes!" << std::endl;
+    //         return;
+    //     }
+    //     for (size_t i = 0; i != a.size(); ++i) {
+    //         if (a[i] != b[i]) {
+    //             std::cerr << "Debug: _prover.triple." << name << " and prover.triple." << name << " differ at index " << i << "!" << std::endl;
+    //             std::cerr << a[i] << " : " << b[i] << std::endl;
+    //             break;
+    //         }
+    //     }
+    // };
+    // compare_arrays(prover.triple.X->get_eval_table(), _prover.triple.X->get_eval_table(), "X");
+    // compare_arrays(prover.triple.W->get_eval_table(), _prover.triple.W->get_eval_table(), "W");
+    // compare_arrays(prover.triple.Y->get_eval_table(), _prover.triple.Y->get_eval_table(), "Y");
+    // if (!_prover.triple.check()) {
+    //     std::cerr << "Debug: _prover.triple.check() failed!" << std::endl;
+    // }
+
     std::chrono::duration<double> duration = std::chrono::high_resolution_clock::now() - start;
     std::cout << "make_conv2_prover done in: " << duration << "s." << std::endl;
     prover.init_ori_Y(ori_Y);
@@ -63,6 +90,7 @@ bool prove_conv(
 }
 
 bool prove_conv(
+    VCG16::conv_wit wit,
     int padding,
     const oracle* pcs_input, const oracle* pcs_weight, const oracle* pcs_output,
     const array_view<Goldilocks2::Element>& X, // [N, IC, in, in]
@@ -94,6 +122,8 @@ bool prove_conv(
     cX.init({size_t(IC), size_t(in), size_t(in)});
     cY.init({size_t(OC), size_t(on), size_t(on)});
     auto c_cha = random_vec_ext(N);
+    c_cha[0] = Goldilocks2::one();
+    for (size_t i = 1; i != c_cha.size(); ++i) c_cha[i] = Goldilocks2::zero();
     for (int i = 0; i < N; ++i) {
         for (int a = 0; a != IC; ++a) {
             for (int b = 0; b != in; ++b) {
@@ -125,17 +155,21 @@ bool prove_conv(
     
     open_param oX(X, pcs_input);
     open_param oY(Y, pcs_output);
-
+    
     for (int i = 0; i != N; ++i) {
         res_cX += c_cha[i] * oX(size_t(i)).open(cX_cha, sec_param);
         res_cY += c_cha[i] * oY(size_t(i)).open(cY_cha, sec_param);
     }
-
+    
     if (res_cX != claim_cX || res_cY != claim_cY) {
         std::cerr << "(" << __LINE__ << ") Conv check failed." << std::endl;
         return false;
     }
-
+    
+    std::map<std::string, array<Goldilocks2::Element>> witness;
+    if (!wit.empty()) {
+        witness = wit.get_conv_wit_forward(c_cha);
+    }
 
     // Step 2. Padding
     auto& iW = W;
@@ -162,11 +196,15 @@ bool prove_conv(
             }
         }
     }
-    pad_weights(IC, OC, in, m, padding,
-        iX,
-        iW,
-        iY,
-        pW, pY, new_m, new_padding, mapto, pad_right_bottom);
+    if (wit.empty()) {
+        pad_weights(IC, OC, in, m, padding,
+            iX,
+            iW,
+            iY,
+            pW, pY, new_m, new_padding, pad_right_bottom);
+        pW.view.swap_dim(0, 1); // [IC, OC, m, m]
+    }
+    pad_weights_map(IC, OC, in, m, padding, new_m, new_padding, mapto, pad_right_bottom);
 
     std::chrono::duration<double> elapsed_pad = std::chrono::high_resolution_clock::now() - start_pad;
 
@@ -174,14 +212,15 @@ bool prove_conv(
     // std::cout << "pad_weights time: " << elapsed_pad.count() << " seconds" << std::endl;
     start_pad = std::chrono::high_resolution_clock::now();
 
-    pW.view.swap_dim(0, 1); // [IC, OC, m, m]
-
+    auto cW = W;
+    cW.swap_dim(0, 1);
     open_param open_cX(cX, &pcs_cX);
-    open_param oW(pW, pcs_weight);
+    open_param oW(cW, pcs_weight);
     open_param open_cY(cY, &pcs_cY);
 
     if (!prove_conv(IC, OC, in, new_m, new_padding,
         open_cX, oW, open_cY,
+        witness,
         pX, pW, pY, 
         iY,
         mapfrom, mapto,
@@ -194,7 +233,7 @@ bool prove_conv(
     return true;
 }
 
-bool prove_conv_forward(const VCG16::layer_info& layer, int padding, size_t rho_inv, size_t sec_param) {
+bool prove_conv_forward(const VCG16::layer_info& layer, VCG16::conv_wit wit, int padding, size_t rho_inv, size_t sec_param) {
     int bat = int(layer.input.shape(0));
     int img = int(layer.input.shape(1));
     size_t C = layer.input.shape(2);
@@ -208,7 +247,9 @@ bool prove_conv_forward(const VCG16::layer_info& layer, int padding, size_t rho_
         auto pcs_weight = layer.get_pcs_weight(i);
         auto pcs_output = layer.get_pcs_output(i);
 
-        if (!prove_conv(padding,
+        
+
+        if (!prove_conv(wit, padding,
             pcs_input.get(), pcs_weight.get(), pcs_output.get(),
             layer.input[i], layer.weight[i], layer.output[i],
             true,
@@ -238,7 +279,7 @@ bool prove_conv_backward_dW(const VCG16::layer_info& layer, int padding, size_t 
         dY.swap_dim(0, 1); // [D, N, on, on]
         dW.swap_dim(0, 1); // [C, D, m, m]
 
-        if (!prove_conv(padding,
+        if (!prove_conv({}, padding,
             pcs_input.get(), pcs_d_output.get(), pcs_d_weight.get(),
             X, dY, dW,
             true,
@@ -267,7 +308,7 @@ bool prove_conv_backward_dX(const VCG16::layer_info& layer, int padding, size_t 
         W.reverse(2);
         W.reverse(3); // [C, D, m, m]
 
-        if (!prove_conv(padding,
+        if (!prove_conv({}, padding,
             pcs_d_output.get(), pcs_weight.get(), pcs_d_input.get(),
             dY, W, dX,
             false,
@@ -276,7 +317,7 @@ bool prove_conv_backward_dX(const VCG16::layer_info& layer, int padding, size_t 
     return true;
 }
 
-bool prove_conv_layer(const VCG16::layer_info& layer, size_t rho_inv, size_t sec_param) {
+bool prove_conv_layer(const VCG16::layer_info& layer, VCG16::conv_wit wit, size_t rho_inv, size_t sec_param) {
 
     const int padding = 1;
 
@@ -290,7 +331,7 @@ bool prove_conv_layer(const VCG16::layer_info& layer, size_t rho_inv, size_t sec
 
 
     std::cout << "Proving forward:";
-    if (!prove_conv_forward(layer, padding, rho_inv, sec_param)) {
+    if (!prove_conv_forward(layer, wit, padding, rho_inv, sec_param)) {
         std::cout << "❌ Proving forward pass failed." << std::endl;
         return false;
     }

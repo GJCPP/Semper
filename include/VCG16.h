@@ -35,6 +35,8 @@ public:
                                         pcs_d_input, pcs_d_output,
                                         pcs_aux;
 
+        int id;
+
 #ifdef DEBUG
         std::shared_ptr<ligeropcs_base> get_pcs_input(int bat) const;
         std::shared_ptr<ligeropcs_base> get_pcs_output(int bat) const;
@@ -45,6 +47,69 @@ public:
         std::shared_ptr<ligeropcs_base> get_pcs_aux(int bat) const;
 #endif
     };
+    class conv_wit {
+    public:
+        conv_wit() = default;
+        conv_wit(const std::string& data_dir, int epoch, int batch_sz, int conv_id)
+             : data_dir(data_dir), epoch(epoch), batch_sz(batch_sz), conv_id(conv_id) {}
+
+        bool empty() const { return data_dir.empty(); }
+
+        std::map<std::string, array<Goldilocks2::Element>> get_conv_wit_forward(const std::vector<Goldilocks2::Element>& alpha) const {
+            auto res = to_field(loadConvWitForward(data_dir, epoch, 0, conv_id));
+            /*
+                X: [N, C, in]
+                W: [C, D, k]
+                Y: [N, D, on]
+            */
+            auto& X = res["X"], &W = res["W"], &Y = res["Y"];
+            int C = X.view.shape(1), in = X.view.shape(2),
+                D = Y.view.shape(1), on = Y.view.shape(2);
+            if (X.view.shape(0) != batch_sz || Y.view.shape(0) != batch_sz) {
+                throw std::runtime_error("conv_wit::get_conv_wit_forward: Batch size mismatch");
+            }
+            if (alpha.size() != batch_sz) {
+                throw std::runtime_error("conv_wit::get_conv_wit_forward: Alpha size mismatch");
+            }
+            array<Goldilocks2::Element> rX, rY, rpY;
+            rX.init({size_t(C), size_t(in)});
+            rY.init({size_t(D), size_t(on)});
+            for (int i = 0; i != batch_sz; ++i) {
+                for (int j = 0; j != C; ++j) {
+                    for (int k = 0; k != in; ++k) {
+                        rX.view(j, k) += alpha[i] * X.view(i, j, k);
+                    }
+                }
+                for (int j = 0; j != D; ++j) {
+                    for (int k = 0; k != on; ++k) {
+                        rY.view(j, k) += alpha[i] * Y.view(i, j, k);
+                    }
+                }
+            }
+            std::map<std::string, array<Goldilocks2::Element>> ret;
+            ret["X"] = std::move(rX);
+            ret["W"] = std::move(W);
+            ret["Y"] = std::move(rY);
+            return ret;
+        }
+
+    protected:
+        std::string data_dir;
+        int epoch, batch_sz, conv_id;
+
+        static std::map<std::string, array<Goldilocks2::Element>> to_field(const cnpy::npz_t& data) {
+            std::map<std::string, array<Goldilocks2::Element>> res;
+            for (auto& [key, val] : data) {
+                array<Goldilocks2::Element> arr(val.shape);
+                auto ptr = arr.data.data();
+                for (size_t i = 0; i != val.num_vals; ++i) {
+                    ptr[i] = Goldilocks2::fromS64(val.data<int64_t>()[i]);
+                }
+                res[key] = std::move(arr);
+            }
+            return res;
+        }
+    };
     VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv);
 
     // This is for checking data integrity, and is not to be executed in real proof.
@@ -54,7 +119,7 @@ public:
 
     bool prove_input(size_t sec_param);
 
-    void add_layer(layer_type type,
+    void add_layer(layer_type type, int id,
                     const std::string& name,
                     const std::string& input,
                     const std::string& output,
@@ -65,6 +130,7 @@ public:
                     const std::string& aux = "");
 
 protected:
+    std::string data_dir;
 
     int epoch, minibatch, img_per_batch;
     int64_t scale, max_val, sqr_val;

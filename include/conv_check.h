@@ -118,6 +118,13 @@ convProver make_conv2_prover(
     std::vector<size_t>& mapto
 );
 
+convProver make_conv2_prover_wit(
+    size_t C, size_t D, size_t n, size_t m, size_t padding,
+    const array<Goldilocks2::Element>& X_1d,
+    const array<Goldilocks2::Element>& W_1d,
+    const array<Goldilocks2::Element>& Y_1d,
+    std::vector<size_t>& mapto);
+
 // If m is not power of 2, pad W to make it power of 2
 void pad_weights(
     size_t C, size_t D, size_t n, size_t m, size_t padding_x,
@@ -128,5 +135,10 @@ void pad_weights(
     array<Goldilocks2::Element>& Y_pad,
     size_t& new_m,
     size_t& new_padding_x,
+    bool pad_right_bottom);
+
+void pad_weights_map(
+    size_t C, size_t D, size_t n, size_t m, size_t padding_X,
+    size_t& new_m, size_t& new_padding_X,
     std::vector<size_t>& mapto,
     bool pad_right_bottom);

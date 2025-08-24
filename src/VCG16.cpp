@@ -8,7 +8,7 @@
 // static std::unordered_map<size_t, size_t> relu_map = {};
 
 VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv)
-    : epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * scale), rho_inv(rho_inv) {
+    : data_dir(data_dir), epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * scale), rho_inv(rho_inv) {
     dataset = loadDataset(data_dir);
     filedata = loadEpochData(data_dir, epoch);
     std::vector<std::string> keys;
@@ -80,7 +80,7 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, 
             else {
                 input_name = std::format("a_q{}", lid - 1);
             }
-            add_layer(layer_type::conv,
+            add_layer(layer_type::conv, lid,
                 std::format("conv_{}", lid),
                 input_name,
                 std::format("z_q{}", lid),
@@ -88,7 +88,7 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, 
                 std::format("grad_{}", input_name),
                 std::format("grad_z_q{}", lid),
                 std::format("dW_conv_q{}", lid));
-            add_layer(layer_type::relu,
+            add_layer(layer_type::relu, lid,
                 std::format("relu_{}", lid),
                 std::format("z_q{}", lid),
                 std::format("a_q{}", lid),
@@ -97,7 +97,7 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, 
                 std::format("grad_a_q{}", lid),
                 {});
         }
-        add_layer(layer_type::pool,
+        add_layer(layer_type::pool, ind_pool,
             std::format("pool_{}", ind_pool),
             std::format("a_q{}", layer.back()),
             std::format("pool_q{}", ind_pool),
@@ -108,7 +108,7 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, 
             std::format("pool_idx_q{}", ind_pool));
         ++ind_pool;
     }
-    add_layer(layer_type::flat,
+    add_layer(layer_type::flat, ind_pool - 1,
         "flat",
         std::format("pool_q{}", ind_pool - 1),
         "flat_q",
@@ -118,7 +118,7 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, 
         {});
     for (int layer = 1; layer <= 3; ++layer) {
         std::string input_name = layer == 1 ? "flat_q" : std::format("a{}_q", layer - 1);
-        add_layer(layer_type::full,
+        add_layer(layer_type::full, layer,
             std::format("full_{}", layer),
             input_name,
             std::format("z{}_q", layer),
@@ -127,7 +127,7 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, 
             std::format("grad_z{}_q", layer),
             std::format("dW_fc{}_q", layer));
         if (layer < 3) {
-            add_layer(layer_type::relu,
+            add_layer(layer_type::relu, layer,
                 std::format("fc_relu_{}", layer),
                 std::format("z{}_q", layer),
                 std::format("a{}_q", layer),
@@ -137,7 +137,7 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, 
                 {});
         }
     }
-    add_layer(layer_type::softmax,
+    add_layer(layer_type::softmax, -1,
         "softmax",
         "z3_q", // input
         "probs_q", // output
@@ -411,7 +411,7 @@ bool VCG16::prove(size_t sec_param) {
         auto start = std::chrono::high_resolution_clock::now();
         switch (layer.type) {
             case layer_type::conv:
-                if (!prove_conv_layer(layer, rho_inv, sec_param)) {
+                if (!prove_conv_layer(layer, conv_wit(data_dir, epoch, img_per_batch, layer.id), rho_inv, sec_param)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
                     return false;
                 }
@@ -557,7 +557,7 @@ bool VCG16::prove_input(size_t sec_param) {
     return true;
 }
 
-void VCG16::add_layer(layer_type type,
+void VCG16::add_layer(layer_type type, int id,
                       const std::string& name,
                       const std::string& input,
                       const std::string& output,
@@ -568,6 +568,7 @@ void VCG16::add_layer(layer_type type,
                       const std::string& aux) {
     layer_info info;
     info.type = type;
+    info.id = id;
     info.name = name;
     info.input = array_view<Goldilocks2::Element>(data[input].get(), data_shape[input]);
     info.output = array_view<Goldilocks2::Element>(data[output].get(), data_shape[output]);
