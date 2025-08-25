@@ -11,6 +11,7 @@
 #include "sign_check.h"
 #include "prod_check.h"
 #include "e_pow_check.h"
+#include "timer.h"
 
 bool prove_conv(
     size_t C, size_t D, size_t n, size_t m, size_t padding,
@@ -26,7 +27,6 @@ bool prove_conv(
     std::vector<size_t>& mapto,
     size_t rho_inv, size_t sec_param) {
 
-    std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
     // auto _mapto = mapto;
     auto prover = wit.empty() ?
              make_conv2_prover(C, D, n, m, padding, X, W, Y, mapto) :
@@ -54,8 +54,6 @@ bool prove_conv(
     //     std::cerr << "Debug: _prover.triple.check() failed!" << std::endl;
     // }
 
-    std::chrono::duration<double> duration = std::chrono::high_resolution_clock::now() - start;
-    std::cout << "make_conv2_prover done in: " << duration << "s." << std::endl;
     prover.init_ori_Y(ori_Y);
 
     // Check mapfrom & mapto with Y and prover.triple.Y
@@ -80,12 +78,11 @@ bool prove_conv(
     oW.rev[3] = oW.rev[3] ^ true;
 
     
-    start = std::chrono::high_resolution_clock::now();
+    set_timer("execute convcheck");
     if (!convVerifier::execute_convcheck_2d(prover, oX, oW, oY, mapfrom, mapto, rho_inv, sec_param, true)) {
         return false;
     }
-    duration = std::chrono::high_resolution_clock::now() - start;
-    std::cout << "execute_convcheck_2d done in: " << duration << "s." << std::endl;
+    pause_timer("execute convcheck");
     return true;
 }
 
@@ -168,7 +165,9 @@ bool prove_conv(
     
     std::map<std::string, array<Goldilocks2::Element>> witness;
     if (!wit.empty()) {
+        set_timer("load conv wit");
         witness = wit.get_conv_wit(c_cha);
+        pause_timer("load conv wit");
     }
 
     // Step 2. Padding
@@ -181,8 +180,6 @@ bool prove_conv(
     array<Goldilocks2::Element> pW; // [OC, IC, m, m]
     array<Goldilocks2::Element> pY; // [OC, on, on]
     size_t new_m, new_padding;
-
-    auto start_pad = std::chrono::high_resolution_clock::now();
 
     size_t up_on = (1ull << find_ceiling_log2(on));
     std::vector<size_t> mapto(OC * on * on);
@@ -206,12 +203,6 @@ bool prove_conv(
     }
     pad_weights_map(IC, OC, in, m, padding, new_m, new_padding, mapto, pad_right_bottom);
 
-    std::chrono::duration<double> elapsed_pad = std::chrono::high_resolution_clock::now() - start_pad;
-
-    pad_time += elapsed_pad.count();
-    // std::cout << "pad_weights time: " << elapsed_pad.count() << " seconds" << std::endl;
-    start_pad = std::chrono::high_resolution_clock::now();
-
     auto cW = W;
     cW.swap_dim(0, 1);
     open_param open_cX(cX, &pcs_cX);
@@ -225,10 +216,6 @@ bool prove_conv(
         iY,
         mapfrom, mapto,
         rho_inv, sec_param)) return false;
-    std::chrono::duration<double> elapsed_prove = std::chrono::high_resolution_clock::now() - start_pad;
-    // std::cout << "prove_conv time: " << elapsed_prove.count() << " seconds" << std::endl;
-    prove_time += elapsed_prove.count();
-    std::cout << std::endl << "pad time = " << pad_time << "s, prove time = " << prove_time << "s" << std::endl;
 
     return true;
 }
@@ -336,23 +323,27 @@ bool prove_conv_layer(const VCG16::layer_info& layer, VCG16::conv_wit wit, size_
 
 
 
-    std::cout << "Proving forward:";
+    set_timer("prove conv forward");
     if (!prove_conv_forward(layer, wit, padding, rho_inv, sec_param)) {
         std::cout << "❌ Proving forward pass failed." << std::endl;
         return false;
     }
+    pause_timer("prove conv forward");
 
+    set_timer("prove conv dW");
     std::cout << "Proving backward dW:";
     if (!prove_conv_backward_dW(layer, wit, padding, rho_inv, sec_param)) {
         std::cout << "❌ Proving backward dW failed." << std::endl;
         return false;
     }
+    pause_timer("prove conv dW");
 
-    std::cout << "Proving backward dX:";
+    set_timer("prove conv dX");
     if (!prove_conv_backward_dX(layer, wit, padding, rho_inv, sec_param)) {
         std::cout << "❌ Proving backward dX failed." << std::endl;
         return false;
     }
+    pause_timer("prove conv dX");
 
 
     return true;

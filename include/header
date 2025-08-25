@@ -1,6 +1,6 @@
 #pragma once
 
-#define DEBUG
+// #define DEBUG
 
 #include "goldilocks_base_field.hpp"
 #include "goldilocks_quadratic_ext.h"

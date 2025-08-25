@@ -4,11 +4,14 @@
 #include "VCG16_check.h"
 #include "VCG16_proof.h"
 #include "perm_check.h"
-
+#include "timer.h"
 // static std::unordered_map<size_t, size_t> relu_map = {};
 
 VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv)
     : data_dir(data_dir), epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * scale), rho_inv(rho_inv) {
+    
+    set_timer("VCG16 load & commit");
+
     dataset = loadDataset(data_dir);
     filedata = loadEpochData(data_dir, epoch);
     std::vector<std::string> keys;
@@ -147,6 +150,7 @@ VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, 
         {}, // d_weight = {}
         "a_q0_label");
 
+    pause_timer("VCG16 load & commit");
 }
 
 
@@ -400,66 +404,79 @@ bool VCG16::check(size_t n_samples) const {
 }
 
 bool VCG16::prove(size_t sec_param) {
-    // auto start_prove_input = std::chrono::high_resolution_clock::now();
-    // if (!prove_input(sec_param)) {
-    //     std::cout << "❌ Input layer failed." << std::endl;
-    //     return false;
-    // }
-    // std::cout << "✅ Input proved in " << std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start_prove_input).count() << " seconds." << std::endl;
+    set_timer("prove VCG16 total");
+    std::cout << "Checking input..." << std::endl;
+    set_timer("check input");
+    auto start_prove_input = std::chrono::high_resolution_clock::now();
+    if (!prove_input(sec_param)) {
+        std::cout << "❌ Input layer failed." << std::endl;
+        return false;
+    }
+    pause_timer("check input");
     for (auto& layer : layers) {
-        std::cout << "Proving layer " << layer.name << std::endl;
-        auto start = std::chrono::high_resolution_clock::now();
+        std::cout << "Proving layer " << layer.name << "..." << std::endl;
         switch (layer.type) {
             case layer_type::conv:
+                set_timer("prove conv");
                 if (!prove_conv_layer(layer, conv_wit(data_dir, epoch, layer.id), rho_inv, sec_param)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
                     return false;
                 }
+                pause_timer("prove conv");
                 break;
 
             case layer_type::full:
+                set_timer("prove full");
                 if (!prove_full_layer(layer, rho_inv, sec_param)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
                     return false;
                 }
+                pause_timer("prove full");
                 break;
 
             case layer_type::relu:
+                set_timer("prove relu");
                 if (!prove_relu_layer(layer, scale, max_val, sqr_val, rho_inv, sec_param)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
                     return false;
                 }
+                pause_timer("prove relu");
                 break;
 
             case layer_type::pool:
+                set_timer("prove pool");
                 if (!prove_pool_layer(layer, scale, max_val, rho_inv, sec_param)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
                     return false;
                 }
+                pause_timer("prove pool");
                 break;
 
             case layer_type::softmax:
+                set_timer("prove softmax");
                 if (!prove_softmax(layer, scale, max_val, rho_inv, sec_param)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
                     return false;
                 }
+                pause_timer("prove softmax");
                 break;
 
             case layer_type::flat:
+                set_timer("prove flat");
                 if (!prove_flat_layer(layer, rho_inv, sec_param)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
                     return false;
                 }
+                pause_timer("prove flat");
                 break;
 
             default:
                 break;
         }
-        auto end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> elapsed = end - start;
-        std::cout << "✅ Layer " << layer.name << " proved in " << elapsed.count() << " seconds." << std::endl;
-
     }
+    pause_timer("prove VCG16 total");
+    print_all_timers();
+    end_all_timers();
     return false;
 }
 
@@ -600,7 +617,7 @@ void VCG16::add_layer(layer_type type, int id,
         pcs.resize(minibatch);
 #ifndef DEBUG
         for (int i = 0; i < minibatch; ++i) {
-            pcs[i] = std::make_shared<ligeropcs_base>(mle[i], rho_inv);
+            pcs[i] = std::make_shared<ligeropcs_base>(ligero_commit_base(*mle[i], rho_inv));
         }
 #else
         for (int i = 0; i < minibatch; ++i) {
@@ -636,7 +653,6 @@ void VCG16::add_layer(layer_type type, int id,
     layers.push_back(info);
 }
 
-#ifdef DEBUG
 std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_input(int bat) const {
     auto& pcs = pcs_input[bat];
     if (pcs->empty()) {
@@ -692,6 +708,4 @@ std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_aux(int bat) const {
     }
     return pcs;
 }
-
-#endif
 

@@ -37,7 +37,6 @@ public:
 
         int id;
 
-#ifdef DEBUG
         std::shared_ptr<ligeropcs_base> get_pcs_input(int bat) const;
         std::shared_ptr<ligeropcs_base> get_pcs_output(int bat) const;
         std::shared_ptr<ligeropcs_base> get_pcs_weight(int bat) const ;
@@ -45,7 +44,6 @@ public:
         std::shared_ptr<ligeropcs_base> get_pcs_d_input(int bat) const;
         std::shared_ptr<ligeropcs_base> get_pcs_d_output(int bat) const;
         std::shared_ptr<ligeropcs_base> get_pcs_aux(int bat) const;
-#endif
     };
     class conv_wit {
     public:

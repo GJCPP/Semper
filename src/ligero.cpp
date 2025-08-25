@@ -86,29 +86,29 @@ ligeroProver_base::ligeroProver_base(const std::vector<uint64_t>& w, const uint6
     // 2^l = a * b
     a = 1ull << (num_vars >> 1);       //floor(l/2)
     b = a << (num_vars & 1);           //ceil(l/2)
-    set_timer("make matrix");
+    // set_timer("make matrix");
     M.resize(1ull << num_vars, Goldilocks::zero());
     codelen = b * rho_inv;
     for (size_t i = 0; i < w.size(); ++i) {
         M[i] = Goldilocks::fromU64(w[i]);
     }
-    set_timer("ntt");
-    pause_timer("ntt");
+    // set_timer("ntt");
+    // pause_timer("ntt");
     // alert("log-size of vector to be ntt-ed: " + std::to_string(b));
     for (size_t i = 0; i < a; ++i) {
         std::vector<Goldilocks::Element> dataline(b);
         for (size_t j = 0; j < b; ++j) {
             dataline[j] = M[i * b + j];
         }
-        resume_timer("ntt");
+        // resume_timer("ntt");
         codewords.push_back(rsencode(dataline, rho_inv));
-        pause_timer("ntt");
+        // pause_timer("ntt");
     }
-    end_timer("ntt");
-    end_timer("make matrix");
-    set_timer("build merkle tree");
+    // end_timer("ntt");
+    // end_timer("make matrix");
+    // set_timer("build merkle tree");
     mt_t = MerkleTree_base(codewords);
-    end_timer("build merkle tree");
+    // end_timer("build merkle tree");
 }
 
 std::vector<Goldilocks2::Element> ligeroProver_base::lincomb(const std::vector<Goldilocks2::Element>& r) const {
