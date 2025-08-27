@@ -127,7 +127,7 @@ public:
             return res;
         }
     };
-    CNN(std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv);
+    CNN(std::string model_name, std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv);
 
     // This is for checking data integrity, and is not to be executed in real proof.
     bool check(size_t n_samples = 0) const;
@@ -147,7 +147,7 @@ public:
                     const std::string& aux = "");
 
 protected:
-    std::string data_dir;
+    std::string model_name, data_dir;
 
     int epoch, minibatch, img_per_batch;
     int64_t scale, max_val, sqr_val;

@@ -131,7 +131,7 @@ def conv2_to_1d(X, W, Y, padding):
     # print('Y at 1040: ', Y_flat_out[0, 0, 1040])
     return X_flat_out, Y_flat_out
 
-def generate_conv_wit(epoch, save_name, padding, name_X, name_W, name_Y, X, W, Y, pad_right_bottom):
+def generate_conv_wit(save_path, save_name, epoch, padding, name_X, name_W, name_Y, X, W, Y, pad_right_bottom):
     B = X.shape[0]
     N = X.shape[1]
     for b in tqdm.tqdm(range(B)):
@@ -148,13 +148,14 @@ def generate_conv_wit(epoch, save_name, padding, name_X, name_W, name_Y, X, W, Y
         res[name_W] = pW
         res[name_Y] = Y_1d
         
-        path = f'training_trace/VGG16/epoch_{epoch}_witness/batch_{b}'
+        path = f'{save_path}/epoch_{epoch}_witness/batch_{b}'
         os.makedirs(path, exist_ok=True)
         np.savez(f'{path}/{save_name}', **res)
 
-if __name__ == "__main__":
+def pad_VGG16():
     # Path to the .npz file
-    file_path = 'training_trace/VGG16/epoch_0.npz'
+    model_path = 'training_trace/VGG16'
+    file_path = model_path + '/epoch_0.npz'
 
     # Load the .npz file
     data = np.load(file_path)
@@ -176,7 +177,7 @@ if __name__ == "__main__":
             X = data[input_name]      # [B, N, C, in, in]
             W = data[f'W_conv_q{layer}'] # [B, D, C, k, k]
             Y = data[f'z_q{layer}']      # [B, N, D, on, on]
-            generate_conv_wit(epoch, f'conv_{layer}_forward.npz', 1,'X', 'W', 'Y', X, W, Y, pad_right_bottom=True)
+            generate_conv_wit(model_path, f'conv_{layer}_forward.npz', epoch, 1,'X', 'W', 'Y', X, W, Y, pad_right_bottom=True)
         # prove backward dW
         for layer in layers:
             input_name = f'a_q{layer - 1}' if layer == 1 or layer != layers[0] else f'pool_q{block - 1}'
@@ -188,7 +189,7 @@ if __name__ == "__main__":
             dY = np.swapaxes(dY, 1, 2) # [B, D, N, on, on]
             dW = np.swapaxes(dW, 1, 2) # [B, C, D, k, k]
 
-            generate_conv_wit(epoch, f'conv_{layer}_dW.npz', 1, 'X', 'W', 'Y', X, dY, dW, pad_right_bottom=True)
+            generate_conv_wit(model_path, f'conv_{layer}_dW.npz', epoch, 1, 'X', 'W', 'Y', X, dY, dW, pad_right_bottom=True)
         # prove backward dX
         for layer in layers:
             input_name = f'grad_a_q{layer - 1}' if layer == 1 or layer != layers[0] else f'grad_pool_q{block - 1}'
@@ -199,7 +200,54 @@ if __name__ == "__main__":
             W = np.swapaxes(W, 1, 2) # [B, D, C, k, k]
             W = np.flip(W, axis=(3, 4)).copy() # [B, D, C, k, k]
 
-            generate_conv_wit(epoch, f'conv_{layer}_dX.npz', 1, 'X', 'W', 'Y', dY, W, dX, pad_right_bottom=False)
+            generate_conv_wit(model_path, f'conv_{layer}_dX.npz', epoch, 1, 'X', 'W', 'Y', dY, W, dX, pad_right_bottom=False)
+
+def pad_VGG11():
+    # Path to the .npz file
+    model_path = 'training_trace/VGG11'
+    file_path = model_path + '/epoch_0.npz'
+
+    # Load the .npz file
+    data = np.load(file_path)
+
+    # List all arrays stored in the file
+    # print("Arrays in the file:", data.files)
+
+    # Example: Load a specific array (replace 'arr_0' with the actual key if needed)
+    array = data['input']
 
 
+    # Generate witness for forward conv.
+    epoch = 0
+    for block, layers in enumerate([(1, ), (2, ), (3, 4), (5, 6), (7, 8)], start=1):
+        print(f'Processing block: {block}/{5}')
+        # prove forward
+        for layer in layers:
+            input_name = f'a_q{layer - 1}' if layer == 1 or layer != layers[0] else f'pool_q{block - 1}'
+            X = data[input_name]      # [B, N, C, in, in]
+            W = data[f'W_conv_q{layer}'] # [B, D, C, k, k]
+            Y = data[f'z_q{layer}']      # [B, N, D, on, on]
+            generate_conv_wit(model_path, f'conv_{layer}_forward.npz', epoch, 1,'X', 'W', 'Y', X, W, Y, pad_right_bottom=True)
+        # prove backward dW
+        for layer in layers:
+            input_name = f'a_q{layer - 1}' if layer == 1 or layer != layers[0] else f'pool_q{block - 1}'
+            X = data[input_name]      # [B, N, C, in, in]
+            dY = data[f'grad_z_q{layer}']      # [B, N, D, on, on]
+            dW = data[f'dW_conv_q{layer}'] # [B, D, C, k, k]
 
+            X = np.swapaxes(X, 1, 2) # [B, C, N, in, in]
+            dY = np.swapaxes(dY, 1, 2) # [B, D, N, on, on]
+            dW = np.swapaxes(dW, 1, 2) # [B, C, D, k, k]
+
+            generate_conv_wit(model_path, f'conv_{layer}_dW.npz', epoch, 1, 'X', 'W', 'Y', X, dY, dW, pad_right_bottom=True)
+        # prove backward dX
+        for layer in layers:
+            input_name = f'grad_a_q{layer - 1}' if layer == 1 or layer != layers[0] else f'grad_pool_q{block - 1}'
+            dY = data[f'grad_z_q{layer}'] # [B, N, D, on, on]
+            W = data[f'W_conv_q{layer}'] # [B, D, C, k, k]
+            dX = data[input_name]      # [B, N, C, in, in]
+
+            W = np.swapaxes(W, 1, 2) # [B, D, C, k, k]
+            W = np.flip(W, axis=(3, 4)).copy() # [B, D, C, k, k]
+
+            generate_conv_wit(model_path, f'conv_{layer}_dX.npz', epoch, 1, 'X', 'W', 'Y', dY, W, dX, pad_right_bottom=False)

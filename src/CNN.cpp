@@ -7,8 +7,8 @@
 #include "timer.h"
 
 
-CNN::CNN(std::string _data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv)
-    : data_dir(_data_dir), epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * scale), rho_inv(rho_inv) {
+CNN::CNN(std::string _model_name, std::string _data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv)
+    : model_name(_model_name), data_dir(_data_dir), epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * scale), rho_inv(rho_inv) {
     ;
 }
 
@@ -263,7 +263,7 @@ bool CNN::check(size_t n_samples) const {
 }
 
 bool CNN::prove(size_t sec_param) {
-    set_timer("prove VGG16 total");
+    set_timer(std::format("prove {} total", model_name));
     std::cout << "Checking input..." << std::endl;
     set_timer("check input");
     auto start_prove_input = std::chrono::high_resolution_clock::now();
@@ -333,7 +333,7 @@ bool CNN::prove(size_t sec_param) {
                 break;
         }
     }
-    pause_timer("prove VGG16 total");
+    pause_timer(std::format("prove {} total", model_name));
     print_all_timers();
     end_all_timers();
     return false;

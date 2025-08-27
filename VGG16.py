@@ -402,8 +402,11 @@ def train_manual():
         print(f"Epoch {epoch+1}: Accuracy = {100 * correct2 / total:.2f}%")
         model.clear_cache()
 
+import pad_conv
+
 if __name__ == "__main__":
     torch.manual_seed(0)
     random.seed(0)
     train_manual()
+    pad_conv.pad_VGG16()
 

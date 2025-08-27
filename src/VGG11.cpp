@@ -1,16 +1,16 @@
 #include <chrono>
 
-#include "VGG16.h"
+#include "VGG11.h"
 #include "CNN_check.h"
 #include "CNN_proof.h"
 #include "perm_check.h"
 #include "timer.h"
 // static std::unordered_map<size_t, size_t> relu_map = {};
 
-VGG16::VGG16(std::string _data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv)
-    : CNN("VGG16", _data_dir + "/VGG16", epoch, scale, max_value, rho_inv) {
+VGG11::VGG11(std::string _data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv)
+    : CNN("VGG11", _data_dir + "/VGG11", epoch, scale, max_value, rho_inv) {
 
-    set_timer("VGG16 load & commit");
+    set_timer("VGG11 load & commit");
 
     dataset = loadDataset(data_dir);
     filedata = loadEpochData(data_dir, epoch);
@@ -72,7 +72,7 @@ VGG16::VGG16(std::string _data_dir, int epoch, int64_t scale, int64_t max_value,
     pcs_label = ligero_commit_base(label, rho_inv);
     pcs_index = ligero_commit_base(input_index, rho_inv);
 
-    std::vector<std::vector<int>> conv_layers = {{1, 2}, {3, 4}, {5, 6, 7}, {8, 9, 10}, {11, 12, 13}};
+    std::vector<std::vector<int>> conv_layers = {{1}, {2}, {3, 4}, {5, 6}, {7, 8}};
     int ind_pool = 1;
     for (auto& layer : conv_layers) {
         for (auto& lid : layer) {
@@ -152,5 +152,5 @@ VGG16::VGG16(std::string _data_dir, int epoch, int64_t scale, int64_t max_value,
 
     
 
-    pause_timer("VGG16 load & commit");
+    pause_timer("VGG11 load & commit");
 }

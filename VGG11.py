@@ -9,18 +9,18 @@ import copy
 
 save_cache_to_file = True
 
-class ManualVGG16:
+class ManualVGG11:
     def __init__(self):
         torch.backends.cudnn.deterministic = True
         self.W = {}
 
         # Conv layers (no bias), Kaiming init
         conv_shapes = [
-            (64, 3, 3, 3), (64, 64, 3, 3),        # Block 1
-            (128, 64, 3, 3), (128, 128, 3, 3),    # Block 2
-            (256, 128, 3, 3), (256, 256, 3, 3), (256, 256, 3, 3),  # Block 3
-            (512, 256, 3, 3), (512, 512, 3, 3), (512, 512, 3, 3),  # Block 4
-            (512, 512, 3, 3), (512, 512, 3, 3), (512, 512, 3, 3),  # Block 5
+            (64, 3, 3, 3),        # Block 1
+            (128, 64, 3, 3),      # Block 2
+            (256, 128, 3, 3), (256, 256, 3, 3),  # Block 3
+            (512, 256, 3, 3), (512, 512, 3, 3),  # Block 4
+            (512, 512, 3, 3), (512, 512, 3, 3)   # Block 5
         ]
         self.scale=2**14
         for i, shape in enumerate(conv_shapes):
@@ -59,7 +59,7 @@ class ManualVGG16:
         one_hot_y = F.one_hot(y, num_classes=10)
         self.save_to_cache('a_q0_label', one_hot_y)
 
-        for block, layers in enumerate([(1, 2), (3, 4), (5, 6, 7), (8, 9, 10), (11, 12, 13)], start=1):
+        for block, layers in enumerate([(1, ), (2, ), (3, 4), (5, 6), (7, 8)], start=1):
             #for lid in layers:
             #    x = F.conv2d(x, self.W[f'conv{lid}'], padding=1)
             #    self.cache[f'z{lid}'] = x
@@ -220,7 +220,7 @@ class ManualVGG16:
         # backward through conv blocks
         for block in reversed(range(1, 6)):
             #pooled_out, indices = c[f'pool{block}']
-            first_lid = [1, 3, 5, 8, 11][block - 1]
+            first_lid = [1, 2, 3, 5, 7][block - 1]
 
             pooled_out_q = c[f'pool_q{block}'][-1]
             indices_q = c[f'pool_idx_q{block}'][-1]
@@ -233,15 +233,15 @@ class ManualVGG16:
 
             # Get conv layer ids in this block
             if block == 1:
-                conv_ids = [1, 2]
+                conv_ids = [1]
             elif block == 2:
-                conv_ids = [3, 4]
+                conv_ids = [2]
             elif block == 3:
-                conv_ids = [5, 6, 7]
+                conv_ids = [3, 4]
             elif block == 4:
-                conv_ids = [8, 9, 10]
+                conv_ids = [5, 6]
             elif block == 5:
-                conv_ids = [11, 12, 13]
+                conv_ids = [7, 8]
 
 
             for lid in reversed(conv_ids):
@@ -311,7 +311,7 @@ def quantized_softmax(logits_q: torch.Tensor, scale: int) -> torch.Tensor:
     sum_exp = exp_x.sum(dim=1, keepdim=True)
 
     softmax = (exp_x * scale) // sum_exp
-    print(softmax)
+    # print(softmax)
 
     return softmax
 
@@ -334,17 +334,24 @@ def train_manual():
     subset = Subset(dataset, indices=range(1024))
     indexed_subset = IndexedDataset(subset)  # Wrap to include indices
     loader = DataLoader(indexed_subset, batch_size=32, shuffle=True)
-    model = ManualVGG16()
+    model = ManualVGG11()
     lr=0.01
     S=[]
 
     # Create directory for saving data
-    os.makedirs('training_trace', exist_ok=True)
+    os.makedirs('training_trace/VGG11', exist_ok=True)
     # Save dataset before training
-    np.savez('training_trace/dataset.npz',
-            dataset_inputs=np.stack([(subset[i][0] * model.scale).to(torch.int64).numpy()
-                            for i in range(len(subset))]),
-            dataset_labels=np.array([subset[i][1] for i in range(len(subset))], dtype=np.int64))
+    np.savez(
+        'training_trace/VGG11/dataset.npz',
+        dataset_inputs=np.stack([
+            (subset[i][0] * model.scale).to(torch.int64).numpy()
+            for i in range(len(subset))
+        ]),
+        dataset_labels=np.stack([
+            np.eye(10, dtype=np.int64)[subset[i][1]]
+            for i in range(len(subset))
+        ])
+    )
     
     for epoch in range(1):
         correct = total = 0
@@ -359,7 +366,7 @@ def train_manual():
                 break
             # Save input data and labels
             model.save_to_cache('input', (x * model.scale).to(torch.int64))
-            model.save_to_cache('label', y.to(torch.int64))
+            model.save_to_cache('label', F.one_hot(y.to(torch.int64), num_classes=10).to(torch.int64))
             model.save_to_cache('index', idxs.to(torch.int64))
 
             with torch.no_grad():
@@ -382,21 +389,22 @@ def train_manual():
         # Convert tensors to numpy arrays before saving
         # cache_np = {}
         # idx = 0
-        for key, value in model.cache.items():
-            print(key)
-            print(len(value), value[0].shape)
+        # for key, value in model.cache.items():
+        #     print(key)
+        #     print(len(value), value[0].shape)
             # print(value[0][0, 0])
         
         if save_cache_to_file:
-            np.savez(f'training_trace/epoch_{epoch}.npz', **model.cache)
+            np.savez(f'training_trace/VGG11/epoch_{epoch}.npz', **model.cache)
 
         # print(epoch_data)
 
         print(f"Epoch {epoch+1}: Accuracy = {100 * correct2 / total:.2f}%")
         model.clear_cache()
 
+import pad_conv
 if __name__ == "__main__":
     torch.manual_seed(0)
     random.seed(0)
     train_manual()
-
+    pad_conv.pad_VGG11()
