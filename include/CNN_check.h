@@ -4,8 +4,8 @@
 #include "goldilocks_quadratic_ext.h"
 
 /*
- * This file is for checking the correctness of the VCG16 computation.
- * It has nothing to do with proving the VCG16 training.
+ * This file is for checking the correctness of the VGG16 computation.
+ * It has nothing to do with proving the VGG16 training.
 */
 
 bool check_range(

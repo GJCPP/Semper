@@ -1,160 +1,19 @@
 #include <chrono>
 
-#include "VCG16.h"
-#include "VCG16_check.h"
-#include "VCG16_proof.h"
+#include "CNN.h"
+#include "CNN_check.h"
+#include "CNN_proof.h"
 #include "perm_check.h"
 #include "timer.h"
-// static std::unordered_map<size_t, size_t> relu_map = {};
 
-VCG16::VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv)
-    : data_dir(data_dir), epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * scale), rho_inv(rho_inv) {
-    
-    set_timer("VCG16 load & commit");
 
-    dataset = loadDataset(data_dir);
-    filedata = loadEpochData(data_dir, epoch);
-    std::vector<std::string> keys;
-    std::vector<cnpy::NpyArray*> values;
-    for (auto& [key, value] : filedata) {
-        keys.push_back(key);
-        values.push_back(&value);
-    }
-    for (auto& [key, value] : dataset) {
-        keys.push_back(key);
-        values.push_back(&value);
-    }
-    for (size_t i = 0; i < keys.size(); ++i) {
-        std::string key = keys[i];
-
-        cnpy::NpyArray *value = values[i];
-        size_t num_vals = value->num_vals;
-        data[key] = std::make_unique<Goldilocks2::Element[]>(num_vals);
-        data_shape[key] = {};
-        data_view[key] = {};
-    }
-    #pragma omp parallel for
-    for (size_t i = 0; i < keys.size(); ++i) {
-        std::string key = keys[i];
-        cnpy::NpyArray *value = values[i];
-        size_t num_vals = value->num_vals;
-        auto ptr = data[key].get();
-        for (size_t i = 0; i < num_vals; ++i) {
-            ptr[i] = Goldilocks2::fromS64(value->data<int64_t>()[i]);
-        }
-        data_shape[key] = value->shape;
-        data_view[key] = array_view<Goldilocks2::Element>(ptr, value->shape);
-    }
-    data[{}] = nullptr;
-    data_shape[{}] = {};
-    data_view[{}] = {};
-    mle[{}] = {};
-    pcs[{}] = {};
-
-    minibatch = data_shape["a_q0"][0];
-    img_per_batch = data_shape["a_q0"][1];
-
-    dataset_input = array_view<Goldilocks2::Element>(data["dataset_inputs"].get(), data_shape["dataset_inputs"]);
-    dataset_label = array_view<Goldilocks2::Element>(data["dataset_labels"].get(), data_shape["dataset_labels"]);
-    input = array_view<Goldilocks2::Element>(data["input"].get(), data_shape["input"]);
-    label = array_view<Goldilocks2::Element>(data["label"].get(), data_shape["label"]);
-    input_index = array_view<Goldilocks2::Element>(data["index"].get(), data_shape["index"]);
-
-    mle_dataset_input = dataset_input;
-    mle_dataset_label = dataset_label;
-    mle_input = input;
-    mle_label = label;
-    mle_index = input_index;
-
-    pcs_dataset_input = ligero_commit_base(dataset_input, rho_inv);
-    pcs_dataset_label = ligero_commit_base(dataset_label, rho_inv);
-    pcs_input = ligero_commit_base(input, rho_inv);
-    pcs_label = ligero_commit_base(label, rho_inv);
-    pcs_index = ligero_commit_base(input_index, rho_inv);
-
-    std::vector<std::vector<int>> conv_layers = {{1, 2}, {3, 4}, {5, 6, 7}, {8, 9, 10}, {11, 12, 13}};
-    int ind_pool = 1;
-    for (auto& layer : conv_layers) {
-        for (auto& lid : layer) {
-            std::string input_name;
-            if (lid > 1 && lid == layer.front()) {
-                input_name = std::format("pool_q{}", ind_pool - 1);
-            }
-            else {
-                input_name = std::format("a_q{}", lid - 1);
-            }
-            add_layer(layer_type::conv, lid,
-                std::format("conv_{}", lid),
-                input_name,
-                std::format("z_q{}", lid),
-                std::format("W_conv_q{}", lid),
-                std::format("grad_{}", input_name),
-                std::format("grad_z_q{}", lid),
-                std::format("dW_conv_q{}", lid));
-            add_layer(layer_type::relu, lid,
-                std::format("relu_{}", lid),
-                std::format("z_q{}", lid),
-                std::format("a_q{}", lid),
-                {},
-                std::format("grad_z_q{}", lid),
-                std::format("grad_a_q{}", lid),
-                {});
-        }
-        add_layer(layer_type::pool, ind_pool,
-            std::format("pool_{}", ind_pool),
-            std::format("a_q{}", layer.back()),
-            std::format("pool_q{}", ind_pool),
-            {},
-            std::format("grad_a_q{}", layer.back()),
-            std::format("grad_pool_q{}", ind_pool),
-            {},
-            std::format("pool_idx_q{}", ind_pool));
-        ++ind_pool;
-    }
-    add_layer(layer_type::flat, ind_pool - 1,
-        "flat",
-        std::format("pool_q{}", ind_pool - 1),
-        "flat_q",
-        {},
-        std::format("grad_pool_q{}", ind_pool - 1),
-        "grad_flat_q",
-        {});
-    for (int layer = 1; layer <= 3; ++layer) {
-        std::string input_name = layer == 1 ? "flat_q" : std::format("a{}_q", layer - 1);
-        add_layer(layer_type::full, layer,
-            std::format("full_{}", layer),
-            input_name,
-            std::format("z{}_q", layer),
-            std::format("W_fc{}_q", layer),
-            std::format("grad_{}", input_name),
-            std::format("grad_z{}_q", layer),
-            std::format("dW_fc{}_q", layer));
-        if (layer < 3) {
-            add_layer(layer_type::relu, layer,
-                std::format("fc_relu_{}", layer),
-                std::format("z{}_q", layer),
-                std::format("a{}_q", layer),
-                {},
-                std::format("grad_z{}_q", layer),
-                std::format("grad_a{}_q", layer),
-                {});
-        }
-    }
-    add_layer(layer_type::softmax, -1,
-        "softmax",
-        "z3_q", // input
-        "probs_q", // output
-        {}, // weight = {}
-        "probs_q", // d_input = output
-        {}, // d_output = {}
-        {}, // d_weight = {}
-        "a_q0_label");
-
-    pause_timer("VCG16 load & commit");
+CNN::CNN(std::string _data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv)
+    : data_dir(_data_dir), epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * scale), rho_inv(rho_inv) {
+    ;
 }
 
 
-bool VCG16::check(size_t n_samples) const {
+bool CNN::check(size_t n_samples) const {
     for (auto& layer : layers) {
         bool pass = true;
         std::cout << "Checking layer " << layer.name << std::endl;
@@ -403,8 +262,8 @@ bool VCG16::check(size_t n_samples) const {
     return true;
 }
 
-bool VCG16::prove(size_t sec_param) {
-    set_timer("prove VCG16 total");
+bool CNN::prove(size_t sec_param) {
+    set_timer("prove VGG16 total");
     std::cout << "Checking input..." << std::endl;
     set_timer("check input");
     auto start_prove_input = std::chrono::high_resolution_clock::now();
@@ -474,50 +333,59 @@ bool VCG16::prove(size_t sec_param) {
                 break;
         }
     }
-    pause_timer("prove VCG16 total");
+    pause_timer("prove VGG16 total");
     print_all_timers();
     end_all_timers();
     return false;
 }
 
-bool VCG16::prove_input(size_t sec_param) {
+bool CNN::prove_input(size_t sec_param) {
     // input_data : [batch, img, channel, wide, height]
     size_t batch = input.shape(0),
             img = input.shape(1),
             channel = input.shape(2),
             wide = input.shape(3),
-            height = input.shape(4);
+            height = input.shape(4),
+            num_class = label.shape(2);
     int log_batch = find_ceiling_log2(batch),
         log_img = find_ceiling_log2(img),
         log_channel = find_ceiling_log2(channel),
         log_wide = find_ceiling_log2(wide),
-        log_height = find_ceiling_log2(height);
+        log_height = find_ceiling_log2(height),
+        log_num_class = find_ceiling_log2(num_class);
     size_t up_batch = (1ull << log_batch),
             up_img = (1ull << log_img),
             up_channel = (1ull << log_channel),
             up_wide = (1ull << log_wide),
-            up_height = (1ull << log_height);
+            up_height = (1ull << log_height),
+            up_num_class = (1ull << log_num_class);
     std::vector<size_t> from, to;
-    from.reserve(img * channel * wide * height);
-    to.reserve(img * channel * wide * height);
+    from.resize(batch * img * channel * wide * height);
+    to.resize(batch * img * channel * wide * height);
+
+    #pragma omp parallel for
     for (size_t b = 0; b != batch; ++b) {
         size_t ind_b = b * up_img * up_channel * up_wide * up_height;
+        size_t out_ind_b = b * img * channel * wide * height;
 
         for (size_t i = 0; i != img; ++i) {
             size_t ind_i = ind_b + i * up_channel * up_wide * up_height;
             size_t ind_to_i = input_index(b, i)[0].fe * up_channel * up_wide * up_height;
+            size_t out_ind_i = out_ind_b + i * channel * wide * height;
 
             for (size_t c = 0; c != channel; ++c) {
                 size_t ind_c = ind_i + c * up_wide * up_height;
                 size_t ind_to_c = ind_to_i + c * up_wide * up_height;
+                size_t out_ind_c = out_ind_i + c * wide * height;
 
                 for (size_t w = 0; w != wide; ++w) {
                     size_t ind_w = ind_c + w * up_height;
                     size_t ind_to_w = ind_to_c + w * up_height;
+                    size_t out_ind_w = out_ind_c + w * height;
 
                     for (size_t h = 0; h != height; ++h) {
-                        from.push_back(ind_w + h);
-                        to.push_back(ind_to_w + h);
+                        from[out_ind_w + h] = ind_w + h;
+                        to[out_ind_w + h] = ind_to_w + h;
                     }
                 }
             }
@@ -534,12 +402,14 @@ bool VCG16::prove_input(size_t sec_param) {
     }
 
     std::vector<size_t> label_from, label_to;
-    label_from.reserve(batch * img);
-    label_to.reserve(batch * img);
+    label_from.reserve(batch * img * num_class);
+    label_to.reserve(batch * img * num_class);
     for (size_t b = 0; b != batch; ++b) {
         for (size_t i = 0; i != img; ++i) {
-            label_from.push_back(b * up_img + i);
-            label_to.push_back(input_index(b, i)[0].fe);
+            for (size_t j = 0; j != num_class; ++j) {
+                label_from.push_back(b * up_img * up_num_class + i * up_num_class + j);
+                label_to.push_back(input_index(b, i)[0].fe * up_num_class + j);
+            }
         }
     }
     mapProver label_prover(label_from, label_to, false);
@@ -553,28 +423,32 @@ bool VCG16::prove_input(size_t sec_param) {
 
     // Check that input is used as the input of a0 layer
     auto cha = random_vec_ext(mle_input.get_num_vars() - log_batch);
+    auto label_cha = random_vec_ext(mle_label.get_num_vars() - log_batch);
+    bool succ = true;
+    #pragma omp parallel for
     for (size_t b = 0; b != batch; ++b) {
-        std::vector<Goldilocks2::Element> prefix(log_batch);
+        std::vector<Goldilocks2::Element> pre(log_batch);
         for (size_t i = 0; i != log_batch; ++i) {
-            prefix[i] = ((b >> (log_batch - i - 1)) & 1) ? Goldilocks2::one() : Goldilocks2::zero();
+            pre[i] = ((b >> (log_batch - i - 1)) & 1) ? Goldilocks2::one() : Goldilocks2::zero();
         }
-        prefix = combine_challenges(prefix, cha);
+        auto ext_cha = combine_challenges(pre, cha);
+        auto ext_label_cha = combine_challenges(pre, label_cha);
         auto pcs_layer0_input = layers[0].get_pcs_input(b);
-        if (pcs_layer0_input->open(cha, sec_param) != pcs_input.open(prefix, sec_param)) {
+        if (pcs_layer0_input->open(cha, sec_param) != pcs_input.open(ext_cha, sec_param)) {
             std::cout << "❌ Input is not used as the input of a0 layer." << std::endl;
-            return false;
+            succ = false;
         }
         auto pcs_output_label = layers.back().get_pcs_aux(b);
-        if (pcs_output_label->open(cha, sec_param) != pcs_output_label->open(prefix, sec_param)) {
+        if (pcs_output_label->open(label_cha, sec_param) != pcs_label.open(ext_label_cha, sec_param)) {
             std::cout << "❌ Output label is not used as the output of the last layer." << std::endl;
-            return false;
+            succ = false;
         }
     }
 
-    return true;
+    return succ;
 }
 
-void VCG16::add_layer(layer_type type, int id,
+void CNN::add_layer(layer_type type, int id,
                       const std::string& name,
                       const std::string& input,
                       const std::string& output,
@@ -599,6 +473,7 @@ void VCG16::add_layer(layer_type type, int id,
     auto init_mle = [&](const std::string& key) {
         auto& mle = this->mle[key];
         mle.resize(minibatch);
+        #pragma omp parallel for
         for (int i = 0; i < minibatch; ++i) {
             mle[i] = std::make_shared<MultilinearPolynomial>(data_view[key][i]);
         }
@@ -653,14 +528,14 @@ void VCG16::add_layer(layer_type type, int id,
     layers.push_back(info);
 }
 
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_input(int bat) const {
+std::shared_ptr<ligeropcs_base> CNN::layer_info::get_pcs_input(int bat) const {
     auto& pcs = pcs_input[bat];
     if (pcs->empty()) {
         *pcs = ligero_commit_base(*mle_input[bat], 2);
     }
     return pcs;
 }
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_output(int bat) const {
+std::shared_ptr<ligeropcs_base> CNN::layer_info::get_pcs_output(int bat) const {
     auto& pcs = pcs_output[bat];
     if (pcs->empty()) {
         *pcs = ligero_commit_base(*mle_output[bat], 2);
@@ -668,7 +543,7 @@ std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_output(int bat) const
     return pcs;
 }
 
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_weight(int bat) const {
+std::shared_ptr<ligeropcs_base> CNN::layer_info::get_pcs_weight(int bat) const {
     auto& pcs = pcs_weight[bat];
     if (pcs->empty()) {
         *pcs = ligero_commit_base(*mle_weight[bat], 2);
@@ -676,7 +551,7 @@ std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_weight(int bat) const
     return pcs;
 }
 
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_input(int bat) const {
+std::shared_ptr<ligeropcs_base> CNN::layer_info::get_pcs_d_input(int bat) const {
     auto& pcs = pcs_d_input[bat];
     if (pcs->empty()) {
         *pcs = ligero_commit_base(*mle_d_input[bat], 2);
@@ -684,7 +559,7 @@ std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_input(int bat) cons
     return pcs;
 }
 
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_output(int bat) const {
+std::shared_ptr<ligeropcs_base> CNN::layer_info::get_pcs_d_output(int bat) const {
     auto& pcs = pcs_d_output[bat];
     if (pcs->empty()) {
         *pcs = ligero_commit_base(*mle_d_output[bat], 2);
@@ -692,7 +567,7 @@ std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_output(int bat) con
     return pcs;
 }
 
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_weight(int bat) const {
+std::shared_ptr<ligeropcs_base> CNN::layer_info::get_pcs_d_weight(int bat) const {
     auto& pcs = pcs_d_weight[bat];
     if (pcs->empty()) {
         *pcs = ligero_commit_base(*mle_d_weight[bat], 2);
@@ -701,7 +576,7 @@ std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_d_weight(int bat) con
 }
 
 
-std::shared_ptr<ligeropcs_base> VCG16::layer_info::get_pcs_aux(int bat) const {
+std::shared_ptr<ligeropcs_base> CNN::layer_info::get_pcs_aux(int bat) const {
     auto& pcs = pcs_aux[bat];
     if (pcs->empty()) {
         *pcs = ligero_commit_base(*mle_aux[bat], 2);

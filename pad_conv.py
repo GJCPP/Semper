@@ -134,7 +134,7 @@ def conv2_to_1d(X, W, Y, padding):
 def generate_conv_wit(epoch, save_name, padding, name_X, name_W, name_Y, X, W, Y, pad_right_bottom):
     B = X.shape[0]
     N = X.shape[1]
-    for b in range(B):
+    for b in tqdm.tqdm(range(B)):
         res = {}
         iX = X[b] # [N, C, in, in]
         iW = W[b] # [D, C, k, k]
@@ -148,13 +148,13 @@ def generate_conv_wit(epoch, save_name, padding, name_X, name_W, name_Y, X, W, Y
         res[name_W] = pW
         res[name_Y] = Y_1d
         
-        path = f'training_trace/epoch_{epoch}_witness/batch_{b}'
+        path = f'training_trace/VGG16/epoch_{epoch}_witness/batch_{b}'
         os.makedirs(path, exist_ok=True)
         np.savez(f'{path}/{save_name}', **res)
 
 if __name__ == "__main__":
     # Path to the .npz file
-    file_path = 'training_trace/epoch_0.npz'
+    file_path = 'training_trace/VGG16/epoch_0.npz'
 
     # Load the .npz file
     data = np.load(file_path)

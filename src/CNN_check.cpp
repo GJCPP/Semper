@@ -1,5 +1,5 @@
-#include "VCG16.h"
-#include "VCG16_check.h"
+#include "VGG16.h"
+#include "CNN_check.h"
 
 #include <unordered_map>
 #include <iostream>

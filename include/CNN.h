@@ -10,7 +10,7 @@
 #include "goldilocks_quadratic_ext.h"
 #include "data_loader.h"
 
-class VCG16 {
+class CNN {
 public:
     enum layer_type {
         conv, pool, full, relu, softmax, flat
@@ -49,21 +49,24 @@ public:
     public:
         conv_wit() = default;
         conv_wit(const std::string& data_dir, int epoch, int conv_id)
-             : data_dir(data_dir), epoch(epoch), conv_id(conv_id) {}
+             : data_dir(data_dir), epoch(epoch), batch(-1), conv_id(conv_id) {}
 
         bool empty() const { return data_dir.empty(); }
 
         std::map<std::string, array<Goldilocks2::Element>> get_conv_wit(const std::vector<Goldilocks2::Element>& alpha) const {
             std::map<std::string, array<Goldilocks2::Element>> res;
+            if (batch == -1) {
+                throw std::invalid_argument("CNN::conv_wit::get_conv_wit Batch not set");
+            }
             switch (state) {
             case 0:
-                res = to_field(loadConvWitForward(data_dir, epoch, 0, conv_id));
+                res = to_field(loadConvWitForward(data_dir, epoch, batch, conv_id));
                 break;
             case 1:
-                res = to_field(loadConvWitDW(data_dir, epoch, 0, conv_id));
+                res = to_field(loadConvWitDW(data_dir, epoch, batch, conv_id));
                 break;
             case 2:
-                res = to_field(loadConvWitDX(data_dir, epoch, 0, conv_id));
+                res = to_field(loadConvWitDX(data_dir, epoch, batch, conv_id));
                 break;
             }
             
@@ -105,9 +108,10 @@ public:
         void set_dW() { state = 1; }
         void set_dX() { state = 2; }
 
+        void set_batch(int bat) { batch = bat; }
     protected:
         std::string data_dir;
-        int epoch, conv_id;
+        int epoch, batch, conv_id;
         int state; // 0, 1, 2 for forward, dW, dX
 
         static std::map<std::string, array<Goldilocks2::Element>> to_field(const cnpy::npz_t& data) {
@@ -123,7 +127,7 @@ public:
             return res;
         }
     };
-    VCG16(std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv);
+    CNN(std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv);
 
     // This is for checking data integrity, and is not to be executed in real proof.
     bool check(size_t n_samples = 0) const;
@@ -164,6 +168,3 @@ protected:
     std::vector<layer_info> layers;
 };
 
-
-
-// static std::unordered_map<size_t, size_t> relu_map;
