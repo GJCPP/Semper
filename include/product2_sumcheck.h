@@ -1,11 +1,12 @@
 #pragma once
 
-#include "goldilocks_quadratic_ext.h"
-#include "mle.h"
-#include "ligero.h"
 #include <array>
 #include <vector>
 #include <optional>
+
+#include "goldilocks_quadratic_ext.h"
+#include "mle.h"
+#include "ligero.h"
 
 /*
 prover for sumcheck of product of two multilinear polynomials in O(2 * 2^l) time

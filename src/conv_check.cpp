@@ -4,6 +4,7 @@
 #include "conv_check.h"
 #include "mle_pow.h"
 #include "pad_check.h"
+#include "counter.h"
 
 convProver::convProver(const convTriple& triple)
     : triple(triple) {
@@ -412,6 +413,7 @@ void pad_weights_map(
 }
 
 bool convVerifier::execute_convcheck_1d(convProver& prover, const std::array<const oracle*, 3>& oracle, size_t sec_param) {
+    startCounter counter("conv1d_proof");
     auto claim = execute_convcheck(prover, oracle, sec_param);
     if (!claim) return false;
     return claim->at(0).claim == oracle[0]->open(claim->at(0).challenges, sec_param) &&
@@ -428,7 +430,7 @@ bool convVerifier::execute_convcheck_2d(
     size_t rho_inv,
     size_t sec_param,
     bool ext) {
-
+    startCounter counter("conv2d_proof");
     std::unique_ptr<oracle> pcs_flat_Y;
     if (!ext) {
         pcs_flat_Y = std::make_unique<ligeropcs_base>(ligero_commit_base(*prover.triple.Y, rho_inv));
@@ -440,15 +442,18 @@ bool convVerifier::execute_convcheck_2d(
     
     // copy constraint between Y and Y_flatten
     
-    std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
-    mapProver perm_prover = prover.get_map_prover(mapfrom, mapto);
-    mapVerifier perm_verifier;
-    perm_verifier.add_pcs(&Y, pcs_flat_Y.get());
-    if (!perm_verifier.execute_check(perm_prover, rho_inv, sec_param)) {
-        std::cerr << "convVerifier::execute_convcheck_2d : perm check fail" << std::endl;
-        return false;
+    // std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
+    {
+        startCounter perm_counter("conv2d_perm");
+        mapProver perm_prover = prover.get_map_prover(mapfrom, mapto);
+        mapVerifier perm_verifier;
+        perm_verifier.add_pcs(&Y, pcs_flat_Y.get());
+        if (!perm_verifier.execute_check(perm_prover, rho_inv, sec_param)) {
+            std::cerr << "convVerifier::execute_convcheck_2d : perm check fail" << std::endl;
+            return false;
+        }
     }
-    std::chrono::duration<double> duration = std::chrono::high_resolution_clock::now() - start;
+    // std::chrono::duration<double> duration = std::chrono::high_resolution_clock::now() - start;
     // std::cout << "map_check done in: " << duration.count() << "s." << std::endl;
 
 
@@ -457,15 +462,23 @@ bool convVerifier::execute_convcheck_2d(
     };
     auto claim = execute_convcheck(prover, ora_1d, sec_param);
     if (!claim) return false;
+    
+    
     // pad check W  
+    start_proof("conv2d_openW");
     auto aux_info = prover.triple.W->process_challenges(claim->at(1).challenges);
     if (W.parse_all(aux_info.r).open(sec_param) * aux_info.comp != claim->at(1).claim) {
         return false;
     }
+    end_proof("conv2d_openW");
+    
+    
     // check pad X
+    start_proof("conv2d_openX");
     if (prover.triple.padding == false) { // No padding
         return X.parse_all(claim->at(0).challenges).open(sec_param) == claim->at(0).claim;
     }
+    end_proof("conv2d_openX");
 
     const Goldilocks2::Element zero = Goldilocks2::zero(), one = Goldilocks2::one();
     size_t logC = prover.triple.logC;
@@ -482,32 +495,35 @@ bool convVerifier::execute_convcheck_2d(
     std::vector<Goldilocks2::Element> x(r.begin() + beg_x - 1, r.begin() + end_x);
     std::vector<Goldilocks2::Element> y(r.begin() + beg_y - 1, r.begin() + end_y);
     Goldilocks2::Element A[2][2], res = Goldilocks2::zero();
-    for (int i = 0; i < 2; ++i) {
-        for (int j = 0; j < 2; ++j) {
-            x[0] = i ? one : zero;
-            y[0] = j ? one : zero;
-            A[i][j] = X(x)(y).open(sec_param);
-            // x 01111 if i == 0, 10000 if i == 1
-            for (size_t k = 0; k < x_val.size(); ++k) {
-                if (i) {
-                    if (k == 0) A[i][j] *= x_val[k];
-                    else A[i][j] *= (one - x_val[k]);
-                } else {
-                    if (k == 0) A[i][j] *= (one - x_val[k]);
-                    else A[i][j] *= x_val[k];
+    {
+        startCounter x_counter("conv2d_openX");
+        for (int i = 0; i < 2; ++i) {
+            for (int j = 0; j < 2; ++j) {
+                x[0] = i ? one : zero;
+                y[0] = j ? one : zero;
+                A[i][j] = X(x)(y).open(sec_param);
+                // x 01111 if i == 0, 10000 if i == 1
+                for (size_t k = 0; k < x_val.size(); ++k) {
+                    if (i) {
+                        if (k == 0) A[i][j] *= x_val[k];
+                        else A[i][j] *= (one - x_val[k]);
+                    } else {
+                        if (k == 0) A[i][j] *= (one - x_val[k]);
+                        else A[i][j] *= x_val[k];
+                    }
                 }
-            }
-            // y 01111 if j == 0, 10000 if j == 1
-            for (size_t k = 0; k < y_val.size(); ++k) {
-                if (j) {
-                    if (k == 0) A[i][j] *= y_val[k];
-                    else A[i][j] *= (one - y_val[k]);
-                } else {
-                    if (k == 0) A[i][j] *= (one - y_val[k]);
-                    else A[i][j] *= y_val[k];
+                // y 01111 if j == 0, 10000 if j == 1
+                for (size_t k = 0; k < y_val.size(); ++k) {
+                    if (j) {
+                        if (k == 0) A[i][j] *= y_val[k];
+                        else A[i][j] *= (one - y_val[k]);
+                    } else {
+                        if (k == 0) A[i][j] *= (one - y_val[k]);
+                        else A[i][j] *= y_val[k];
+                    }
                 }
+                res += A[i][j];
             }
-            res += A[i][j];
         }
     }
     if (res != claim->at(0).claim) {

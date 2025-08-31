@@ -330,10 +330,10 @@ def train_manual():
     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # or standard CIFAR-10 mean/std
         ])
     dataset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
-    loader = DataLoader(dataset , batch_size=32, shuffle=True)
+    loader = DataLoader(dataset , batch_size=16, shuffle=True)
     subset = Subset(dataset, indices=range(1024))
     indexed_subset = IndexedDataset(subset)  # Wrap to include indices
-    loader = DataLoader(indexed_subset, batch_size=32, shuffle=True)
+    loader = DataLoader(indexed_subset, batch_size=16, shuffle=True)
     model = ManualVGG11()
     lr=0.01
     S=[]

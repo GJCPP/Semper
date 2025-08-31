@@ -6,6 +6,8 @@
 #include "perm_check.h"
 #include "timer.h"
 
+#include "counter.h"
+
 
 CNN::CNN(std::string _model_name, std::string _data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv)
     : model_name(_model_name), data_dir(_data_dir), epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * scale), rho_inv(rho_inv) {
@@ -264,15 +266,17 @@ bool CNN::check(size_t n_samples) const {
 
 bool CNN::prove(size_t sec_param) {
     set_timer(std::format("prove {} total", model_name));
-    std::cout << "Checking input..." << std::endl;
-    set_timer("check input");
-    auto start_prove_input = std::chrono::high_resolution_clock::now();
-    if (!prove_input(sec_param)) {
-        std::cout << "❌ Input layer failed." << std::endl;
-        return false;
-    }
-    pause_timer("check input");
+    // std::cout << "Checking input..." << std::endl;
+    // set_timer("check input");
+    // auto start_prove_input = std::chrono::high_resolution_clock::now();
+    // if (!prove_input(sec_param)) {
+    //     std::cout << "❌ Input layer failed." << std::endl;
+    //     return false;
+    // }
+    // pause_timer("check input");
+    // return true;
     for (auto& layer : layers) {
+        if (layer.type != layer_type::conv) continue;
         std::cout << "Proving layer " << layer.name << "..." << std::endl;
         switch (layer.type) {
             case layer_type::conv:
@@ -340,6 +344,7 @@ bool CNN::prove(size_t sec_param) {
 }
 
 bool CNN::prove_input(size_t sec_param) {
+    startCounter counter("input_proof");
     // input_data : [batch, img, channel, wide, height]
     size_t batch = input.shape(0),
             img = input.shape(1),
@@ -391,6 +396,8 @@ bool CNN::prove_input(size_t sec_param) {
             }
         }
     }
+
+    start_proof("input_copy");
     // Check that input is subset of dataset_input
     mapProver prover(from, to, false);
     prover.add_mle(&mle_input, &mle_dataset_input);
@@ -400,7 +407,9 @@ bool CNN::prove_input(size_t sec_param) {
         std::cout << "❌ Input permutation check failed." << std::endl;
         return false;
     }
+    end_proof("input_copy");
 
+    start_proof("label_copy");
     std::vector<size_t> label_from, label_to;
     label_from.reserve(batch * img * num_class);
     label_to.reserve(batch * img * num_class);
@@ -420,8 +429,10 @@ bool CNN::prove_input(size_t sec_param) {
         std::cout << "❌ Label permutation check failed." << std::endl;
         return false;
     }
+    end_proof("label_copy");
 
     // Check that input is used as the input of a0 layer
+    start_proof("check_input_layer");
     auto cha = random_vec_ext(mle_input.get_num_vars() - log_batch);
     auto label_cha = random_vec_ext(mle_label.get_num_vars() - log_batch);
     bool succ = true;
@@ -444,6 +455,7 @@ bool CNN::prove_input(size_t sec_param) {
             succ = false;
         }
     }
+    end_proof("check_input_layer");
 
     return succ;
 }

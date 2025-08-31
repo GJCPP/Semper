@@ -1,6 +1,8 @@
 #include "prod_check.h"
 #include "product3_sumcheck.h"
 
+#include "counter.h"
+
 prodProver::prodProver(const MultilinearPolynomial& raw, const MultilinearPolynomial& pro, int suffix_len, size_t rho_inv)
     : raw(raw), pro(pro), num_vars(raw.get_num_vars()), suffix_len(suffix_len), rho_inv(rho_inv) {
     if (raw.get_num_vars() != pro.get_num_vars() + suffix_len) {
@@ -26,7 +28,7 @@ p3Prover prodProver::prove_next(const MLE_Eq& cha, ligeropcs_base& pcs_new_raw) 
 }
 
 bool prodVerifier::execute_prod_check(prodProver& prover, open_param raw, open_param pro, size_t sec_param) {
-    
+    startCounter counter("prod_proof");
     ligeropcs_base pcs_raw, pcs_new_raw;
     bool first = true;
     while (prover.suffix_len) {

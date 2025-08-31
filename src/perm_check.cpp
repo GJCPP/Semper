@@ -1,13 +1,16 @@
 #include "perm_check.h"
 #include "product3_sumcheck.h"
 #include "mle_open.h"
+#include "counter.h"
 
 bool pdVerifier::execute_check(pdProver& prover, const oracle* pcsf1, const oracle* pcsf2, Goldilocks2::Element claim, uint64_t rho_inv, uint64_t sec_param) {
 
+    startCounter counter("pd_execute_proof");
     int num_vars = prover.get_num_vars();
     ligeropcs_ext pcs_v = prover.commit_v(rho_inv);
     open_param ov_front({1, num_vars}, &pcs_v), ov_back({num_vars, 1}, &pcs_v);
 
+    std::cout << num_vars << std::endl;
     // Check product
     std::vector<Goldilocks2::Element> cha_110(num_vars + 1, Goldilocks2::one());
     cha_110.back() = Goldilocks2::zero();
@@ -20,18 +23,21 @@ bool pdVerifier::execute_check(pdProver& prover, const oracle* pcsf1, const orac
     auto cha = random_vec_ext(num_vars);
     MLE_Eq eq_cha(cha);
     p3Prover trans_prover = prover.prove_trans(cha);
-    auto claim_trans = p3Verifier::partial_sumcheck(trans_prover, 
-        ov_front(Goldilocks2::one())(cha).open(sec_param),
-        sec_param);
-    if (!claim_trans) {
-        std::cerr << "prodVerifier::execute_check : Transition claim empty." << std::endl;
-        return false;
-    }
-    if (claim_trans->claim != eq_cha.open(claim_trans->challenges, sec_param) *
-        ov_back(claim_trans->challenges)(Goldilocks2::zero()).open(sec_param) *
-        ov_back(claim_trans->challenges)(Goldilocks2::one()).open(sec_param)) {
-        std::cerr << "prodVerifier::execute_check : Transition claim does not match." << std::endl;
-        return false;
+    {
+        startCounter counter("pd_prove_transition");
+        auto claim_trans = p3Verifier::partial_sumcheck(trans_prover, 
+            ov_front(Goldilocks2::one())(cha).open(sec_param),
+            sec_param);
+        if (!claim_trans) {
+            std::cerr << "prodVerifier::execute_check : Transition claim empty." << std::endl;
+            return false;
+        }
+        if (claim_trans->claim != eq_cha.open(claim_trans->challenges, sec_param) *
+            ov_back(claim_trans->challenges)(Goldilocks2::zero()).open(sec_param) *
+            ov_back(claim_trans->challenges)(Goldilocks2::one()).open(sec_param)) {
+            std::cerr << "prodVerifier::execute_check : Transition claim does not match." << std::endl;
+            return false;
+        }
     }
 
     // Prove initialization.
@@ -129,22 +135,27 @@ bool setVerifier::execute_check(
     const std::vector<const oracle*>& pcs_f1,
     const std::vector<const oracle*>& pcs_f2,
     uint64_t rho_inv, uint64_t sec_param) {
+
+    startCounter counter("set_proof");
     
     const int n = prover.get_n(), num_vars = prover.get_num_vars();
     auto alpha = random_vec_ext(n);
     auto [pcs_set1, pcs_set2] = prover.combine(alpha, rho_inv);
 
     // Check set[b] = alpha[0] + fb[0] \sum_i alpha[i] x fb[i]
-    auto cha = random_vec_ext(num_vars);
-    auto expect1 = alpha[0] + pcs_f1[0]->open(cha, sec_param);
-    auto expect2 = alpha[0] + pcs_f2[0]->open(cha, sec_param);
-    for (int i = 1; i < n; ++i) {
-        expect1 += alpha[i] * pcs_f1[i]->open(cha, sec_param);
-        expect2 += alpha[i] * pcs_f2[i]->open(cha, sec_param);
-    }
-    if (pcs_set1.open(cha, sec_param) != expect1 || pcs_set2.open(cha, sec_param) != expect2) {
-        std::cerr << "setVerifier::execute_check : combination check fails" << std::endl;
-        return false;
+    {
+        startCounter counter("set_relation_proof");
+        auto cha = random_vec_ext(num_vars);
+        auto expect1 = alpha[0] + pcs_f1[0]->open(cha, sec_param);
+        auto expect2 = alpha[0] + pcs_f2[0]->open(cha, sec_param);
+        for (int i = 1; i < n; ++i) {
+            expect1 += alpha[i] * pcs_f1[i]->open(cha, sec_param);
+            expect2 += alpha[i] * pcs_f2[i]->open(cha, sec_param);
+        }
+        if (pcs_set1.open(cha, sec_param) != expect1 || pcs_set2.open(cha, sec_param) != expect2) {
+            std::cerr << "setVerifier::execute_check : combination check fails" << std::endl;
+            return false;
+        }
     }
 
     // Check \prod pcs_set1/pcs_set2 = 1
@@ -255,6 +266,8 @@ setProver permProver::get_set_prover(const MLE& id_perm, const MLE& perm) {
 bool permVerifier::execute_check(
     permProver& prover,
     uint64_t rho_inv, uint64_t sec_param) {
+
+    startCounter counter("perm_proof");
 
     auto _pcs_pad_f1 = prover.commit_pad_f1(rho_inv);
     std::vector<const oracle *> pcs_pad_f1;
@@ -375,6 +388,7 @@ void mapVerifier::add_pcs(const oracle* left, const oracle* right) {
 }
 
 bool mapVerifier::execute_check(mapProver& prover, uint64_t rho_inv, uint64_t sec_param) {
+    startCounter counter("map_proof");
     // 1. Commit/Check padded right
     size_t len = pcs_left.size();
     int right_num_vars = prover.get_right_num_vars(), pad_num_vars = prover.get_pad_num_vars();
@@ -384,6 +398,7 @@ bool mapVerifier::execute_check(mapProver& prover, uint64_t rho_inv, uint64_t se
     for (int i = 0; i != pad_num_vars; ++i) cha[i] = Goldilocks2::zero();
 
     for (size_t i = 0; i != len; ++i) {
+        startCounter c("map_proof_check_pad");
         if (pcs_right[i]->open(small_cha, sec_param) != pcs_pad_right[i]->open(cha, sec_param)) {
             std::cerr << "mapVerifier::execute_check : pcs_right and pcs_pad_right do not match" << std::endl;
             return false;

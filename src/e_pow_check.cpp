@@ -2,6 +2,7 @@
 #include "logup.h"
 #include "e_pow_check.h"
 #include "ltn_check.h"
+#include "counter.h"
 
 eProver::eProver(const std::vector<size_t>& from, const std::vector<size_t>& to, size_t scale, size_t max_val, size_t rho_inv)
     : from(from), to(to), num(from.size()), scale(scale), max_val(max_val), rho_inv(rho_inv) {
@@ -98,6 +99,7 @@ void eVerifier::init_e_table(size_t scale, size_t rho_inv) {
 }
 
 bool eVerifier::execute_check(eProver& prover, ligeropcs_base pcs_from, ligeropcs_base pcs_to, size_t sec_param) {
+    startCounter counter("epow_proof");
     const size_t scale = prover.get_scale();
     const size_t max_val = prover.get_max_val();
     const size_t rho_inv = prover.get_rho_inv();

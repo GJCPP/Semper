@@ -1,6 +1,7 @@
 #include "div_check.h"
 #include "util.h"
 #include "logup.h"
+#include "counter.h"
 
 std::map<std::array<uint64_t, 2>, std::vector<Goldilocks2::Element>> divProver::range;
 std::map<std::array<uint64_t, 2>, std::vector<Goldilocks2::Element>> divProver::valid;
@@ -206,6 +207,8 @@ bool divVerifier::execute_div_check(
     ligeropcs_base pcs_quo,
     ligeropcs_base pcs_rem,
     size_t sec_param) {
+
+    startCounter counter("div_proof");
 
     // Step 1. Prove pcs_num = pcs_quo * denom + pcs_rem
     std::vector<Goldilocks2::Element> cha = random_vec_ext(prover.get_num_vars());

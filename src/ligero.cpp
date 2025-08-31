@@ -1,12 +1,17 @@
+
+#include <cmath>
+#include <cassert>
+#include <openssl/sha.h>
+
 #include "ligero.h"
 // #include "mle.h"
 #include "goldilocks_quadratic_ext.h"
 #include "merkle.h"
 #include "util.h"
 #include "timer.h"
-#include <cmath>
-#include <openssl/sha.h>
-#include <cassert>
+#include "counter.h"
+
+#define MAX_A 6
 
 // reed solomon encode data on base field
 std::vector<Goldilocks::Element> rsencode(const std::vector<Goldilocks::Element>& data, const uint64_t& rho_inv) {
@@ -40,6 +45,12 @@ ligeroProver_base::ligeroProver_base(const MultilinearPolynomial& w, const uint6
     // 2^l = a * b
     a = 1ull << (num_vars >> 1);       //floor(l/2)
     b = a << (num_vars & 1);           //ceil(l/2)
+    
+    if (a > (1 << MAX_A)) {
+        a = (1 << MAX_A);
+        b = (1 << (num_vars - MAX_A));
+    }
+
     M.resize(1ull << num_vars, Goldilocks::zero());
     codelen = b * rho_inv;
     for (size_t i = 0; i < evals.size(); ++i) {
@@ -63,6 +74,12 @@ ligeroProver_base::ligeroProver_base(const std::vector<Goldilocks::Element>& w, 
     // 2^l = a * b
     a = 1ull << (num_vars >> 1);       //floor(l/2)
     b = a << (num_vars & 1);           //ceil(l/2)
+
+    if (a > (1 << MAX_A)) {
+        a = (1 << MAX_A);
+        b = (1 << (num_vars - MAX_A));
+    }
+
     M.resize(1ull << num_vars, Goldilocks::zero());
     codelen = b * rho_inv;
     // for (size_t i = 0; i < w.size(); ++i) {
@@ -86,6 +103,15 @@ ligeroProver_base::ligeroProver_base(const std::vector<uint64_t>& w, const uint6
     // 2^l = a * b
     a = 1ull << (num_vars >> 1);       //floor(l/2)
     b = a << (num_vars & 1);           //ceil(l/2)
+
+
+    if (a > (1 << MAX_A)) {
+        a = (1 << MAX_A);
+        b = (1 << (num_vars - MAX_A));
+    }
+
+
+
     // set_timer("make matrix");
     M.resize(1ull << num_vars, Goldilocks::zero());
     codelen = b * rho_inv;
@@ -135,7 +161,9 @@ std::vector<MerkleTree_base::MTPayload> ligeroProver_base::open_cols(const std::
 }
 
 ligeropcs_base ligeroProver_base::commit() const {
-    return { mt_t.MerkleCommit(), std::make_shared<ligeroProver_base>(*this), a, b };
+    auto merk = mt_t.MerkleCommit();
+    add_proof_size(sizeof(merk));
+    return { merk, std::make_shared<ligeroProver_base>(*this), a, b };
 }
 
 
@@ -150,6 +178,11 @@ ligeroProver_ext::ligeroProver_ext(const std::vector<Goldilocks2::Element>& w, c
     // 2^l = a * b
     a = 1ull << (num_vars >> 1);       //floor(l/2)
     b = a << (num_vars & 1);           //ceil(l/2)
+    if (a > (1 << MAX_A)) {
+        a = (1 << MAX_A);
+        b = (1 << (num_vars - MAX_A));
+    }
+
     codelen = b * rho_inv;
     for (size_t i = 0; i < w.size(); ++i) {
         M[i] = w[i];
@@ -228,6 +261,7 @@ bool ligeroVerifier::check_lincomb(const ligeropcs_base& pcs, const std::vector<
     // std::vector<size_t> indexes = {7, 7, 7, 7, 7};
 
     auto openings = prover.open_cols(indexes);
+    add_proof_size(openings[0].column.size() * openings.size() * sizeof(Goldilocks2::Element));
     for (auto opening : openings) {
         // check if this opening is right
         if (!MerkleTree_base::MerkleVerify(pcs.mthash, opening)) return false;
@@ -254,6 +288,9 @@ bool ligeroVerifier::check_lincomb(const ligeropcs_ext& pcs, const std::vector<G
     // std::vector<size_t> indexes = {7, 7, 7, 7, 7};
 
     auto openings = prover.open_cols(indexes);
+    // std::cout << openings[0].column.size() << ", " << openings.size() << ", " << sizeof(Goldilocks2::Element) << std::endl;
+    add_proof_size(openings[0].column.size() * openings.size() * sizeof(Goldilocks2::Element));
+
     for (auto opening : openings) {
         // check if this opening is right
         if (!MerkleTree_ext::MerkleVerify(pcs.mthash, opening)) return false;
@@ -325,6 +362,7 @@ Goldilocks2::Element dot_product(const std::vector<Goldilocks2::Element>& b, con
 }
 
 Goldilocks2::Element ligeroVerifier::open(const ligeropcs_base& pcs, const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) {
+    startCounter counter("ligero_open");
     std::array<std::vector<Goldilocks2::Element>, 2> lr = calculate_lr(z.size(), z);
 
     std::vector<Goldilocks2::Element> L = lr[0];
@@ -333,15 +371,19 @@ Goldilocks2::Element ligeroVerifier::open(const ligeropcs_base& pcs, const std::
     const auto& prover = *pcs.prover;
     // v_prime for v', idealy we have E(v') = w', w' = R dot uhat
     std::vector<Goldilocks2::Element> v_prime = prover.lincomb(R);
+    add_proof_size(sizeof(Goldilocks2::Element) * v_prime.size());
 
     std::vector<Goldilocks2::Element> w_prime = rsencode(v_prime, prover.rho_inv);
     size_t t = calculate_t(sec_param, prover.rho_inv, prover.codelen, FIELD_BITS);
-    assert(check_lincomb(pcs, R, w_prime, t));
+    if (!check_lincomb(pcs, R, w_prime, t)) {
+        throw std::runtime_error("ligeroVerifier::open: lincomb check failed");
+    }
 
     return dot_product(v_prime, L);
 }
 
 Goldilocks2::Element ligeroVerifier::open(const ligeropcs_ext& pcs, const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) {
+    startCounter counter("ligero_open");
     std::array<std::vector<Goldilocks2::Element>, 2> lr = calculate_lr(z.size(), z);
 
     std::vector<Goldilocks2::Element> L = lr[0];
@@ -350,10 +392,13 @@ Goldilocks2::Element ligeroVerifier::open(const ligeropcs_ext& pcs, const std::v
     const auto& prover = *pcs.prover;
     // v_prime for v', idealy we have E(v') = w', w' = R dot uhat
     std::vector<Goldilocks2::Element> v_prime = prover.lincomb(R);
+    add_proof_size(sizeof(Goldilocks2::Element) * v_prime.size());
 
     std::vector<Goldilocks2::Element> w_prime = rsencode(v_prime, prover.rho_inv);
     size_t t = calculate_t(sec_param, prover.rho_inv, prover.codelen, FIELD_BITS);
-    assert(check_lincomb(pcs, R, w_prime, t));
+    if (!check_lincomb(pcs, R, w_prime, t)) {
+        throw std::runtime_error("ligeroVerifier::open: lincomb check failed");
+    }
 
     return dot_product(v_prime, L);
 }
@@ -361,6 +406,11 @@ Goldilocks2::Element ligeroVerifier::open(const ligeropcs_ext& pcs, const std::v
 std::array<std::vector<Goldilocks2::Element>, 2> ligeroVerifier::calculate_lr(const size_t& num_var, const std::vector<Goldilocks2::Element>& z) {
     // different from a,b in prover, a, b here are the log of each
     size_t a = num_var >> 1, b = a + (num_var & 1);
+
+    if (a > MAX_A) {
+        a = MAX_A;
+        b = num_var - a;
+    }
 
     // high bit of z
     std::vector<Goldilocks2::Element> zh(z.begin(), z.begin() + a);

@@ -1,11 +1,13 @@
-#include "product3_sumcheck.h"
-#include "goldilocks_quadratic_ext.h"
-#include "mle.h"
-#include "mle_open.h"
 #include <array>
 #include <vector>
 #include <random>
 #include <cassert>
+
+#include "product3_sumcheck.h"
+#include "goldilocks_quadratic_ext.h"
+#include "mle.h"
+#include "mle_open.h"
+#include "counter.h"
 
 p3Prover::p3Prover(const MultilinearPolynomial& p1, const MultilinearPolynomial& p2, const MultilinearPolynomial& p3)
     : p1(p1), p2(p2), p3(p3), nrnd(p1.get_num_vars()), sum(Goldilocks2::zero()) {
@@ -107,7 +109,7 @@ bool p3Verifier::execute_sumcheck(p3Prover& pr, const std::array<const oracle*, 
 }
 
 bool p3Verifier::execute_sumcheck(p3Prover& pr, Goldilocks2::Element claim, const std::array<const oracle*, 3>& oracle, const size_t& sec_param) {
-
+    startCounter counter("p3execute_sumcheck");
     auto cha = partial_sumcheck(pr, claim, sec_param);
     if (!cha || cha->claim != oracle[0]->open(cha->challenges, sec_param) * oracle[1]->open(cha->challenges, sec_param) * oracle[2]->open(cha->challenges, sec_param)) {
         return false;
@@ -125,6 +127,7 @@ std::optional<challenge_claim> p3Verifier::partial_sumcheck(p3Prover& pr, Goldil
 
     size_t nrnd = pr.get_rounds();
     std::vector<Goldilocks2::Element> challenges;
+    startCounter counter("p3partial_sumcheck");
 
     // s_{i - 1}
     std::array<Goldilocks2::Element, 4> si1 = { Goldilocks2::zero(), Goldilocks2::zero(), Goldilocks2::zero(), Goldilocks2::zero() };
@@ -132,6 +135,7 @@ std::optional<challenge_claim> p3Verifier::partial_sumcheck(p3Prover& pr, Goldil
         // s_i
         std::array<Goldilocks2::Element, 4> si;
         si = pr.send_message(round, challenges);
+        add_proof_size(sizeof(si));
         // s(0) + s(1)
         Goldilocks2::Element ss;
         Goldilocks2::add(ss, si[0], si[1]);
@@ -181,6 +185,7 @@ bool p3Verifier::execute_logup_sumcheck(
     Goldilocks2::Element sum = pr.get_sum();
     size_t nrnd = pr.get_rounds();
     std::vector<Goldilocks2::Element> challenges;
+    startCounter counter("logup_sumcheck");
 
     // s_{i - 1}
     std::array<Goldilocks2::Element, 4> si1;
@@ -188,6 +193,7 @@ bool p3Verifier::execute_logup_sumcheck(
         // s_i
         std::array<Goldilocks2::Element, 4> si;
         si = pr.send_message(round, challenges);
+        add_proof_size(sizeof(si));
         // s(0) + s(1)
         Goldilocks2::Element ss;
         Goldilocks2::add(ss, si[0], si[1]);
@@ -249,6 +255,8 @@ bool prove_mle_product(
     ligeropcs_base o_p2,
     size_t sec_param) {
 
+    startCounter("mle_product");
+    
     int num_vars = prod.get_num_vars();
     if (num_vars != p1.get_num_vars() || num_vars != p2.get_num_vars()) {
         throw std::invalid_argument("prove_mle_product: prod, p1, and p2 must have the same number of variables.");

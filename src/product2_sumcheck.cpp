@@ -1,11 +1,14 @@
+#include <cassert>
+
+#include <array>
+#include <vector>
+#include <random>
+
 #include "product2_sumcheck.h"
 #include "goldilocks_quadratic_ext.h"
 #include "mle.h"
 #include "util.h"
-#include <array>
-#include <vector>
-#include <random>
-#include <cassert>
+#include "counter.h"
 
 p2Prover::p2Prover(std::unique_ptr<MultilinearPolynomial> _p1, std::unique_ptr<MultilinearPolynomial> _p2)
     : p1(std::move(_p1)), p2(std::move(_p2)), nrnd(p1->get_num_vars()), sum(Goldilocks2::zero()) {
@@ -90,6 +93,7 @@ bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<const oracle*, 
     Goldilocks2::Element sum = pr.get_sum();
     size_t nrnd = pr.get_rounds();
     std::vector<Goldilocks2::Element> challenges;
+    startCounter counter("p2sumcheck");
 
     // s_{i - 1}
     std::array<Goldilocks2::Element, 3> si1;
@@ -97,6 +101,8 @@ bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<const oracle*, 
         // s_i
         std::array<Goldilocks2::Element, 3> si;
         si = pr.send_message(round, challenges);
+        add_proof_size(sizeof(si));
+        
         // s(0) + s(1)
         Goldilocks2::Element ss = si[0] + si[1];
         if (round == 1) {

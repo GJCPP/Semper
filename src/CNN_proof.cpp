@@ -12,6 +12,7 @@
 #include "prod_check.h"
 #include "e_pow_check.h"
 #include "timer.h"
+#include "counter.h"
 
 bool prove_conv(
     size_t C, size_t D, size_t n, size_t m, size_t padding,
@@ -98,6 +99,7 @@ bool prove_conv(
 
     const int N = X.shape(0), IC = X.shape(1), in = X.shape(2), OC = Y.shape(1), on = Y.shape(2);
     const int m = W.shape(2);
+    const int logN = find_ceiling_log2(N);
 
     assert(X.shape(0) == static_cast<size_t>(N));
     assert(X.shape(1) == static_cast<size_t>(IC));
@@ -118,14 +120,15 @@ bool prove_conv(
     array<Goldilocks2::Element> cX, cY;
     cX.init({size_t(IC), size_t(in), size_t(in)});
     cY.init({size_t(OC), size_t(on), size_t(on)});
-    auto c_cha = random_vec_ext(N);
-    c_cha[0] = Goldilocks2::one();
-    for (size_t i = 1; i != c_cha.size(); ++i) c_cha[i] = Goldilocks2::zero();
+    auto c_cha = random_vec_ext(logN);
+    MLE_Eq c_cha_eq(c_cha);
+    auto c_cha_table = c_cha_eq.get_eval_table();
+    c_cha_table.resize(N);
     for (int i = 0; i < N; ++i) {
         for (int a = 0; a != IC; ++a) {
             for (int b = 0; b != in; ++b) {
                 for (int c = 0; c != in; ++c) {
-                    cX(a, b, c) += c_cha[i] * X(i, a, b, c);
+                    cX(a, b, c) += c_cha_table[i] * X(i, a, b, c);
                 }
             }
         }
@@ -134,39 +137,16 @@ bool prove_conv(
         for (int a = 0; a != OC; ++a) {
             for (int b = 0; b != on; ++b) {
                 for (int c = 0; c != on; ++c) {
-                    cY(a, b, c) += c_cha[i] * Y(i, a, b, c);
+                    cY(a, b, c) += c_cha_table[i] * Y(i, a, b, c);
                 }
             }
         }
-    }
-    auto pcs_cX = ligero_commit_ext(cX.view, rho_inv);
-    auto pcs_cY = ligero_commit_ext(cY.view, rho_inv);
-
-    auto cX_cha = random_vec_ext(pcs_cX.get_num_vars());
-    auto cY_cha = random_vec_ext(pcs_cY.get_num_vars());
-
-    auto claim_cX = pcs_cX.open(cX_cha, sec_param), 
-         claim_cY = pcs_cY.open(cY_cha, sec_param);
-    
-    auto res_cX = Goldilocks2::zero(), res_cY = Goldilocks2::zero();
-    
-    open_param oX(X, pcs_input);
-    open_param oY(Y, pcs_output);
-    
-    for (int i = 0; i != N; ++i) {
-        res_cX += c_cha[i] * oX(size_t(i)).open(cX_cha, sec_param);
-        res_cY += c_cha[i] * oY(size_t(i)).open(cY_cha, sec_param);
-    }
-    
-    if (res_cX != claim_cX || res_cY != claim_cY) {
-        std::cerr << "(" << __LINE__ << ") Conv check failed." << std::endl;
-        return false;
     }
     
     std::map<std::string, array<Goldilocks2::Element>> witness;
     if (!wit.empty()) {
         set_timer("load conv wit");
-        witness = wit.get_conv_wit(c_cha);
+        witness = wit.get_conv_wit(c_cha_table);
         pause_timer("load conv wit");
     }
 
@@ -205,9 +185,11 @@ bool prove_conv(
 
     auto cW = W;
     cW.swap_dim(0, 1);
-    open_param open_cX(cX, &pcs_cX);
+    open_param open_cX(X, pcs_input);
     open_param oW(cW, pcs_weight);
-    open_param open_cY(cY, &pcs_cY);
+    open_param open_cY(Y, pcs_output);
+    open_cX = open_cX(c_cha);
+    open_cY = open_cY(c_cha);
 
     if (!prove_conv(IC, OC, in, new_m, new_padding,
         open_cX, oW, open_cY,
@@ -315,7 +297,7 @@ bool prove_conv_backward_dX(const CNN::layer_info& layer, CNN::conv_wit wit, int
 }
 
 bool prove_conv_layer(const CNN::layer_info& layer, CNN::conv_wit wit, size_t rho_inv, size_t sec_param) {
-
+    startCounter counter("conv_proof");
     const int padding = 1;
 
     assert(layer.type == CNN::layer_type::conv);
@@ -371,6 +353,7 @@ bool prove_full(
 }
 
 bool prove_full_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_param) {
+    startCounter counter("full_proof");
     const int batch = int(layer.input.shape(0));
     // Prove forward
     for (int i = 0; i < batch; ++i) {
@@ -441,6 +424,8 @@ bool prove_full_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_p
 bool prove_relu_layer(const CNN::layer_info& layer,
     size_t scale, size_t max_val, size_t sqr_val,
     size_t rho_inv, size_t sec_param) {
+
+    startCounter counter("relu_proof");
 
     const int batch = int(layer.input.shape(0));
 
@@ -532,6 +517,7 @@ bool prove_relu_layer(const CNN::layer_info& layer,
 }
 
 bool prove_pool_shrink(int logimg, int logC, int logN, ligeropcs_base before, ligeropcs_base after, size_t sec_param) {
+
     auto before_cha = random_vec_ext(logimg + logC + 2 * logN);
     int p0 = logimg + logC + logN - 1, p1 = p0 + logN;
     Goldilocks2::Element sum = Goldilocks2::zero();
@@ -561,6 +547,8 @@ bool prove_pool_shrink(int logimg, int logC, int logN, ligeropcs_base before, li
 bool prove_pool_layer(const CNN::layer_info& layer,
     size_t scale, size_t max_val,
     size_t rho_inv, size_t sec_param) {
+
+    startCounter counter("pool_proof");
 
     const int batch = int(layer.input.shape(0));
     const int img = int(layer.input.shape(1));
@@ -766,6 +754,8 @@ bool prove_softmax(const CNN::layer_info& layer,
     size_t scale, size_t max_val,
     size_t rho_inv, size_t sec_param) {
     
+    startCounter counter("softmax_proof");
+
     const int batch = int(layer.input.shape(0));
     const int img = int(layer.input.shape(1));
     const int n = int(layer.input.shape(2));
@@ -1055,6 +1045,9 @@ bool prove_softmax(const CNN::layer_info& layer,
 }
 
 bool prove_flat_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_param) {
+
+    startCounter counter("flat_proof");
+
     const int batch = layer.input.shape(0);
     const int img = layer.input.shape(1);
     const int C = layer.input.shape(2);

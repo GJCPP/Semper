@@ -75,10 +75,10 @@ public:
                 D = Y.view.shape(1), on = Y.view.shape(2);
             auto batch_sz = X.view.shape(0);
             if (Y.view.shape(0) != batch_sz) {
-                throw std::runtime_error("conv_wit::get_conv_wit_forward: Batch size mismatch");
+                throw std::runtime_error("conv_wit::get_conv_wit: Batch size mismatch");
             }
             if (alpha.size() != batch_sz) {
-                throw std::runtime_error("conv_wit::get_conv_wit_forward: Alpha size mismatch");
+                throw std::runtime_error("conv_wit::get_conv_wit: Alpha size mismatch");
             }
 
             // Combine X and Y
