@@ -173,7 +173,7 @@ bool prove_conv(
             }
         }
     }
-    if (wit.empty()) {
+    if (witness.empty()) {
         pad_weights(IC, OC, in, m, padding,
             iX,
             iW,

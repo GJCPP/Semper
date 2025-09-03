@@ -266,15 +266,15 @@ bool CNN::check(size_t n_samples) const {
 
 bool CNN::prove(size_t sec_param) {
     set_timer(std::format("prove {} total", model_name));
-    // std::cout << "Checking input..." << std::endl;
-    // set_timer("check input");
-    // auto start_prove_input = std::chrono::high_resolution_clock::now();
-    // if (!prove_input(sec_param)) {
-    //     std::cout << "❌ Input layer failed." << std::endl;
-    //     return false;
-    // }
-    // pause_timer("check input");
-    // return true;
+    std::cout << "model_name = " << model_name << std::endl;
+    std::cout << "Checking input..." << std::endl;
+    set_timer("check input");
+    auto start_prove_input = std::chrono::high_resolution_clock::now();
+    if (!prove_input(sec_param)) {
+        std::cout << "❌ Input layer failed." << std::endl;
+        return false;
+    }
+    pause_timer("check input");
     for (auto& layer : layers) {
         if (layer.type != layer_type::conv) continue;
         std::cout << "Proving layer " << layer.name << "..." << std::endl;
@@ -339,7 +339,7 @@ bool CNN::prove(size_t sec_param) {
     }
     pause_timer(std::format("prove {} total", model_name));
     print_all_timers();
-    end_all_timers();
+    clear_all_timers();
     return false;
 }
 

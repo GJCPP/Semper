@@ -10,34 +10,66 @@ inline bool zero_check(const oracle* pcs, uint64_t sec_param) {
     return pcs->open(cha, sec_param) == Goldilocks2::zero();
 }
 
-// prove \prod f1/f2 = s.
+// prove \prod f1 = s.
 class pdProver {
 public:
-    pdProver(const MultilinearPolynomial& num, const MultilinearPolynomial& den)
-        : f1(&num), f2(&den), num_vars(num.get_num_vars()) {
-        if (f1->get_num_vars() != f2->get_num_vars()) {
-            throw std::invalid_argument("prodProver: f1 and f2 must have the same number of variables");
+    pdProver(const MultilinearPolynomial& mle)
+        : f(&mle), num_vars(mle.get_num_vars()), round(0) {
+        g.resize(num_vars + 1);
+        g[num_vars] = f->get_eval_table();
+        prod = Goldilocks2::one();
+        for (auto& i : g[num_vars]) {
+            prod *= i;
+        }
+        for (int i = num_vars - 1; i >= 0; --i) {
+            size_t offset = (1 << i);
+            g[i].resize(offset);
+            for (size_t j = 0; j != offset; ++j) {
+                g[i][j] = g[i + 1][j << 1] * g[i + 1][(j << 1) | 1];
+            }
         }
     }
 
     inline int get_num_vars() const { return num_vars; }
 
-    ligeropcs_ext commit_v(uint64_t rho_inv);
+    inline Goldilocks2::Element get_prod() const { return prod; }
 
-    // prove v(1, x) = v(x, 0) v(x, 1)
-    p3Prover prove_trans(const std::vector<Goldilocks2::Element>& cha);
-    
-    // prove f1(x) = v(0, x) f2(x)
-    p3Prover prove_init(const std::vector<Goldilocks2::Element>& cha);
+    inline std::array<Goldilocks2::Element, 2> first_msg() {
+        ++round;
+        return {g[1][0], g[1][1]};
+    }
+
+    inline p3Prover get_next_sumcheck(const MLE_Eq& eq) {
+        if (round >= num_vars) {
+            throw std::runtime_error("pdProver::get_next_sumcheck: all rounds have been completed");
+        }
+        std::vector<Goldilocks2::Element> g0, g1;
+        size_t offset = (1ull << round);
+        for (size_t i = 0; i != offset; ++i) {
+            g0.push_back(g[round + 1][i << 1]);
+            g1.push_back(g[round + 1][(i << 1) | 1]);
+        }
+        mle_g0 = g0;
+        mle_g1 = g1;
+        return p3Prover(eq, mle_g0, mle_g1);
+    }
+
+    inline std::array<Goldilocks2::Element, 2> next_msg(const std::vector<Goldilocks2::Element>& cha) {
+        ++round;
+        return {mle_g0.evaluate(cha), mle_g1.evaluate(cha)};
+    }
 protected:
-    const MLE *f1, *f2;
+    const MLE *f;
+    std::vector<std::vector<Goldilocks2::Element>> g;
+    MLE mle_g0, mle_g1;
+    Goldilocks2::Element prod;
     int num_vars;
-    MultilinearPolynomial v;
+    int round;
 };
 
 class pdVerifier {
 public:
-    static bool execute_check(pdProver& prover, const oracle *pcs_f1, const oracle *pcs_f2, Goldilocks2::Element claim, uint64_t rho_inv, uint64_t sec_param);
+    static bool execute_check(pdProver& prover, const oracle *pcs_f1, Goldilocks2::Element claim, uint64_t sec_param);
 };
 
 class setProver {
@@ -51,7 +83,7 @@ public:
     
     std::array<ligeropcs_ext, 2> combine(const std::vector<Goldilocks2::Element>& cha, uint64_t rho_inv);
 
-    pdProver get_pd_prover();
+    std::array<pdProver, 2> get_pd_prover();
 
 protected:
     std::vector<const MLE *> f1, f2;

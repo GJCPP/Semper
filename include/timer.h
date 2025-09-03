@@ -57,6 +57,7 @@ public:
         nextInd = 0;
         ind.clear();
         timers.clear();
+        labels.clear();
     }
 
     void print(const std::string& label) const {
@@ -119,7 +120,7 @@ inline void end_timer(const std::string& label) {
     Timer::getInstance().remove(label);
 }
 
-inline void end_all_timers() {
+inline void clear_all_timers() {
     Timer::getInstance().clear();
 }
 

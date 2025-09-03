@@ -20,7 +20,13 @@ void bench_VGG16() {
     std::cout << "Loading VGG16 took " << duration.count() / 1000000.0 << " s" << std::endl;
 
     // VGG16.check();
+    start_proof("VGG16");
     VGG16.prove(32);
+    end_proof("VGG16");
+    std::cout << "-----------------------------" << std::endl;
+    print_all_proof_size(Counter::MB);
+    std::cout << "-----------------------------" << std::endl;
+    clear_proof();
 }
 
 void bench_VGG11() {
@@ -34,14 +40,17 @@ void bench_VGG11() {
     start_proof("VGG11");
     VGG11.prove(32);
     end_proof("VGG11");
+    std::cout << "-----------------------------" << std::endl;
     print_all_proof_size(Counter::MB);
+    std::cout << "-----------------------------" << std::endl;
     clear_proof();
 }
 
 int main() {
-    // run_test();
+    run_test();
 
-    bench_VGG11();
+    // bench_VGG11();
+    // bench_VGG16();
     // {
     //     std::vector<Goldilocks2::Element> vec(1ull << 20, Goldilocks2::one());
     //     std::vector<Goldilocks2::Element> cha(20);

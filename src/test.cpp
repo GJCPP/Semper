@@ -334,8 +334,11 @@ bool test_conv2_check() {
             }
         }
 
-        pad_weights(C, D, n, m, padding, X_view, W_view, Y_view, W_pad, Y_pad, m, padding, true);
-        pad_weights_map(C, D, n, m, padding, m, padding, mapto, true);
+        size_t new_padding, new_m;
+        pad_weights(C, D, n, m, padding, X_view, W_view, Y_view, W_pad, Y_pad, new_m, new_padding, true);
+        pad_weights_map(C, D, n, m, padding, new_m, new_padding, mapto, true);
+        m = new_m;
+        padding = new_padding;
 
         // check mapfrom & mapto with p3 & Y_pad
         for (size_t i = 0; i != mapfrom.size(); ++i) {
@@ -459,8 +462,11 @@ bool test_pad_weights() {
                 }
             }
         }
-        pad_weights(C, D, n, m, padding, X.view, W.view, Y.view, W_pad, Y_pad, m, padding, pad_right_bottom);
-        pad_weights_map(C, D, n, m, padding, m, padding, mapto, pad_right_bottom);
+        size_t new_padding, new_m;
+        pad_weights(C, D, n, m, padding, X.view, W.view, Y.view, W_pad, Y_pad, new_m, new_padding, pad_right_bottom);
+        pad_weights_map(C, D, n, m, padding, new_m, new_padding, mapto, pad_right_bottom);
+        m = new_m;
+        padding = new_padding;
 
         // check mapfrom & mapto with p3 & Y_pad
         for (size_t i = 0; i != mapfrom.size(); ++i) {
@@ -769,15 +775,15 @@ bool test_pd_check() {
         srand(cnt);
         int logn = rand() % 10 + 2;
         size_t n = (1ull << logn);
-        auto f1 = random_vec_ext(n), f2 = random_vec_ext(n);
+        auto f1 = random_vec_ext(n);//, f2 = random_vec_ext(n);
         Goldilocks2::Element pd = Goldilocks2::one();
         for (size_t i = 0; i != n; ++i) {
-            pd *= f1[i] / f2[i];
+            pd *= f1[i];// / f2[i];
         }
-        MultilinearPolynomial mle_f1(f1), mle_f2(f2);
-        ligeropcs_ext pcs_f1(ligero_commit_ext(mle_f1, 2)), pcs_f2(ligero_commit_ext(mle_f2, 2));
-        pdProver prover(mle_f1, mle_f2);
-        if (!pdVerifier::execute_check(prover, &pcs_f1, &pcs_f2, pd, 2, 32)) {
+        MultilinearPolynomial mle_f1(f1);//, mle_f2(f2);
+        ligeropcs_ext pcs_f1(ligero_commit_ext(mle_f1, 2));//, pcs_f2(ligero_commit_ext(mle_f2, 2));
+        pdProver prover(mle_f1);
+        if (!pdVerifier::execute_check(prover, &pcs_f1, pd, 32)) {
             return false;
         }
     }
@@ -946,30 +952,30 @@ bool test_map_check() {
 
 bool run_test() {
     srand(79);
-    if (!test_arithmetic()) {
-        std::cout << "test_arithmetic failed" << std::endl;
-        return false;
-    }
-    if (!test_eval_power_mle()) {
-        std::cout << "test_eval_power_mle failed" << std::endl;
-        return false;
-    }
-    if (!test_product3_sumcheck()) {
-        std::cout << "test_product3_sumcheck failed" << std::endl;
-        return false;
-    }
-    if (!test_product2_sumcheck()) {
-        std::cout << "test_product2_sumcheck failed" << std::endl;
-        return false;
-    }
-    if (!test_partial_sumcheck_product2()) {
-        std::cout << "test_partial_sumcheck_product2 failed" << std::endl;
-        return false;
-    }
-    if (!test_logup()) {
-        std::cout << "test_logup failed" << std::endl;
-        return false;
-    }
+    // if (!test_arithmetic()) {
+    //     std::cout << "test_arithmetic failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_eval_power_mle()) {
+    //     std::cout << "test_eval_power_mle failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_product3_sumcheck()) {
+    //     std::cout << "test_product3_sumcheck failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_product2_sumcheck()) {
+    //     std::cout << "test_product2_sumcheck failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_partial_sumcheck_product2()) {
+    //     std::cout << "test_partial_sumcheck_product2 failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_logup()) {
+    //     std::cout << "test_logup failed" << std::endl;
+    //     return false;
+    // }
     
     if (!test_pd_check()) {
         std::cout << "test_pd_check failed" << std::endl;

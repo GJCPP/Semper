@@ -266,6 +266,10 @@ void pad_weights(
     assert(Y.shape(1) == n + 2 * padding_X - m + 1);
     assert(Y.shape(2) == n + 2 * padding_X - m + 1);
 
+    if (&m == &new_m || &padding_X == &new_padding_X) {
+        throw std::runtime_error("pad_weights: new_m and new_padding_X must be different variables from m and padding_X");
+    }
+
     if (is_power_of_2(m)) {
         W_pad = W;
         Y_pad = Y;
