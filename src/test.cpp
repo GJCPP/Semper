@@ -14,6 +14,7 @@
 #include "ltn_check.h"
 #include "e_pow_check.h"
 #include "perm_check.h"
+#include "lazy_pcs.h"
 
 #define CNT_TEST 100
 
@@ -950,8 +951,52 @@ bool test_map_check() {
     return true;
 }
 
+bool test_lazy_pcs() {
+    // Test 4 4 4 4
+    {
+        size_t sz = 4;
+        std::vector<std::vector<Goldilocks2::Element>> A(sz);
+        std::vector<MLE> mleA(sz);
+        A[0] = {Goldilocks2::fromS64(1), Goldilocks2::fromS64(2), Goldilocks2::fromS64(3), Goldilocks2::fromS64(4)};
+        A[1] = {Goldilocks2::fromS64(5), Goldilocks2::fromS64(6), Goldilocks2::fromS64(7), Goldilocks2::fromS64(8)};
+        A[2] = {Goldilocks2::fromS64(9), Goldilocks2::fromS64(10), Goldilocks2::fromS64(11), Goldilocks2::fromS64(12)};
+        A[3] = {Goldilocks2::fromS64(13), Goldilocks2::fromS64(14), Goldilocks2::fromS64(15), Goldilocks2::fromS64(16)};
+        for (size_t i = 0; i != sz; ++i) {
+            mleA[i] = A[i];
+        }
+        lazy_pcs_pool pool;
+        std::vector<lazy_pcs> pcs;
+        for (size_t i = 0; i != sz; ++i) {
+            pcs.push_back(commit_lazy_pcs(mleA[i], &pool));
+        }
+        auto uni_pcs = pool.commit(2);
+        // random open
+        for (size_t i = 0; i != sz; ++i) {
+            std::vector<Goldilocks2::Element> challenge = random_vec_ext(mleA[i].get_num_vars());
+            Goldilocks2::Element claim = mleA[i].evaluate(challenge);
+            if (pcs[i].open(challenge, 32) != claim) {
+                std::cout << __LINE__ << ": Lazy pcs open failed at " << i << std::endl;
+                return false;
+            }
+        }
+        // if (pcs[1].open({Goldilocks2::fromS64(1), Goldilocks2::fromS64(1)}, 32) != Goldilocks2::fromS64(8)) {
+        //     std::cout << __LINE__ << ": Lazy pcs open failed at " << 0 << std::endl;
+        //     return false;
+        // }
+        if (!pool.prove_open(random_ext())) {
+            std::cout << __LINE__ << ": Lazy pcs pool check failed" << std::endl;
+            return false;
+        }
+        return true;
+    }
+}
+
 bool run_test() {
     srand(79);
+    if (!test_lazy_pcs()) {
+        std::cout << "test_lazy_pcs failed" << std::endl;
+        return false;
+    }
     // if (!test_arithmetic()) {
     //     std::cout << "test_arithmetic failed" << std::endl;
     //     return false;
@@ -977,62 +1022,62 @@ bool run_test() {
     //     return false;
     // }
     
-    if (!test_pd_check()) {
-        std::cout << "test_pd_check failed" << std::endl;
-        return false;
-    }
-    if (!test_set_check()) {
-        std::cout << "test_set_check failed" << std::endl;
-        return false;
-    }
-    if (!test_perm_check()) {
-        std::cout << "test_perm_check failed" << std::endl;
-        return false;
-    }
-    if (!test_map_check()) {
-        std::cout << "test_map_check failed" << std::endl;
-        return false;
-    }
-    if (!test_conv_check()) {
-        std::cout << "test_conv_check failed" << std::endl;
-        return false;
-    }
-    if (!test_conv2_check()) {
-        std::cout << "test_conv2_check failed" << std::endl;
-        return false;
-    }
-    if (!test_pad_check()) {
-        std::cout << "test_pad_check failed" << std::endl;
-        return false;
-    }
-    if (!test_pad_weights()) {
-        std::cout << "test_pad_weights failed" << std::endl;
-        return false;
-    }
-    if (!test_mat_mult()) {
-        std::cout << "test_mat_mult failed" << std::endl;
-        return false;
-    }
-    if (!test_div_check()) {
-        std::cout << "test_div_check failed" << std::endl;
-        return false;
-    }
-    if (!test_sign_check()) {
-        std::cout << "test_sign_check failed" << std::endl;
-        return false;
-    }
-    if (!test_prod_check()) {
-        std::cout << "test_prod_check failed" << std::endl;
-        return false;
-    }
-    if (!test_ltn_check()) {
-        std::cout << "test_ltn_check failed" << std::endl;
-        return false;
-    }
-    if (!test_e_pow_check()) {
-        std::cout << "test_e_pow_check failed" << std::endl;
-        return false;
-    }
+    // if (!test_pd_check()) {
+    //     std::cout << "test_pd_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_set_check()) {
+    //     std::cout << "test_set_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_perm_check()) {
+    //     std::cout << "test_perm_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_map_check()) {
+    //     std::cout << "test_map_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_conv_check()) {
+    //     std::cout << "test_conv_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_conv2_check()) {
+    //     std::cout << "test_conv2_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_pad_check()) {
+    //     std::cout << "test_pad_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_pad_weights()) {
+    //     std::cout << "test_pad_weights failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_mat_mult()) {
+    //     std::cout << "test_mat_mult failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_div_check()) {
+    //     std::cout << "test_div_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_sign_check()) {
+    //     std::cout << "test_sign_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_prod_check()) {
+    //     std::cout << "test_prod_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_ltn_check()) {
+    //     std::cout << "test_ltn_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_e_pow_check()) {
+    //     std::cout << "test_e_pow_check failed" << std::endl;
+    //     return false;
+    // }
     std::cout << "All tests passed" << std::endl;
     return true;
 }

@@ -1,0 +1,58 @@
+#pragma once
+
+#include <vector>
+
+#include "goldilocks_quadratic_ext.h"
+#include "ligero.h"
+#include "mle.h"
+#include "mle_eq.h"
+#include "product2_sumcheck.h"
+#include "util.h"
+
+class lazy_pcs;
+class lazy_pcs_pool;
+
+lazy_pcs commit_lazy_pcs(const MLE& mle, lazy_pcs_pool *pool);
+
+class lazy_pcs : public oracle {
+public:
+    friend lazy_pcs commit_lazy_pcs(const MLE& mle, lazy_pcs_pool *pool);
+
+    int get_num_vars() const override {
+        return mle.get_num_vars();
+    }
+
+    Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const override;
+protected:
+    lazy_pcs(const MLE& mle, lazy_pcs_pool *pool) : mle(mle), pool(pool) {}
+
+    MLE mle;
+    size_t index;
+    lazy_pcs_pool *pool;
+};
+
+class lazy_pcs_pool {
+public:
+    friend class lazy_pcs;
+    size_t add_mle(const MLE& mle) {
+        mles.push_back({mle, mles.size()});
+        return mles.size() - 1;
+    }
+
+    ligeropcs_base commit(uint64_t rho_inv);
+
+    bool prove_open(Goldilocks2::Element lambda);
+
+protected:
+    bool committed = false;
+    int num_vars;
+    size_t sec_param;
+    std::vector<std::pair<MLE, size_t>> mles; // (mle, add order)
+    std::vector<std::vector<Goldilocks2::Element>> prefix;
+    std::vector<MLE_Eq> open_eqs;
+    std::vector<Goldilocks2::Element> open_val;
+    MLE uni_mle;
+    ligeropcs_base pcs;
+
+    void record_open(size_t ind, const std::vector<Goldilocks2::Element>& z, Goldilocks2::Element val, size_t sec_param);
+};
