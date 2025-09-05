@@ -174,15 +174,15 @@ bool LogupVerifier::execute_logup(LogupProver& lpr, const uint64_t& rho_inv, con
 }
 
 bool LogupVerifier::execute_logup(LogupProver& lpr, 
-        LogupDef::pcs_base f1, LogupDef::pcs_base f2,
-        LogupDef::pcs_base t1, LogupDef::pcs_base t2,
+        const oracle& f1, const oracle& f2,
+        const oracle& t1, const oracle& t2,
         const uint64_t& rho_inv, const size_t& sec_param) {
 
-    std::array<LogupDef::pcs_base, 4> ft = { f1, f2, t1, t2 };
+    std::array<const oracle*, 4> ft = { &f1, &f2, &t1, &t2 };
     // set_timer("check commitment of f, t");
-    for (auto pc : ft) {
-        if (!ligeroVerifier::check_commit(pc, sec_param)) return false;
-    }
+    // for (auto pc : ft) {
+    //     if (!ligeroVerifier::check_commit(pc, sec_param)) return false;
+    // }
     // end_timer("check commitment of f, t");
     // alert("f,t commited");
 
@@ -243,7 +243,7 @@ bool LogupVerifier::execute_logup(LogupProver& lpr,
     auto pcsf1 = ft[0], pcsf2 = ft[1], pcst1 = ft[2], pcst2 = ft[3];
 
     // set_timer("sumcheck 3 / 4");
-    if (!p3Verifier::execute_logup_sumcheck(secondProvers[0], eqg, pcsg, pcsf1, pcsf2, gamma, lambda, sec_param)) {
+    if (!p3Verifier::execute_logup_sumcheck(secondProvers[0], eqg, pcsg, *pcsf1, *pcsf2, gamma, lambda, sec_param)) {
         std::cout << "logup failed 2 \n";
         return false;
     }
@@ -251,7 +251,7 @@ bool LogupVerifier::execute_logup(LogupProver& lpr,
     // alert("sumcheck 3 / 4 finished");
 
     // set_timer("sumcheck 4 / 4");
-    if (!p3Verifier::execute_logup_sumcheck(secondProvers[1], eqh, pcsh, pcst1, pcst2, gamma, lambda, sec_param)) {
+    if (!p3Verifier::execute_logup_sumcheck(secondProvers[1], eqh, pcsh, *pcst1, *pcst2, gamma, lambda, sec_param)) {
         std::cout << "logup failed 3 \n";
         return false;
     }

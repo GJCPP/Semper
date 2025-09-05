@@ -36,10 +36,13 @@ void bench_VGG11() {
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
     std::cout << "Loading VGG11 took " << duration.count() / 1000000.0 << " s" << std::endl;
 
+    print_all_proof_size(Counter::MB);
     // VGG16.check();
     start_proof("VGG11");
     VGG11.prove(32);
     end_proof("VGG11");
+    print_all_timers();
+    clear_all_timers();
     std::cout << "-----------------------------" << std::endl;
     print_all_proof_size(Counter::MB);
     std::cout << "-----------------------------" << std::endl;
@@ -47,20 +50,23 @@ void bench_VGG11() {
 }
 
 int main() {
-    run_test();
+    // run_test();
 
-    // bench_VGG11();
+    bench_VGG11();
     // bench_VGG16();
-    // {
-    //     std::vector<Goldilocks2::Element> vec(1ull << 20, Goldilocks2::one());
-    //     std::vector<Goldilocks2::Element> cha(20);
-
-    //     auto pcs = ligero_commit_base(vec, 2);
-    //     clear_proof();
-
-    //     startCounter counter("open");
-    //     pcs.open(cha, 32);
-    //     print_all_proof_size(Counter::MB);
+    // std::vector<Goldilocks2::Element> z = random_vec_ext(1 << 24);
+    // MLE mle = z;
+    // auto pcs = ligero_commit_ext(mle, 2);
+    // auto cha = random_vec_ext(24);
+    // set_timer("pcs_open");
+    // pcs.open(cha, 32);
+    // pause_timer("pcs_open");
+    // set_timer("mle_open");
+    // mle.open(cha, 32);
+    // pause_timer("mle_open");
+    // print_all_timers();
+    // for (auto& [key, value] : lazy_pcs_open_cnt) {
+    //     std::cout << "lazy_pcs index " << key << " opened " << value << " times" << std::endl;
     // }
     return 0;
 }

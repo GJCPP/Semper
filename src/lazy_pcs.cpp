@@ -1,6 +1,11 @@
+#include <map>
+
 #include "lazy_pcs.h"
 #include "mle_sum.h"
-
+#include "timer.h"
+#include "util.h"
+#include "ligero.h"
+#include "counter.h"
 ligeropcs_base lazy_pcs_pool::commit(uint64_t rho_inv) {
     if (committed) {
         throw std::runtime_error("lazy_pcs_pool::commit: already committed");
@@ -41,8 +46,7 @@ ligeropcs_base lazy_pcs_pool::commit(uint64_t rho_inv) {
     }
     all_vals.resize(total);
     uni_mle = all_vals;
-    pcs = ligero_commit_base(uni_mle, rho_inv);
-    return pcs;
+    return ligero_commit_base(uni_mle, rho_inv);
 }
 
 void lazy_pcs_pool::record_open(size_t ind, const std::vector<Goldilocks2::Element>& z, Goldilocks2::Element val, size_t sec) {
@@ -60,7 +64,7 @@ void lazy_pcs_pool::record_open(size_t ind, const std::vector<Goldilocks2::Eleme
     open_eqs.emplace_back(zpad);
 }
 
-bool lazy_pcs_pool::prove_open(Goldilocks2::Element lambda) {
+bool lazy_pcs_pool::prove_open(ligeropcs_base pcs, Goldilocks2::Element lambda) const {
     MLE_Sum sum;
     Goldilocks2::Element c = Goldilocks2::one(), claim = Goldilocks2::zero();
     for (size_t i = 0; i != open_eqs.size(); ++i) {
@@ -83,13 +87,15 @@ bool lazy_pcs_pool::prove_open(Goldilocks2::Element lambda) {
 }
 
 lazy_pcs commit_lazy_pcs(const MLE& mle, lazy_pcs_pool* pool) {
+    startCounter counter("lazy_pcs_commit");
     lazy_pcs res(mle, pool);
     res.index = pool->add_mle(mle);
     return res;
 }
 
+std::map<int, int> lazy_pcs_open_cnt;
+
 Goldilocks2::Element lazy_pcs::open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const {
-    auto val = mle.open(z, sec_param);
-    pool->record_open(index, z, val, sec_param);
-    return val;
+    startCounter counter("lazy_pcs_open");
+    return mle->open(z, sec_param);
 }

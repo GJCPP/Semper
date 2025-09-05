@@ -82,9 +82,9 @@ class divVerifier {
 public:
     static bool execute_div_check(
         const divProver& prover,
-        ligeropcs_base pcs_x,
-        ligeropcs_base pcs_quo,
-        ligeropcs_base pcs_rem,
+        const oracle& pcs_x,
+        const oracle& pcs_quo,
+        const oracle& pcs_rem,
         size_t sec_param
     );
 };

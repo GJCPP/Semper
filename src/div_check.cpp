@@ -203,9 +203,9 @@ LogupProver divProver::get_logup_prover() const {
 
 bool divVerifier::execute_div_check(
     const divProver& prover,
-    ligeropcs_base pcs_num,
-    ligeropcs_base pcs_quo,
-    ligeropcs_base pcs_rem,
+    const oracle &pcs_num,
+    const oracle &pcs_quo,
+    const oracle &pcs_rem,
     size_t sec_param) {
 
     startCounter counter("div_proof");

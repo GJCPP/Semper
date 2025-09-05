@@ -66,11 +66,11 @@ VGG11::VGG11(std::string _data_dir, int epoch, int64_t scale, int64_t max_value,
     mle_label = label;
     mle_index = input_index;
 
-    pcs_dataset_input = ligero_commit_base(dataset_input, rho_inv);
-    pcs_dataset_label = ligero_commit_base(dataset_label, rho_inv);
-    pcs_input = ligero_commit_base(input, rho_inv);
-    pcs_label = ligero_commit_base(label, rho_inv);
-    pcs_index = ligero_commit_base(input_index, rho_inv);
+    pcs_dataset_input = commit_lazy_pcs(dataset_input, &pcs_pool);
+    pcs_dataset_label = commit_lazy_pcs(dataset_label, &pcs_pool);
+    pcs_input = commit_lazy_pcs(input, &pcs_pool);
+    pcs_label = commit_lazy_pcs(label, &pcs_pool);
+    pcs_index = commit_lazy_pcs(input_index, &pcs_pool);
 
     std::vector<std::vector<int>> conv_layers = {{1}, {2}, {3, 4}, {5, 6}, {7, 8}};
     int ind_pool = 1;
@@ -150,6 +150,7 @@ VGG11::VGG11(std::string _data_dir, int epoch, int64_t scale, int64_t max_value,
         {}, // d_weight = {}
         "a_q0_label");
 
+    finish_add_layer();
     
 
     pause_timer("VGG11 load & commit");

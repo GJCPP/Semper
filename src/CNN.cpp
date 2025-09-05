@@ -260,6 +260,7 @@ bool CNN::check(size_t n_samples) const {
             return false;
         }
     }
+
     std::cout << "✅ All layers passed." << std::endl;
     return true;
 }
@@ -269,14 +270,15 @@ bool CNN::prove(size_t sec_param) {
     std::cout << "model_name = " << model_name << std::endl;
     std::cout << "Checking input..." << std::endl;
     set_timer("check input");
-    auto start_prove_input = std::chrono::high_resolution_clock::now();
+
     if (!prove_input(sec_param)) {
         std::cout << "❌ Input layer failed." << std::endl;
         return false;
     }
     pause_timer("check input");
     for (auto& layer : layers) {
-        if (layer.type != layer_type::conv) continue;
+        // print_all_proof_size(Counter::MB);
+        // if (layer.type != layer_type::conv) continue;
         std::cout << "Proving layer " << layer.name << "..." << std::endl;
         switch (layer.type) {
             case layer_type::conv:
@@ -337,6 +339,11 @@ bool CNN::prove(size_t sec_param) {
                 break;
         }
     }
+
+    // start_proof("final open");
+    // prove_final_open(random_ext());
+    // end_proof("final open");
+
     pause_timer(std::format("prove {} total", model_name));
     print_all_timers();
     clear_all_timers();
@@ -445,12 +452,12 @@ bool CNN::prove_input(size_t sec_param) {
         auto ext_cha = combine_challenges(pre, cha);
         auto ext_label_cha = combine_challenges(pre, label_cha);
         auto pcs_layer0_input = layers[0].get_pcs_input(b);
-        if (pcs_layer0_input->open(cha, sec_param) != pcs_input.open(ext_cha, sec_param)) {
+        if (pcs_layer0_input.open(cha, sec_param) != pcs_input.open(ext_cha, sec_param)) {
             std::cout << "❌ Input is not used as the input of a0 layer." << std::endl;
             succ = false;
         }
         auto pcs_output_label = layers.back().get_pcs_aux(b);
-        if (pcs_output_label->open(label_cha, sec_param) != pcs_label.open(ext_label_cha, sec_param)) {
+        if (pcs_output_label.open(label_cha, sec_param) != pcs_label.open(ext_label_cha, sec_param)) {
             std::cout << "❌ Output label is not used as the output of the last layer." << std::endl;
             succ = false;
         }
@@ -502,15 +509,9 @@ void CNN::add_layer(layer_type type, int id,
         auto& mle = this->mle[key];
         auto& pcs = this->pcs[key];
         pcs.resize(minibatch);
-#ifndef DEBUG
         for (int i = 0; i < minibatch; ++i) {
-            pcs[i] = std::make_shared<ligeropcs_base>(ligero_commit_base(*mle[i], rho_inv));
+            pcs[i] = commit_lazy_pcs(*mle[i], &pcs_pool);
         }
-#else
-        for (int i = 0; i < minibatch; ++i) {
-            pcs[i] = std::make_shared<ligeropcs_base>();
-        }
-#endif
     };
     if (pcs.find(input) == pcs.end()) init_pcs(input);
     if (pcs.find(output) == pcs.end()) init_pcs(output);
@@ -540,59 +541,38 @@ void CNN::add_layer(layer_type type, int id,
     layers.push_back(info);
 }
 
-std::shared_ptr<ligeropcs_base> CNN::layer_info::get_pcs_input(int bat) const {
+lazy_pcs CNN::layer_info::get_pcs_input(int bat) const {
     auto& pcs = pcs_input[bat];
-    if (pcs->empty()) {
-        *pcs = ligero_commit_base(*mle_input[bat], 2);
-    }
     return pcs;
 }
-std::shared_ptr<ligeropcs_base> CNN::layer_info::get_pcs_output(int bat) const {
+lazy_pcs CNN::layer_info::get_pcs_output(int bat) const {
     auto& pcs = pcs_output[bat];
-    if (pcs->empty()) {
-        *pcs = ligero_commit_base(*mle_output[bat], 2);
-    }
     return pcs;
 }
 
-std::shared_ptr<ligeropcs_base> CNN::layer_info::get_pcs_weight(int bat) const {
+lazy_pcs CNN::layer_info::get_pcs_weight(int bat) const {
     auto& pcs = pcs_weight[bat];
-    if (pcs->empty()) {
-        *pcs = ligero_commit_base(*mle_weight[bat], 2);
-    }
     return pcs;
 }
 
-std::shared_ptr<ligeropcs_base> CNN::layer_info::get_pcs_d_input(int bat) const {
+lazy_pcs CNN::layer_info::get_pcs_d_input(int bat) const {
     auto& pcs = pcs_d_input[bat];
-    if (pcs->empty()) {
-        *pcs = ligero_commit_base(*mle_d_input[bat], 2);
-    }
     return pcs;
 }
 
-std::shared_ptr<ligeropcs_base> CNN::layer_info::get_pcs_d_output(int bat) const {
+lazy_pcs CNN::layer_info::get_pcs_d_output(int bat) const {
     auto& pcs = pcs_d_output[bat];
-    if (pcs->empty()) {
-        *pcs = ligero_commit_base(*mle_d_output[bat], 2);
-    }
     return pcs;
 }
 
-std::shared_ptr<ligeropcs_base> CNN::layer_info::get_pcs_d_weight(int bat) const {
+lazy_pcs CNN::layer_info::get_pcs_d_weight(int bat) const {
     auto& pcs = pcs_d_weight[bat];
-    if (pcs->empty()) {
-        *pcs = ligero_commit_base(*mle_d_weight[bat], 2);
-    }
     return pcs;
 }
 
 
-std::shared_ptr<ligeropcs_base> CNN::layer_info::get_pcs_aux(int bat) const {
+lazy_pcs CNN::layer_info::get_pcs_aux(int bat) const {
     auto& pcs = pcs_aux[bat];
-    if (pcs->empty()) {
-        *pcs = ligero_commit_base(*mle_aux[bat], 2);
-    }
     return pcs;
 }
 

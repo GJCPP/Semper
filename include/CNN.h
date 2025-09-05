@@ -9,7 +9,8 @@
 #include "ligero.h"
 #include "goldilocks_quadratic_ext.h"
 #include "data_loader.h"
-
+#include "lazy_pcs.h"
+#include "timer.h"
 class CNN {
 public:
     enum layer_type {
@@ -30,20 +31,22 @@ public:
                                             mle_d_input, mle_d_output,
                                             mle_aux;
                                             
-        std::vector<std::shared_ptr<ligeropcs_base>> pcs_input, pcs_output,
+        std::vector<lazy_pcs> pcs_input, pcs_output,
                                         pcs_weight, pcs_d_weight,
                                         pcs_d_input, pcs_d_output,
                                         pcs_aux;
 
+        
+
         int id;
 
-        std::shared_ptr<ligeropcs_base> get_pcs_input(int bat) const;
-        std::shared_ptr<ligeropcs_base> get_pcs_output(int bat) const;
-        std::shared_ptr<ligeropcs_base> get_pcs_weight(int bat) const ;
-        std::shared_ptr<ligeropcs_base> get_pcs_d_weight(int bat) const;
-        std::shared_ptr<ligeropcs_base> get_pcs_d_input(int bat) const;
-        std::shared_ptr<ligeropcs_base> get_pcs_d_output(int bat) const;
-        std::shared_ptr<ligeropcs_base> get_pcs_aux(int bat) const;
+        lazy_pcs get_pcs_input(int bat) const;
+        lazy_pcs get_pcs_output(int bat) const;
+        lazy_pcs get_pcs_weight(int bat) const ;
+        lazy_pcs get_pcs_d_weight(int bat) const;
+        lazy_pcs get_pcs_d_input(int bat) const;
+        lazy_pcs get_pcs_d_output(int bat) const;
+        lazy_pcs get_pcs_aux(int bat) const;
     };
     class conv_wit {
     public:
@@ -136,6 +139,10 @@ public:
 
     bool prove_input(size_t sec_param);
 
+    bool prove_final_open(Goldilocks2::Element lambda) const {
+        return pcs_pool.prove_open(pcs_all, lambda);
+    }
+
     void add_layer(layer_type type, int id,
                     const std::string& name,
                     const std::string& input,
@@ -145,6 +152,12 @@ public:
                     const std::string& d_weight,
                     const std::string& d_output,
                     const std::string& aux = "");
+
+    void finish_add_layer() {
+        set_timer("commit all");
+        pcs_all = pcs_pool.commit(rho_inv);
+        pause_timer("commit all");
+    }
 
 protected:
     std::string model_name, data_dir;
@@ -159,12 +172,14 @@ protected:
     std::map<std::string, std::vector<size_t>> data_shape;
     std::map<std::string, array_view<Goldilocks2::Element>> data_view;
     std::map<std::string, std::vector<std::shared_ptr<MultilinearPolynomial>>> mle;
-    std::map<std::string, std::vector<std::shared_ptr<ligeropcs_base>>> pcs;
+    std::map<std::string, std::vector<lazy_pcs>> pcs;
 
     MLE mle_dataset_input, mle_dataset_label, mle_input, mle_label, mle_index;
-    ligeropcs_base pcs_dataset_input, pcs_dataset_label, pcs_input, pcs_label, pcs_index;
+    lazy_pcs pcs_dataset_input, pcs_dataset_label, pcs_input, pcs_label, pcs_index;
     array_view<Goldilocks2::Element> dataset_input, dataset_label, input, label, input_index;
 
     std::vector<layer_info> layers;
+    lazy_pcs_pool pcs_pool;
+    ligeropcs_base pcs_all;
 };
 

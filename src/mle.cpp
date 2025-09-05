@@ -130,33 +130,24 @@ Goldilocks2::Element MultilinearPolynomial::eval_hypercube(uint64_t mask) const 
 }
 
 // point[0]: Most Significant Bit
-Goldilocks2::Element MultilinearPolynomial::evaluate(const std::vector<Goldilocks2::Element>& point) const {
-    // for denote purpose
-    const std::vector<Goldilocks2::Element>& r = point;
-    std::vector<Goldilocks2::Element> one_minus_r(num_vars);
-    for (int i = 0; i < num_vars; ++i) {
-        Goldilocks2::sub(one_minus_r[i], Goldilocks2::one(), r[i]);
-    }
+Goldilocks2::Element MultilinearPolynomial::evaluate(const std::vector<Goldilocks2::Element>& z) const {
+    int loga = (num_vars >> 1), logb = num_vars - loga;
+    size_t a = (1ull << loga), b = (1ull << logb);
+    std::vector<Goldilocks2::Element> zh(z.begin(), z.begin() + loga);
+    // low bits of z
+    std::vector<Goldilocks2::Element> zl(z.begin() + loga, z.end());
 
-    // construct lagrage bases
-    std::vector<Goldilocks2::Element> lag_basis;
-    lag_basis.resize(1ull << num_vars, Goldilocks2::one());
-    // every round add a new bit to the highest digit, so the reversed ri should be utilized
-    for (int i = 0;i < num_vars; ++i) {
-        for (size_t j = 0; j < (1ull << i); ++j) {
-            Goldilocks2::mul(lag_basis[j + (1ull << i)], lag_basis[j], r[num_vars - i - 1]);
-            Goldilocks2::mul(lag_basis[j], lag_basis[j], one_minus_r[num_vars - i - 1]);
+    std::vector<Goldilocks2::Element> L = eq_table(logb, zl);
+    std::vector<Goldilocks2::Element> R = eq_table(loga, zh);
+    std::vector<Goldilocks2::Element> v(b, Goldilocks2::zero());
+    for (size_t j = 0; j < a; ++j) {
+        Goldilocks2::Element tmp;
+        size_t offset = j * b;
+        for (size_t i = 0; i < b; ++i) {
+            v[i] += evaluations[offset + i] * R[j];
         }
     }
-
-    Goldilocks2::Element result = Goldilocks2::zero();
-    // directly uses lagrange bases rather than creates a new tmp var
-    for (size_t i = 0; i < lag_basis.size(); ++i) {
-        // Goldilocks2::Element tmp;
-        Goldilocks2::mul(lag_basis[i], lag_basis[i], evaluations[i]);
-        Goldilocks2::add(result, result, lag_basis[i]);
-    }
-    return result;
+    return dot_product(v, L);
 }
 
 Goldilocks2::Element MultilinearPolynomial::open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const {

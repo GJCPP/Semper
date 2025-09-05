@@ -47,9 +47,10 @@ public:
 
     int get_num_vars() const override;
 };
-
+class lazy_pcs;
 class ligeroProver_base {
 public:
+    friend class lazy_pcs;
     // code rate
     uint64_t rho_inv;
     size_t codelen;
@@ -64,7 +65,7 @@ public:
 
     inline int get_num_vars() const { return num_vars; }
 
-private:
+public:
     // mle is a multilinear polynomial whose evaluations over the hypercube are all base field elements 
     // MultilinearPolynomial mle;
 
@@ -94,7 +95,7 @@ public:
     std::vector<MerkleTree_ext::MTPayload> open_cols(const std::vector<size_t>& indexes) const;
 
     inline int get_num_vars() const { return num_vars; }
-private:
+public:
     // MultilinearPolynomial mle;
 
     // num of rows, columns;
@@ -110,9 +111,10 @@ private:
 };
 
 
-
+class lazy_pcs;
 class ligeroVerifier {
 public:
+    friend class lazy_pcs;
     // check if some commit is valid ligero commit
 
     static bool check_commit(const ligeropcs_base& pcs, const size_t& sec_param);
@@ -142,3 +144,5 @@ std::vector<Goldilocks::Element> rsencode(const std::vector<Goldilocks::Element>
 
 ligeropcs_base ligero_commit_base(const MultilinearPolynomial& w, const uint64_t& rho_inv);
 ligeropcs_ext ligero_commit_ext(const MultilinearPolynomial& w, const uint64_t& rho_inv);
+
+Goldilocks2::Element dot_product(const std::vector<Goldilocks2::Element>& b, const std::vector<Goldilocks2::Element>& a);

@@ -166,9 +166,9 @@ bool prove_conv(
     std::vector<size_t> mapfrom;
     for (size_t i = 0; i != mapto.size(); ++i) mapto[i] = i;
     mapfrom.reserve(OC * on * on);
-    for (size_t i = 0; i != OC; ++i) {
-        for (size_t j = 0; j != on; ++j) {
-            for (size_t k = 0; k != on; ++k) {
+    for (int i = 0; i != OC; ++i) {
+        for (int j = 0; j != on; ++j) {
+            for (int k = 0; k != on; ++k) {
                 mapfrom.push_back(i * up_on * up_on + j * up_on + k);
             }
         }
@@ -221,7 +221,7 @@ bool prove_conv_forward(const CNN::layer_info& layer, CNN::conv_wit wit, int pad
         wit.set_batch(i);
 
         if (!prove_conv(wit, padding,
-            pcs_input.get(), pcs_weight.get(), pcs_output.get(),
+            &pcs_input, &pcs_weight, &pcs_output,
             layer.input[i], layer.weight[i], layer.output[i],
             true,
             rho_inv, sec_param)) return false;
@@ -255,7 +255,7 @@ bool prove_conv_backward_dW(const CNN::layer_info& layer,  CNN::conv_wit wit, in
         dW.swap_dim(0, 1); // [C, D, m, m]
 
         if (!prove_conv(wit, padding,
-            pcs_input.get(), pcs_d_output.get(), pcs_d_weight.get(),
+            &pcs_input, &pcs_d_output, &pcs_d_weight,
             X, dY, dW,
             true,
             rho_inv, sec_param)) return false;
@@ -288,7 +288,7 @@ bool prove_conv_backward_dX(const CNN::layer_info& layer, CNN::conv_wit wit, int
         W.reverse(3); // [C, D, m, m]
 
         if (!prove_conv(wit, padding,
-            pcs_d_output.get(), pcs_weight.get(), pcs_d_input.get(),
+            &pcs_d_output, &pcs_weight, &pcs_d_input,
             dY, W, dX,
             false,
             rho_inv, sec_param)) return false;
@@ -361,9 +361,9 @@ bool prove_full_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_p
         auto pcs_weight = layer.get_pcs_weight(i);
         auto pcs_output = layer.get_pcs_output(i);
 
-        open_param oX(layer.input[i], pcs_input.get());
-        open_param oW(layer.weight[i], pcs_weight.get());
-        open_param oY(layer.output[i], pcs_output.get());
+        open_param oX(layer.input[i], &pcs_input);
+        open_param oW(layer.weight[i], &pcs_weight);
+        open_param oY(layer.output[i], &pcs_output);
 
         if (!prove_full(oX, oW, oY,
             layer.input[i], layer.weight[i], layer.output[i],
@@ -384,9 +384,9 @@ bool prove_full_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_p
 
         X.swap_dim(0, 1); // [n, N]
 
-        auto oX = open_param(X, pcs_input.get());
-        auto odW = open_param(dW, pcs_d_weight.get());
-        auto odY = open_param(dY, pcs_d_output.get());
+        auto oX = open_param(X, &pcs_input);
+        auto odW = open_param(dW, &pcs_d_weight);
+        auto odY = open_param(dY, &pcs_d_output);
 
         if (!prove_full(oX, odY, odW,
             X, dY, dW,
@@ -407,9 +407,9 @@ bool prove_full_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_p
 
         W.swap_dim(0, 1); // [m, n]
 
-        auto odY = open_param(dY, pcs_d_output.get());
-        auto oW = open_param(W, pcs_weight.get());
-        auto odX = open_param(dX, pcs_d_input.get());
+        auto odY = open_param(dY, &pcs_d_output);
+        auto oW = open_param(W, &pcs_weight);
+        auto odX = open_param(dX, &pcs_d_input);
 
         if (!prove_full(odY, oW, odX,
             dY, W, dX,
@@ -431,8 +431,8 @@ bool prove_relu_layer(const CNN::layer_info& layer,
 
     for (int i = 0; i != batch; ++i) {
         // Prove forward
-        auto pcs_X = *layer.get_pcs_input(i);
-        auto pcs_Y = *layer.get_pcs_output(i);
+        auto pcs_X = layer.get_pcs_input(i);
+        auto pcs_Y = layer.get_pcs_output(i);
         auto X = layer.input[i];
         auto Y = layer.output[i];
 
@@ -481,8 +481,8 @@ bool prove_relu_layer(const CNN::layer_info& layer,
         }
 
         // Prove backward
-        auto pcs_dX = *layer.get_pcs_d_input(i);
-        auto pcs_dY = *layer.get_pcs_d_output(i);
+        auto pcs_dX = layer.get_pcs_d_input(i);
+        auto pcs_dY = layer.get_pcs_d_output(i);
         auto dX = layer.d_input[i];
         auto dY = layer.d_output[i];
         std::vector<Goldilocks2::Element> dX_copy(n), dY_copy(n);
@@ -516,7 +516,7 @@ bool prove_relu_layer(const CNN::layer_info& layer,
     return true;
 }
 
-bool prove_pool_shrink(int logimg, int logC, int logN, ligeropcs_base before, ligeropcs_base after, size_t sec_param) {
+bool prove_pool_shrink(int logimg, int logC, int logN, const oracle& before, const oracle& after, size_t sec_param) {
 
     auto before_cha = random_vec_ext(logimg + logC + 2 * logN);
     int p0 = logimg + logC + logN - 1, p1 = p0 + logN;
@@ -562,10 +562,10 @@ bool prove_pool_layer(const CNN::layer_info& layer,
     int logN = find_ceiling_log2(N);
 
     for (int i = 0; i < batch; ++i) {
-        auto pcs_input = *layer.get_pcs_input(i);
-        auto pcs_output = *layer.get_pcs_output(i);
-        auto pcs_d_input = *layer.get_pcs_d_input(i);
-        auto pcs_d_output = *layer.get_pcs_d_output(i);
+        auto pcs_input = layer.get_pcs_input(i);
+        auto pcs_output = layer.get_pcs_output(i);
+        auto pcs_d_input = layer.get_pcs_d_input(i);
+        auto pcs_d_output = layer.get_pcs_d_output(i);
 
         auto input = layer.input[i]; // [img, C, N, N]
         auto output = layer.output[i]; // [img, C, N/2, N/2]
@@ -767,9 +767,9 @@ bool prove_softmax(const CNN::layer_info& layer,
     }
     
     for (int i = 0; i < batch; ++i) {
-        auto pcs_input = *layer.get_pcs_input(i);
-        auto pcs_d_input = *layer.get_pcs_d_input(i);
-        auto pcs_label = *layer.get_pcs_aux(i);
+        auto pcs_input = layer.get_pcs_input(i);
+        auto pcs_d_input = layer.get_pcs_d_input(i);
+        auto pcs_label = layer.get_pcs_aux(i);
 
         auto input = layer.input[i]; // [img, n]
         auto d_input = layer.d_input[i]; // [img, n]
@@ -1057,10 +1057,10 @@ bool prove_flat_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_p
         throw std::invalid_argument("prove_flat_layer: Input shape must be [batch, img, C, 1, 1]");
     }
     for (int i = 0; i != batch; ++i) {
-        auto pcs_input = *layer.get_pcs_input(i);
-        auto pcs_output = *layer.get_pcs_output(i);
-        auto pcs_d_input = *layer.get_pcs_d_input(i);
-        auto pcs_d_output = *layer.get_pcs_d_output(i);
+        auto pcs_input = layer.get_pcs_input(i);
+        auto pcs_output = layer.get_pcs_output(i);
+        auto pcs_d_input = layer.get_pcs_d_input(i);
+        auto pcs_d_output = layer.get_pcs_d_output(i);
 
         auto output_cha = random_vec_ext(logimg + logC);
         auto input_cha = output_cha;

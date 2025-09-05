@@ -175,9 +175,9 @@ std::optional<challenge_claim> p3Verifier::partial_sumcheck(p3Prover& pr, Goldil
 bool p3Verifier::execute_logup_sumcheck(
     p3Prover& pr,
     const MLE_Eq& eqr,
-    const ligeropcs_ext& frac,
-    const ligeropcs_base& p1,
-    const ligeropcs_base& p2,
+    const oracle& frac,
+    const oracle& p1,
+    const oracle& p2,
     const Goldilocks2::Element gamma,
     const Goldilocks2::Element labmda,
     const size_t& sec_param) {
@@ -250,9 +250,9 @@ bool prove_mle_product(
     const MultilinearPolynomial& prod,
     const MultilinearPolynomial& p1,
     const MultilinearPolynomial& p2,
-    ligeropcs_base o_prod,
-    ligeropcs_base o_p1,
-    ligeropcs_base o_p2,
+    const oracle& o_prod,
+    const oracle& o_p1,
+    const oracle& o_p2,
     size_t sec_param) {
 
     startCounter("mle_product");

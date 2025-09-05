@@ -46,8 +46,8 @@ class LogupVerifier {
 public:
     static bool execute_logup(LogupProver& lpr, const uint64_t& rho_inv, const size_t& sec_param);
     static bool execute_logup(LogupProver& lpr, 
-        LogupDef::pcs_base f1, LogupDef::pcs_base f2,
-        LogupDef::pcs_base t1, LogupDef::pcs_base t2,
+        const oracle& f1, const oracle& f2,
+        const oracle& t1, const oracle& t2,
         const uint64_t& rho_inv, const size_t& sec_param);
 private:
     static std::mt19937_64 gen;

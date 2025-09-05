@@ -45,9 +45,9 @@ public:
     static bool execute_logup_sumcheck(
         p3Prover& pr,
         const MLE_Eq& eqr,
-        const ligeropcs_ext& frac,
-        const ligeropcs_base& p1,
-        const ligeropcs_base& p2,
+        const oracle& frac,
+        const oracle& p1,
+        const oracle& p2,
         const Goldilocks2::Element gamma,
         const Goldilocks2::Element labmda,
         const size_t& sec_param
@@ -57,5 +57,12 @@ private:
     static inline void interpolate_3(Goldilocks2::Element& fr, const Goldilocks2::Element& r, const Goldilocks2::Element& f1, const Goldilocks2::Element& f2, const Goldilocks2::Element& f3, const Goldilocks2::Element& f4);
 };
 
-bool prove_mle_product(const MultilinearPolynomial& prod, const MultilinearPolynomial& p1, const MultilinearPolynomial& p2, ligeropcs_base pcs_prod, ligeropcs_base pcs_p1, ligeropcs_base pcs_p2, size_t sec_param);
+bool prove_mle_product(const MultilinearPolynomial& prod,
+    const MultilinearPolynomial& p1, 
+    const MultilinearPolynomial& p2, 
+    const oracle& o_prod, 
+    const oracle& o_p1, 
+    const oracle& o_p2, 
+    size_t sec_param);
+
 

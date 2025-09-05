@@ -4,6 +4,7 @@
 #include "conv_check.h"
 #include "mle_pow.h"
 #include "pad_check.h"
+#include "timer.h"
 #include "counter.h"
 
 convProver::convProver(const convTriple& triple)
@@ -434,6 +435,7 @@ bool convVerifier::execute_convcheck_2d(
     size_t rho_inv,
     size_t sec_param,
     bool ext) {
+    set_timer("conv2d_prove_perm");
     startCounter counter("conv2d_proof");
     std::unique_ptr<oracle> pcs_flat_Y;
     if (!ext) {
@@ -457,9 +459,11 @@ bool convVerifier::execute_convcheck_2d(
             return false;
         }
     }
+    pause_timer("conv2d_prove_perm");
     // std::chrono::duration<double> duration = std::chrono::high_resolution_clock::now() - start;
     // std::cout << "map_check done in: " << duration.count() << "s." << std::endl;
 
+    set_timer("conv2d_prove_conv");
 
     std::array<const oracle*, 3> ora_1d = {
         X.pcs, W.pcs, pcs_flat_Y.get()
@@ -467,7 +471,9 @@ bool convVerifier::execute_convcheck_2d(
     auto claim = execute_convcheck(prover, ora_1d, sec_param);
     if (!claim) return false;
     
+    pause_timer("conv2d_prove_conv");
     
+    set_timer("conv2d_openW");
     // pad check W  
     start_proof("conv2d_openW");
     auto aux_info = prover.triple.W->process_challenges(claim->at(1).challenges);
@@ -475,9 +481,10 @@ bool convVerifier::execute_convcheck_2d(
         return false;
     }
     end_proof("conv2d_openW");
-    
+    pause_timer("conv2d_openW");
     
     // check pad X
+    set_timer("conv2d_openX");
     start_proof("conv2d_openX");
     if (prover.triple.padding == false) { // No padding
         return X.parse_all(claim->at(0).challenges).open(sec_param) == claim->at(0).claim;
@@ -533,6 +540,7 @@ bool convVerifier::execute_convcheck_2d(
     if (res != claim->at(0).claim) {
         return false;
     }
+    pause_timer("conv2d_openX");
     return true;
 }
 

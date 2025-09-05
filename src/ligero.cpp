@@ -11,7 +11,7 @@
 #include "timer.h"
 #include "counter.h"
 
-#define MAX_A 6
+#define MAX_A 30
 
 // reed solomon encode data on base field
 std::vector<Goldilocks::Element> rsencode(const std::vector<Goldilocks::Element>& data, const uint64_t& rho_inv) {

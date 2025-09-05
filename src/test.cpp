@@ -983,11 +983,41 @@ bool test_lazy_pcs() {
         //     std::cout << __LINE__ << ": Lazy pcs open failed at " << 0 << std::endl;
         //     return false;
         // }
-        if (!pool.prove_open(random_ext())) {
+        if (!pool.prove_open(uni_pcs, random_ext())) {
             std::cout << __LINE__ << ": Lazy pcs pool check failed" << std::endl;
             return false;
         }
         return true;
+    }
+    for (int _ = 0; _ != CNT_TEST; ++_) {
+        size_t sz = rand() % 30 + 1, num_open = rand() % 100 + 1;
+        std::vector<std::vector<Goldilocks2::Element>> A(sz);
+        std::vector<MLE> mleA(sz);
+        for (size_t i = 0; i != sz; ++i) {
+            A[i].resize(rand() % 1023 + 2);
+            random_vec_u64(A[i].data(), A[i].size());
+            mleA[i] = A[i];
+        }
+        lazy_pcs_pool pool;
+        std::vector<lazy_pcs> pcs;
+        for (size_t i = 0; i != sz; ++i) {
+            pcs.push_back(commit_lazy_pcs(mleA[i], &pool));
+        }
+        auto uni_pcs = pool.commit(2);
+        // random open
+        for (size_t i = 0; i != num_open; ++i) {
+            int ind = rand() % sz;
+            std::vector<Goldilocks2::Element> challenge = random_vec_ext(mleA[ind].get_num_vars());
+            Goldilocks2::Element claim = mleA[ind].evaluate(challenge);
+            if (pcs[ind].open(challenge, 32) != claim) {
+                std::cout << __LINE__ << ": Lazy pcs open failed at " << ind << std::endl;
+                return false;
+            }
+        }
+        if (!pool.prove_open(uni_pcs, random_ext())) {
+            std::cout << __LINE__ << ": Lazy pcs pool check failed" << std::endl;
+            return false;
+        }
     }
 }
 

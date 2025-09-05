@@ -16,17 +16,19 @@ lazy_pcs commit_lazy_pcs(const MLE& mle, lazy_pcs_pool *pool);
 
 class lazy_pcs : public oracle {
 public:
+    lazy_pcs() = default;
     friend lazy_pcs commit_lazy_pcs(const MLE& mle, lazy_pcs_pool *pool);
 
     int get_num_vars() const override {
-        return mle.get_num_vars();
+        return mle->get_num_vars();
     }
 
     Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const override;
+    
 protected:
-    lazy_pcs(const MLE& mle, lazy_pcs_pool *pool) : mle(mle), pool(pool) {}
+    lazy_pcs(const MLE& mle, lazy_pcs_pool *pool) : mle(std::make_shared<MLE>(mle)), pool(pool) {}
 
-    MLE mle;
+    std::shared_ptr<MLE> mle;
     size_t index;
     lazy_pcs_pool *pool;
 };
@@ -41,7 +43,7 @@ public:
 
     ligeropcs_base commit(uint64_t rho_inv);
 
-    bool prove_open(Goldilocks2::Element lambda);
+    bool prove_open(ligeropcs_base pcs, Goldilocks2::Element lambda) const;
 
 protected:
     bool committed = false;
@@ -52,7 +54,9 @@ protected:
     std::vector<MLE_Eq> open_eqs;
     std::vector<Goldilocks2::Element> open_val;
     MLE uni_mle;
-    ligeropcs_base pcs;
 
     void record_open(size_t ind, const std::vector<Goldilocks2::Element>& z, Goldilocks2::Element val, size_t sec_param);
 };
+
+
+extern std::map<int, int> lazy_pcs_open_cnt;
