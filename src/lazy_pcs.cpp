@@ -1,7 +1,6 @@
 #include <map>
 
 #include "lazy_pcs.h"
-#include "mle_sum.h"
 #include "timer.h"
 #include "util.h"
 #include "ligero.h"
@@ -46,7 +45,6 @@ ligeropcs_base lazy_pcs_pool::commit(uint64_t rho_inv) {
     }
     all_vals.resize(total);
     uni_mle = all_vals;
-    std::cout << "Committing " << total << " elements into a unified PCS..." << std::endl;
     return ligero_commit_base(uni_mle, rho_inv);
 }
 
@@ -57,30 +55,49 @@ void lazy_pcs_pool::record_open(size_t ind, const std::vector<Goldilocks2::Eleme
     if (z.size() + prefix[ind].size() != num_vars) {
         throw std::runtime_error("lazy_pcs_pool::record_open: number of variables mismatch");
     }
+    std::chrono::high_resolution_clock clock;
+    auto start = clock.now();
     if (sec_param < sec) sec_param = sec;
     std::vector<Goldilocks2::Element> zpad(num_vars);
-    memcpy(zpad.data(), prefix[ind].data(), prefix[ind].size() * sizeof(Goldilocks2::Element));
-    memcpy(zpad.data() + prefix[ind].size(), z.data(), z.size() * sizeof(Goldilocks2::Element));
+    size_t pre_sz = prefix[ind].size();
+    for (size_t i = 0; i < pre_sz; ++i) {
+        zpad[i] = prefix[ind][i];
+    }
+    for (size_t i = 0; i < z.size(); ++i) {
+        zpad[i + pre_sz] = z[i];
+    }
     open_val.push_back(val);
-    open_eqs.emplace_back(zpad);
+    open_eqs.push_back(zpad);
 }
 
 bool lazy_pcs_pool::prove_open(ligeropcs_base pcs, Goldilocks2::Element lambda) const {
-    MLE_Sum sum;
-    Goldilocks2::Element c = Goldilocks2::one(), claim = Goldilocks2::zero();
+    std::vector<Goldilocks2::Element> table(1ull << num_vars);
+    Goldilocks2::Element claim = Goldilocks2::zero();
+    Goldilocks2::Element base = Goldilocks2::one();
     for (size_t i = 0; i != open_eqs.size(); ++i) {
-        sum.add(std::make_unique<MLE_Eq>(open_eqs[i]), c);
-        claim += c * open_val[i];
-        c *= lambda;
+        int j = 0;
+        size_t offset = 0;
+        while (open_eqs[i][j] == Goldilocks2::one() || open_eqs[i][j] == Goldilocks2::zero()) {
+            offset = open_eqs[i][j] == Goldilocks2::one() ? ((offset << 1) | 1) : (offset << 1);
+            ++j;
+        }
+        offset <<= (num_vars - j);
+        MLE_Eq eq(open_eqs[i].begin() + j, open_eqs[i].end());
+        auto& eqt = eq.get_eval_table();
+        for (size_t k = 0; k != (1ull << (num_vars - j)); ++k) {
+            table[k + offset] += eqt[k] * base;
+        }
+        claim += open_val[i] * base;
+        base *= lambda;
     }
-    sum.init_eval();
-    p2Prover prover(sum.clone(), uni_mle.clone());
+    MLE mle_sum(std::move(table));
+    p2Prover prover(mle_sum.clone(), uni_mle.clone());
     auto cha = p2Verifier::partial_sumcheck(prover, claim, sec_param);
     if (!cha) {
         std::cerr << __LINE__ << ": lazy_pcs_pool::prove_open: partial_sumcheck failed" << std::endl;
         return false;
     }
-    if (cha->claim != pcs.open(cha->challenges, sec_param) * sum.open(cha->challenges, sec_param)) {
+    if (cha->claim != pcs.open(cha->challenges, sec_param) * mle_sum.open(cha->challenges, sec_param)) {
         std::cerr << __LINE__ << ": lazy_pcs_pool::prove_open: open value mismatch" << std::endl;
         return false;
     }

@@ -11,8 +11,6 @@
 #include "timer.h"
 #include "counter.h"
 
-#define MAX_A 6
-
 // reed solomon encode data on base field
 std::vector<Goldilocks::Element> rsencode(const std::vector<Goldilocks::Element>& data, const uint64_t& rho_inv) {
     // return eval_with_ntt_ext(data, data.size() * rho_inv);
@@ -46,10 +44,10 @@ ligeroProver_base::ligeroProver_base(const MultilinearPolynomial& w, const uint6
     a = 1ull << (num_vars >> 1);       //floor(l/2)
     b = a << (num_vars & 1);           //ceil(l/2)
     
-    if (a > (1 << MAX_A)) {
-        a = (1 << MAX_A);
-        b = (1 << (num_vars - MAX_A));
-    }
+    // if (a > (1 << MAX_A)) {
+    //     a = (1 << MAX_A);
+    //     b = (1 << (num_vars - MAX_A));
+    // }
 
     M.resize(1ull << num_vars, Goldilocks::zero());
     codelen = b * rho_inv;
@@ -75,10 +73,10 @@ ligeroProver_base::ligeroProver_base(const std::vector<Goldilocks::Element>& w, 
     a = 1ull << (num_vars >> 1);       //floor(l/2)
     b = a << (num_vars & 1);           //ceil(l/2)
 
-    if (a > (1 << MAX_A)) {
-        a = (1 << MAX_A);
-        b = (1 << (num_vars - MAX_A));
-    }
+    // if (a > (1 << MAX_A)) {
+    //     a = (1 << MAX_A);
+    //     b = (1 << (num_vars - MAX_A));
+    // }
 
     M.resize(1ull << num_vars, Goldilocks::zero());
     codelen = b * rho_inv;
@@ -105,10 +103,10 @@ ligeroProver_base::ligeroProver_base(const std::vector<uint64_t>& w, const uint6
     b = a << (num_vars & 1);           //ceil(l/2)
 
 
-    if (a > (1 << MAX_A)) {
-        a = (1 << MAX_A);
-        b = (1 << (num_vars - MAX_A));
-    }
+    // if (a > (1 << MAX_A)) {
+    //     a = (1 << MAX_A);
+    //     b = (1 << (num_vars - MAX_A));
+    // }
 
 
 
@@ -178,10 +176,10 @@ ligeroProver_ext::ligeroProver_ext(const std::vector<Goldilocks2::Element>& w, c
     // 2^l = a * b
     a = 1ull << (num_vars >> 1);       //floor(l/2)
     b = a << (num_vars & 1);           //ceil(l/2)
-    if (a > (1 << MAX_A)) {
-        a = (1 << MAX_A);
-        b = (1 << (num_vars - MAX_A));
-    }
+    // if (a > (1 << MAX_A)) {
+    //     a = (1 << MAX_A);
+    //     b = (1 << (num_vars - MAX_A));
+    // }
 
     codelen = b * rho_inv;
     for (size_t i = 0; i < w.size(); ++i) {
@@ -407,10 +405,10 @@ std::array<std::vector<Goldilocks2::Element>, 2> ligeroVerifier::calculate_lr(co
     // different from a,b in prover, a, b here are the log of each
     size_t a = num_var >> 1, b = a + (num_var & 1);
 
-    if (a > MAX_A) {
-        a = MAX_A;
-        b = num_var - a;
-    }
+    // if (a > MAX_A) {
+    //     a = MAX_A;
+    //     b = num_var - a;
+    // }
 
     // high bit of z
     std::vector<Goldilocks2::Element> zh(z.begin(), z.begin() + a);

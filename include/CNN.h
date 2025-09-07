@@ -18,6 +18,7 @@ public:
     };
     class layer_res {
     public:
+        std::map<std::string, std::vector<Goldilocks2::Element>> vec;
         std::map<std::string, lazy_pcs> pcs;
         std::map<std::string, std::shared_ptr<void>> res;
     };
@@ -150,7 +151,10 @@ public:
     bool prove_input(size_t sec_param);
 
     bool prove_final_open(Goldilocks2::Element lambda) const {
-        return pcs_pool.prove_open(pcs_all, lambda);
+        set_timer("final open");
+        bool ret = pcs_pool.prove_open(pcs_all, lambda);
+        pause_timer("final open");
+        return ret;
     }
 
     void add_layer(layer_type type, int id,

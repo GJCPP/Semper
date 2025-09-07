@@ -473,9 +473,9 @@ CNN::layer_res pre_prove_relu_layer(
         lazy_pcs pcs_X_scale_sign = commit_lazy_pcs(X_scale_sign, pool);
         // ret.vec["X_scale_sign" + _i] = X_scale_sign;
         ret.pcs["pcs_X_scale_sign" + _i] = pcs_X_scale_sign;
-        // signProver sign_prover_X(X_quo, X_scale_sign, scale, max_val, true, rho_inv);
-        // signVerifier::resource sign_res = signVerifier::pre_execute_sign_check(sign_prover_X, pcs_X_quo, pcs_X_scale_sign, pool);
-        // ret.res["sign_res" + _i] = std::make_shared<signVerifier::resource>(sign_res);
+        signProver sign_prover_X(X_quo, X_scale_sign, scale, max_val, true, rho_inv);
+        signVerifier::resource sign_res = signVerifier::pre_execute_sign_check(sign_prover_X, pcs_X_quo, pcs_X_scale_sign, pool);
+        ret.res["sign_res" + _i] = std::make_shared<signVerifier::resource>(sign_res);
         // 3. Prove Y = X_scale_sign * X_quo
 
         // Prove backward
@@ -548,8 +548,8 @@ bool prove_relu_layer(const CNN::layer_info& layer,
         auto X_scale_sign = get_sign(X_quo, true);
         const auto& pcs_X_scale_sign = wit.pcs.at("pcs_X_scale_sign" + _i);
         signProver sign_prover_X(X_quo, X_scale_sign, scale, max_val, true, rho_inv);
-        // auto sign_res = reinterpret_cast<signVerifier::resource*>(wit.res.at("sign_res" + _i).get());
-        if (!signVerifier::execute_sign_check(sign_prover_X, &pcs_X_quo, &pcs_X_scale_sign, sec_param)) {
+        auto sign_res = reinterpret_cast<signVerifier::resource*>(wit.res.at("sign_res" + _i).get());
+        if (!signVerifier::execute_sign_check(sign_prover_X, &pcs_X_quo, &pcs_X_scale_sign, sec_param, *sign_res)) {
             std::cout << "❌ Proving relu forward X_scale_sign failed." << std::endl;
             return false;
         }

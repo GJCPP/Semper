@@ -116,9 +116,9 @@ inline void set_timer(const std::string& label) {
     Timer::getInstance().start(label);
 }
 
-inline void end_timer(const std::string& label) {
-    Timer::getInstance().remove(label);
-}
+// inline void end_timer(const std::string& label) {
+//     Timer::getInstance().remove(label);
+// }
 
 inline void clear_all_timers() {
     Timer::getInstance().clear();

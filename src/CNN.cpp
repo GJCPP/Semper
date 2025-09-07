@@ -361,17 +361,17 @@ bool CNN::prove(size_t sec_param) {
     std::cout << "model_name = " << model_name << std::endl;
     std::cout << "Checking input..." << std::endl;
     
-    std::cout << "Skip proving input." << std::endl;
-    // set_timer("check input");
-    // if (!prove_input(sec_param)) {
-    //     std::cout << "❌ Input layer failed." << std::endl;
-    //     return false;
-    // }
-    // pause_timer("check input");
+    // std::cout << "===================Warning: skip proving input." << std::endl;
+    set_timer("check input");
+    if (!prove_input(sec_param)) {
+        std::cout << "❌ Input layer failed." << std::endl;
+        return false;
+    }
+    pause_timer("check input");
     for (auto& layer : layers) {
         // print_all_proof_size(Counter::MB);
         // if (layer.type != layer_type::conv) {
-        //     std::cout << "Skipping layer " << layer.name << " (not conv)" << std::endl;
+        //     std::cout << "=================Skipping layer " << layer.name << " (not conv)" << std::endl;
         //     continue;
         // }
         std::cout << "Proving layer " << layer.name << "..." << std::endl;
@@ -435,9 +435,10 @@ bool CNN::prove(size_t sec_param) {
         }
     }
 
-    // start_proof("final open");
-    // prove_final_open(random_ext());
-    // end_proof("final open");
+    // std::cout << "==============Warning: Skipping final open proof." << std::endl;
+    start_proof("final open");
+    prove_final_open(random_ext());
+    end_proof("final open");
 
     pause_timer(std::format("prove {} total", model_name));
     print_all_timers();
