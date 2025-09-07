@@ -17,8 +17,8 @@ std::vector<Goldilocks::Element> rsencode(const std::vector<Goldilocks::Element>
     return eval_with_ntt(data, data.size() * rho_inv);
 }
 
-ligeropcs_base ligero_commit_base(const MultilinearPolynomial& w, const uint64_t& rho_inv) {
-    auto prover = std::make_shared<ligeroProver_base>(w, rho_inv);
+ligeropcs_base ligero_commit_base(const MultilinearPolynomial& w, const uint64_t& rho_inv, int loga) {
+    auto prover = std::make_shared<ligeroProver_base>(w, rho_inv, loga);
     auto ret = prover->commit();
     return ret;
 }
@@ -35,19 +35,20 @@ std::vector<Goldilocks2::Element> rsencode(const std::vector<Goldilocks2::Elemen
     return eval_with_ntt(data, data.size() * rho_inv);
 }
 
-ligeroProver_base::ligeroProver_base(const MultilinearPolynomial& w, const uint64_t& rho_inv) 
+ligeroProver_base::ligeroProver_base(const MultilinearPolynomial& w, const uint64_t& rho_inv, int loga) 
     :rho_inv(rho_inv) {
     const auto& evals = w.get_eval_table();
     num_vars = find_ceiling_log2(evals.size());
 
     // 2^l = a * b
-    a = 1ull << (num_vars >> 1);       //floor(l/2)
-    b = a << (num_vars & 1);           //ceil(l/2)
+    if (loga == -1 || loga > num_vars) {
+        a = 1ull << (num_vars >> 1);       //floor(l/2)
+        b = a << (num_vars & 1);           //ceil(l/2)
+    } else {
+        a = (1ull << loga);
+        b = (1ull << (num_vars - loga));
+    }
     
-    // if (a > (1 << MAX_A)) {
-    //     a = (1 << MAX_A);
-    //     b = (1 << (num_vars - MAX_A));
-    // }
 
     M.resize(1ull << num_vars, Goldilocks::zero());
     codelen = b * rho_inv;
@@ -65,18 +66,19 @@ ligeroProver_base::ligeroProver_base(const MultilinearPolynomial& w, const uint6
 }
 
 
-ligeroProver_base::ligeroProver_base(const std::vector<Goldilocks::Element>& w, const uint64_t& rho_inv) :rho_inv(rho_inv), M(w) {
+ligeroProver_base::ligeroProver_base(const std::vector<Goldilocks::Element>& w, const uint64_t& rho_inv, int loga) :rho_inv(rho_inv), M(w) {
     // stevals = w.get_eval_table();
     num_vars = find_ceiling_log2(w.size());
 
     // 2^l = a * b
-    a = 1ull << (num_vars >> 1);       //floor(l/2)
-    b = a << (num_vars & 1);           //ceil(l/2)
-
-    // if (a > (1 << MAX_A)) {
-    //     a = (1 << MAX_A);
-    //     b = (1 << (num_vars - MAX_A));
-    // }
+    
+    if (loga == -1 || loga > num_vars) {
+        a = 1ull << (num_vars >> 1);       //floor(l/2)
+        b = a << (num_vars & 1);           //ceil(l/2)
+    } else {
+        a = (1ull << loga);
+        b = (1ull << (num_vars - loga));
+    }
 
     M.resize(1ull << num_vars, Goldilocks::zero());
     codelen = b * rho_inv;
@@ -93,20 +95,20 @@ ligeroProver_base::ligeroProver_base(const std::vector<Goldilocks::Element>& w, 
     mt_t = MerkleTree_base(codewords);
 }
 
-ligeroProver_base::ligeroProver_base(const std::vector<uint64_t>& w, const uint64_t& rho_inv) :rho_inv(rho_inv) {
+ligeroProver_base::ligeroProver_base(const std::vector<uint64_t>& w, const uint64_t& rho_inv, int loga) :rho_inv(rho_inv) {
     // stevals = w.get_eval_table();
     num_vars = find_ceiling_log2(w.size());
     // std::cout << l << '\n';
 
     // 2^l = a * b
-    a = 1ull << (num_vars >> 1);       //floor(l/2)
-    b = a << (num_vars & 1);           //ceil(l/2)
 
-
-    // if (a > (1 << MAX_A)) {
-    //     a = (1 << MAX_A);
-    //     b = (1 << (num_vars - MAX_A));
-    // }
+    if (loga == -1 || loga > num_vars) {
+        a = 1ull << (num_vars >> 1);       //floor(l/2)
+        b = a << (num_vars & 1);           //ceil(l/2)
+    } else {
+        a = (1ull << loga);
+        b = (1ull << (num_vars - loga));
+    }
 
 
 
@@ -176,10 +178,6 @@ ligeroProver_ext::ligeroProver_ext(const std::vector<Goldilocks2::Element>& w, c
     // 2^l = a * b
     a = 1ull << (num_vars >> 1);       //floor(l/2)
     b = a << (num_vars & 1);           //ceil(l/2)
-    // if (a > (1 << MAX_A)) {
-    //     a = (1 << MAX_A);
-    //     b = (1 << (num_vars - MAX_A));
-    // }
 
     codelen = b * rho_inv;
     for (size_t i = 0; i < w.size(); ++i) {
@@ -359,9 +357,33 @@ Goldilocks2::Element dot_product(const std::vector<Goldilocks2::Element>& b, con
     return res;
 }
 
+void find_parameter() {
+    clear_proof();
+    for (int i = 4; i < 24; ++i) {
+        double opt_sz;
+        int optj = 0;
+        for (int j = 1; j < i; ++j) {
+            start_proof("find_parameter");
+            size_t N = (1ull << i);
+            size_t rho_inv = 2;
+            std::vector<Goldilocks2::Element> e(N);
+            auto pcs = ligero_commit_base(e, rho_inv, j);
+            pcs.open(random_vec_ext(i), 32);
+            end_proof("find_parameter");
+            double sz = get_proof_size("find_parameter", Counter::KB);
+            if (j == 1 || sz < opt_sz) {
+                opt_sz = sz;
+                optj = j;
+            }
+            std::cout << "logn = " << i << ", a = " << j << ", proof size = " << sz << " KB" << std::endl;
+        }
+    }
+    clear_proof();
+}
+
 Goldilocks2::Element ligeroVerifier::open(const ligeropcs_base& pcs, const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) {
     startCounter counter("ligero_open");
-    std::array<std::vector<Goldilocks2::Element>, 2> lr = calculate_lr(z.size(), z);
+    std::array<std::vector<Goldilocks2::Element>, 2> lr = calculate_lr(z.size(), z, pcs.num_rows);
 
     std::vector<Goldilocks2::Element> L = lr[0];
     std::vector<Goldilocks2::Element> R = lr[1];
@@ -382,7 +404,7 @@ Goldilocks2::Element ligeroVerifier::open(const ligeropcs_base& pcs, const std::
 
 Goldilocks2::Element ligeroVerifier::open(const ligeropcs_ext& pcs, const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) {
     startCounter counter("ligero_open");
-    std::array<std::vector<Goldilocks2::Element>, 2> lr = calculate_lr(z.size(), z);
+    std::array<std::vector<Goldilocks2::Element>, 2> lr = calculate_lr(z.size(), z, pcs.num_rows);
 
     std::vector<Goldilocks2::Element> L = lr[0];
     std::vector<Goldilocks2::Element> R = lr[1];
@@ -401,14 +423,10 @@ Goldilocks2::Element ligeroVerifier::open(const ligeropcs_ext& pcs, const std::v
     return dot_product(v_prime, L);
 }
 
-std::array<std::vector<Goldilocks2::Element>, 2> ligeroVerifier::calculate_lr(const size_t& num_var, const std::vector<Goldilocks2::Element>& z) {
+std::array<std::vector<Goldilocks2::Element>, 2> ligeroVerifier::calculate_lr(const size_t& num_var, const std::vector<Goldilocks2::Element>& z, size_t num_rows) {
     // different from a,b in prover, a, b here are the log of each
-    size_t a = num_var >> 1, b = a + (num_var & 1);
-
-    // if (a > MAX_A) {
-    //     a = MAX_A;
-    //     b = num_var - a;
-    // }
+    size_t a = find_ceiling_log2(num_rows);
+    size_t b = num_var - a;
 
     // high bit of z
     std::vector<Goldilocks2::Element> zh(z.begin(), z.begin() + a);

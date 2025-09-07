@@ -52,6 +52,7 @@ void bench_VGG11() {
 int main() {
     // run_test();
 
+    // find_parameter();
     bench_VGG11();
     // bench_VGG16();
     // std::vector<Goldilocks2::Element> z = random_vec_ext(1 << 24);

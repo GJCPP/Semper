@@ -24,6 +24,10 @@ void end_proof(const std::string& name) {
     proof_size.end(name);
 }
 
+double get_proof_size(const std::string& name, Counter::metric m) {
+    return proof_size.get_size(name, m);
+}
+
 void clear_proof() {
     proof_size.clear();
 }

@@ -45,6 +45,11 @@ public:
         std::cout << name << ": " << double(counts.at(name)) / scale_val << unit_val << std::endl;
     }
 
+    double get_size(const std::string& name, metric m) const {
+        double scale_val = scale.at(m);
+        return double(counts.at(name)) / scale_val;
+    }
+
     void print_all(metric m) {
         for (const auto& [key, value] : counts) {
             print(key, m);
@@ -63,6 +68,8 @@ protected:
 void start_proof(const std::string& name);
 
 void end_proof(const std::string& name);
+
+double get_proof_size(const std::string& name, Counter::metric m);
 
 void clear_proof();
 

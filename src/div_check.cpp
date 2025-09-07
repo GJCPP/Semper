@@ -111,8 +111,8 @@ void divProver::init_range(uint64_t denominator, bool allow_neg_rem, uint64_t rh
         valid_u64[{denom, allow_neg_rem}] = std::move(new_v_u64);
     }
     if (pcs_range.find({denom, allow_neg_rem, rho_inv}) == pcs_range.end()) {
-        pcs_range[{denom, allow_neg_rem, rho_inv}] = ligero_commit_base(range[{denom, allow_neg_rem}], rho_inv);
-        pcs_valid[{denom, allow_neg_rem, rho_inv}] = ligero_commit_base(valid[{denom, allow_neg_rem}], rho_inv);
+        pcs_range[{denom, allow_neg_rem, rho_inv}] = ligero_commit_base(range[{denom, allow_neg_rem}], rho_inv, 6);
+        pcs_valid[{denom, allow_neg_rem, rho_inv}] = ligero_commit_base(valid[{denom, allow_neg_rem}], rho_inv, 6);
     }
 }
 
@@ -125,7 +125,7 @@ void divProver::init_zeros(size_t vec_len) {
         zeros_u64[vec_len] = std::vector<uint64_t>(vec_len, 0);
     }
     if (pcs_zeros.find({vec_len, rho_inv}) == pcs_zeros.end()) {
-        pcs_zeros[{vec_len, rho_inv}] = ligero_commit_base(zeros[vec_len], rho_inv);
+        pcs_zeros[{vec_len, rho_inv}] = ligero_commit_base(zeros[vec_len], rho_inv, 6);
     }
 }
 

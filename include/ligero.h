@@ -47,7 +47,9 @@ public:
 
     int get_num_vars() const override;
 };
+
 class lazy_pcs;
+
 class ligeroProver_base {
 public:
     friend class lazy_pcs;
@@ -56,9 +58,9 @@ public:
     size_t codelen;
 
 public:
-    ligeroProver_base(const MultilinearPolynomial& w, const uint64_t& rho_inv);
-    ligeroProver_base(const std::vector<uint64_t>& w, const uint64_t& rho_inv);
-    ligeroProver_base(const std::vector<Goldilocks::Element>& w, const uint64_t& rho_inv);
+    ligeroProver_base(const MultilinearPolynomial& w, const uint64_t& rho_inv, int a = -1);
+    ligeroProver_base(const std::vector<uint64_t>& w, const uint64_t& rho_inv, int a = -1);
+    ligeroProver_base(const std::vector<Goldilocks::Element>& w, const uint64_t& rho_inv, int a = -1);
     ligeropcs_base commit() const;
     std::vector<Goldilocks2::Element> lincomb(const std::vector<Goldilocks2::Element>& r) const;
     std::vector<MerkleTree_base::MTPayload> open_cols(const std::vector<size_t>& indexes) const;
@@ -111,10 +113,8 @@ public:
 };
 
 
-class lazy_pcs;
 class ligeroVerifier {
 public:
-    friend class lazy_pcs;
     // check if some commit is valid ligero commit
 
     static bool check_commit(const ligeropcs_base& pcs, const size_t& sec_param);
@@ -131,7 +131,7 @@ private:
     static Goldilocks2::Element randnum();
     static std::vector<Goldilocks2::Element> randvec(const uint64_t& n);
     static std::vector<size_t> randindexes(const uint64_t& n, const size_t& bound);
-    static std::array<std::vector<Goldilocks2::Element>, 2> calculate_lr(const size_t& num_var, const std::vector<Goldilocks2::Element>& z);
+    static std::array<std::vector<Goldilocks2::Element>, 2> calculate_lr(const size_t& num_var, const std::vector<Goldilocks2::Element>& z, size_t a);
     static bool check_lincomb(const ligeropcs_base& pcs, const std::vector<Goldilocks2::Element>& r, const std::vector<Goldilocks2::Element>& comb, const size_t& t);
     static bool check_lincomb(const ligeropcs_ext& pcs, const std::vector<Goldilocks2::Element>& r, const std::vector<Goldilocks2::Element>& comb, const size_t& t);
     static size_t calculate_t(const size_t& sec_param, const uint64_t& rho_inv, const size_t& codeword_len, const size_t& field_bits);
@@ -142,7 +142,9 @@ private:
 std::vector<Goldilocks2::Element> rsencode(const std::vector<Goldilocks2::Element>& data, const uint64_t& rho_inv);
 std::vector<Goldilocks::Element> rsencode(const std::vector<Goldilocks::Element>& data, const uint64_t& rho_inv);
 
-ligeropcs_base ligero_commit_base(const MultilinearPolynomial& w, const uint64_t& rho_inv);
+ligeropcs_base ligero_commit_base(const MultilinearPolynomial& w, const uint64_t& rho_inv, int loga = -1);
 ligeropcs_ext ligero_commit_ext(const MultilinearPolynomial& w, const uint64_t& rho_inv);
 
 Goldilocks2::Element dot_product(const std::vector<Goldilocks2::Element>& b, const std::vector<Goldilocks2::Element>& a);
+
+void find_parameter();
