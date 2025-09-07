@@ -230,6 +230,8 @@ bool permVerifier::execute_check(
     permProver& prover,
     uint64_t rho_inv, uint64_t sec_param) {
 
+    // std::cout << "Skipping permVerifier::execute_check" << std::endl;
+    // return true;
     startCounter counter("perm_proof");
 
     auto _pcs_pad_f1 = prover.commit_pad_f1(rho_inv);
@@ -351,6 +353,8 @@ void mapVerifier::add_pcs(const oracle* left, const oracle* right) {
 }
 
 bool mapVerifier::execute_check(mapProver& prover, uint64_t rho_inv, uint64_t sec_param) {
+    // std::cout << "Skipping mapVerifier::execute_check" << std::endl;
+    // return true;
     startCounter counter("map_proof");
     // 1. Commit/Check padded right
     size_t len = pcs_left.size();

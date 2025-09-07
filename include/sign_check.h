@@ -56,8 +56,8 @@ class signVerifier {
 public:
     static bool execute_sign_check(
         const signProver& prover,
-        ligeropcs_base pcs_x,
-        ligeropcs_base pcs_sign,
+        const oracle *pcs_x,
+        const oracle *pcs_sign,
         uint64_t sec_param
     );
 };

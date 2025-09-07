@@ -265,20 +265,115 @@ bool CNN::check(size_t n_samples) const {
     return true;
 }
 
+void CNN::pre_prove(size_t sec_param) {
+    // set_timer(std::format("prove {} total", model_name));
+    // std::cout << "model_name = " << model_name << std::endl;
+    // std::cout << "Checking input..." << std::endl;
+    // set_timer("check input");
+
+    // if (!prove_input(sec_param)) {
+    //     std::cout << "❌ Input layer failed." << std::endl;
+    //     return false;
+    // }
+    // pause_timer("check input");
+    for (auto& layer : layers) {
+        // print_all_proof_size(Counter::MB);
+        // if (layer.type != layer_type::conv) {
+        //     std::cout << "Skipping layer " << layer.name << " (not conv)" << std::endl;
+        //     continue;
+        // }
+        std::cout << "Pre-proving layer " << layer.name << "..." << std::endl;
+        switch (layer.type) {
+            // case layer_type::conv:
+            //     set_timer("preprove conv");
+            //     if (!prove_conv_layer(layer, conv_wit(data_dir, epoch, layer.id), rho_inv, sec_param)) {
+            //         std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
+            //         return false;
+            //     }
+            //     pause_timer("preprove conv");
+            //     break;
+
+            // case layer_type::full:
+            //     set_timer("prove full");
+            //     if (!prove_full_layer(layer, rho_inv, sec_param)) {
+            //         std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
+            //         return false;
+            //     }
+            //     pause_timer("prove full");
+            //     break;
+
+            case layer_type::relu:
+                set_timer("preprove relu");
+                layer.wit = pre_prove_relu_layer(layer, scale, max_val, sqr_val, rho_inv, &pcs_pool);
+                pause_timer("preprove relu");
+                break;
+
+            // case layer_type::pool:
+            //     set_timer("prove pool");
+            //     if (!prove_pool_layer(layer, scale, max_val, rho_inv, sec_param)) {
+            //         std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
+            //         return false;
+            //     }
+            //     pause_timer("prove pool");
+            //     break;
+
+            // case layer_type::softmax:
+            //     set_timer("prove softmax");
+            //     if (!prove_softmax(layer, scale, max_val, rho_inv, sec_param)) {
+            //         std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
+            //         return false;
+            //     }
+            //     pause_timer("prove softmax");
+            //     break;
+
+            // case layer_type::flat:
+            //     set_timer("prove flat");
+            //     if (!prove_flat_layer(layer, rho_inv, sec_param)) {
+            //         std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
+            //         return false;
+            //     }
+            //     pause_timer("prove flat");
+            //     break;
+
+            default:
+                break;
+        }
+    }
+
+    // start_proof("final open");
+    // prove_final_open(random_ext());
+    // end_proof("final open");
+
+    // pause_timer(std::format("prove {} total", model_name));
+    // print_all_timers();
+    // clear_all_timers();
+    // return false;
+    finish_pre_prove();
+}
+
 bool CNN::prove(size_t sec_param) {
+    set_timer("pre_prove");
+    pre_prove(sec_param);
+    pause_timer("pre_prove");
+
+
     set_timer(std::format("prove {} total", model_name));
     std::cout << "model_name = " << model_name << std::endl;
     std::cout << "Checking input..." << std::endl;
-    set_timer("check input");
-
-    if (!prove_input(sec_param)) {
-        std::cout << "❌ Input layer failed." << std::endl;
-        return false;
-    }
-    pause_timer("check input");
+    
+    std::cout << "Skip proving input." << std::endl;
+    // set_timer("check input");
+    // if (!prove_input(sec_param)) {
+    //     std::cout << "❌ Input layer failed." << std::endl;
+    //     return false;
+    // }
+    // pause_timer("check input");
     for (auto& layer : layers) {
         // print_all_proof_size(Counter::MB);
-        // if (layer.type != layer_type::conv) continue;
+        // if (layer.type != layer_type::conv) {
+        //     std::cout << "Skipping layer " << layer.name << " (not conv)" << std::endl;
+        //     continue;
+        // }
         std::cout << "Proving layer " << layer.name << "..." << std::endl;
         switch (layer.type) {
             case layer_type::conv:
@@ -301,7 +396,7 @@ bool CNN::prove(size_t sec_param) {
 
             case layer_type::relu:
                 set_timer("prove relu");
-                if (!prove_relu_layer(layer, scale, max_val, sqr_val, rho_inv, sec_param)) {
+                if (!prove_relu_layer(layer, scale, max_val, sqr_val, rho_inv, sec_param, layer.wit)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
                     return false;
                 }

@@ -94,7 +94,7 @@ bool ltnVerifier::execute_ltn_check(
     // Step 2. Prove rev_ltn = strict ? [sub >= 0] : [sub > 0]
     auto sign_prover = prover.prove_rev_ltn(strict);
     if (!signVerifier::execute_sign_check(
-        sign_prover, pcs_sub, pcs_rev_ltn, sec_param)) {
+        sign_prover, &pcs_sub, &pcs_rev_ltn, sec_param)) {
         std::cerr << "❌ LTN check failed: Sign check failed" << std::endl;
         return false;
     }

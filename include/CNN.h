@@ -16,6 +16,12 @@ public:
     enum layer_type {
         conv, pool, full, relu, softmax, flat
     };
+    class layer_wit {
+    public:
+        std::map<std::string, std::vector<Goldilocks2::Element>> vec;
+        std::map<std::string, array<Goldilocks2::Element>> arr;
+        std::map<std::string, lazy_pcs> pcs;
+    };
     class layer_info {
     public:
         layer_info() = default;
@@ -31,12 +37,13 @@ public:
                                             mle_d_input, mle_d_output,
                                             mle_aux;
                                             
+
         std::vector<lazy_pcs> pcs_input, pcs_output,
                                         pcs_weight, pcs_d_weight,
                                         pcs_d_input, pcs_d_output,
                                         pcs_aux;
 
-        
+        layer_wit wit;
 
         int id;
 
@@ -48,6 +55,7 @@ public:
         lazy_pcs get_pcs_d_output(int bat) const;
         lazy_pcs get_pcs_aux(int bat) const;
     };
+    
     class conv_wit {
     public:
         conv_wit() = default;
@@ -130,10 +138,13 @@ public:
             return res;
         }
     };
+
     CNN(std::string model_name, std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv);
 
     // This is for checking data integrity, and is not to be executed in real proof.
     bool check(size_t n_samples = 0) const;
+
+    void pre_prove(size_t sec_param);
 
     bool prove(size_t sec_param);
 
@@ -153,7 +164,7 @@ public:
                     const std::string& d_output,
                     const std::string& aux = "");
 
-    void finish_add_layer() {
+    void finish_pre_prove() {
         set_timer("commit all");
         pcs_all = pcs_pool.commit(rho_inv);
         pause_timer("commit all");

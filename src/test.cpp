@@ -660,8 +660,8 @@ bool test_sign_check() {
         ligeropcs_base pcs_sign = ligero_commit_base(sign, 2);
         if (!signVerifier::execute_sign_check(
             prover,
-            pcs_num,
-            pcs_sign,
+            &pcs_num,
+            &pcs_sign,
             32)) {
             return false;
         }

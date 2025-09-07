@@ -421,15 +421,19 @@ bool prove_full_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_p
     return true;
 }
 
-bool prove_relu_layer(const CNN::layer_info& layer,
-    size_t scale, size_t max_val, size_t sqr_val,
-    size_t rho_inv, size_t sec_param) {
 
-    startCounter counter("relu_proof");
+CNN::layer_wit pre_prove_relu_layer(
+    const CNN::layer_info& layer,
+    size_t scale, size_t max_val, size_t sqr_val,
+    size_t rho_inv,
+    lazy_pcs_pool* pool) {
+
+    CNN::layer_wit ret;
 
     const int batch = int(layer.input.shape(0));
 
     for (int i = 0; i != batch; ++i) {
+        std::string _i = "_" + std::to_string(i);
         // Prove forward
         auto pcs_X = layer.get_pcs_input(i);
         auto pcs_Y = layer.get_pcs_output(i);
@@ -455,18 +459,82 @@ bool prove_relu_layer(const CNN::layer_info& layer,
             }
         }
         auto X_rem = get_rem(X_copy, scale, X_quo, true);
-        auto pcs_X_quo = ligero_commit_base(X_quo, rho_inv);
-        auto pcs_X_rem = ligero_commit_base(X_rem, rho_inv);
+
+        ret.vec["X_quo" + _i] = X_quo;
+        ret.vec["X_rem" + _i] = X_rem;
+        ret.pcs["pcs_X_quo" + _i] = commit_lazy_pcs(X_quo, pool);
+        ret.pcs["pcs_X_rem" + _i] = commit_lazy_pcs(X_rem, pool);
+
+        // 2. Prove sign of scaled X
+        auto X_scale_sign = get_sign(X_quo, true);
+        ret.vec["X_scale_sign" + _i] = X_scale_sign;
+        ret.pcs["pcs_X_scale_sign" + _i] = commit_lazy_pcs(X_scale_sign, pool);
+
+        // 3. Prove Y = X_scale_sign * X_quo
+
+        // Prove backward
+        auto dX = layer.d_input[i];
+        auto dY = layer.d_output[i];
+        std::vector<Goldilocks2::Element> dX_copy(n), dY_copy(n);
+        dX.copy_to(dX_copy.data());
+        dY.copy_to(dY_copy.data());
+        // 1. Prove scaled dY_filtered = dY * X_scale_sign
+        std::vector<Goldilocks2::Element> dY_filtered(n);
+        for (size_t j = 0; j < n; ++j) {
+            if (X_scale_sign[j] == Goldilocks2::one()) {
+                dY_filtered[j] = dY_copy[j];
+            }
+        }
+        ret.vec["dY_filtered" + _i] = dY_filtered;
+        ret.pcs["pcs_dY_filtered" + _i] = commit_lazy_pcs(dY_filtered, pool);
+
+        // 2. Prove dX = dY_filtered / scale
+        auto dX_rem = get_rem(dY_filtered, scale, dX_copy, true);
+        ret.vec["dX_rem" + _i] = dX_rem;
+        ret.pcs ["pcs_dX_rem" + _i] = commit_lazy_pcs(dX_rem, pool);
+    }
+    return ret;
+}
+
+bool prove_relu_layer(const CNN::layer_info& layer,
+    size_t scale, size_t max_val, size_t sqr_val,
+    size_t rho_inv, size_t sec_param, const CNN::layer_wit& wit) {
+
+    startCounter counter("relu_proof");
+
+    const int batch = int(layer.input.shape(0));
+
+    for (int i = 0; i != batch; ++i) {
+        std::string _i = "_" + std::to_string(i);
+        // Prove forward
+        auto pcs_X = layer.get_pcs_input(i);
+        auto pcs_Y = layer.get_pcs_output(i);
+        auto X = layer.input[i];
+        auto Y = layer.output[i];
+
+        size_t n = X.size();
+        int logn = find_ceiling_log2(n);
+
+        std::vector<Goldilocks2::Element> X_copy(n), Y_copy(n);
+
+        X.copy_to(X_copy.data());
+        Y.copy_to(Y_copy.data());
+
+        // 1. Prove scale_X
+        const auto& X_quo = wit.vec.at("X_quo" + _i);
+        const auto& X_rem = wit.vec.at("X_rem" + _i);
+        const auto& pcs_X_quo = wit.pcs.at("pcs_X_quo" + _i);
+        const auto& pcs_X_rem = wit.pcs.at("pcs_X_rem" + _i);
         divProver div_prover_X(X_copy, X_quo, X_rem, scale, true, rho_inv);
         if (!divVerifier::execute_div_check(div_prover_X, pcs_X, pcs_X_quo, pcs_X_rem, sec_param)) {
             std::cout << "❌ Proving relu forward scale_X failed." << std::endl;
             return false;
         }
         // 2. Prove sign of scaled X
-        auto X_scale_sign = get_sign(X_quo, true);
-        auto pcs_X_scale_sign = ligero_commit_base(X_scale_sign, rho_inv);
+        const auto& X_scale_sign = wit.vec.at("X_scale_sign" + _i);
+        const auto& pcs_X_scale_sign = wit.pcs.at("pcs_X_scale_sign" + _i);
         signProver sign_prover_X(X_quo, X_scale_sign, scale, max_val, true, rho_inv);
-        if (!signVerifier::execute_sign_check(sign_prover_X, pcs_X_quo, pcs_X_scale_sign, sec_param)) {
+        if (!signVerifier::execute_sign_check(sign_prover_X, &pcs_X_quo, &pcs_X_scale_sign, sec_param)) {
             std::cout << "❌ Proving relu forward X_scale_sign failed." << std::endl;
             return false;
         }
@@ -488,14 +556,11 @@ bool prove_relu_layer(const CNN::layer_info& layer,
         std::vector<Goldilocks2::Element> dX_copy(n), dY_copy(n);
         dX.copy_to(dX_copy.data());
         dY.copy_to(dY_copy.data());
+
         // 1. Prove scaled dY_filtered = dY * X_scale_sign
-        std::vector<Goldilocks2::Element> dY_filtered(n);
-        for (size_t j = 0; j < n; ++j) {
-            if (X_scale_sign[j] == Goldilocks2::one()) {
-                dY_filtered[j] = dY_copy[j];
-            }
-        }
-        auto pcs_dY_filtered = ligero_commit_base(dY_filtered, rho_inv);
+        const auto& dY_filtered = wit.vec.at("dY_filtered" + _i);
+        const auto& pcs_dY_filtered = wit.pcs.at("pcs_dY_filtered" + _i);
+
         auto dY_challenge = random_vec_ext(logn); // draw new challenges
         auto mle_challenge_dY_filtered = MLE_Eq(dY_challenge);
         p3Prover p3_prover_dY_filtered(X_scale_sign, dY_copy, mle_challenge_dY_filtered);
@@ -505,8 +570,8 @@ bool prove_relu_layer(const CNN::layer_info& layer,
             return false;
         }
         // 2. Prove dX = dY_filtered / scale
-        auto dX_rem = get_rem(dY_filtered, scale, dX_copy, true);
-        auto pcs_dX_rem = ligero_commit_base(dX_rem, rho_inv);
+        auto dX_rem = wit.vec.at("dX_rem" + _i);
+        auto pcs_dX_rem = wit.pcs.at("pcs_dX_rem" + _i);
         divProver div_prover_dX(dY_filtered, dX_copy, dX_rem, scale, true, rho_inv);
         if (!divVerifier::execute_div_check(div_prover_dX, pcs_dY_filtered, pcs_dX, pcs_dX_rem, sec_param)) {
             std::cout << "❌ Proving relu backward dX failed." << std::endl;
@@ -673,7 +738,7 @@ bool prove_pool_layer(const CNN::layer_info& layer,
         auto pcs_input_ones = ligero_commit_base(input_ones, rho_inv);
         // TODO 3. Check pcs_input_ones = 1
         signProver sign_prover_diff(diff.data, input_ones, scale, max_val * 2, false, rho_inv);
-        if (!signVerifier::execute_sign_check(sign_prover_diff, pcs_diff, pcs_input_ones, sec_param)) {
+        if (!signVerifier::execute_sign_check(sign_prover_diff, &pcs_diff, &pcs_input_ones, sec_param)) {
             std::cout << "❌ II.3 Proving diff is non-negative failed: sign proof fails." << std::endl;
             return false;
         }
@@ -895,7 +960,7 @@ bool prove_softmax(const CNN::layer_info& layer,
         auto pcs_ones = ligero_commit_base(ones, rho_inv);
         // TODO: Check pcs_ones = 1
         signProver sign_prover_diff_masked(diff_masked.data, ones, scale, 2 * max_val, false, rho_inv);
-        if (!signVerifier::execute_sign_check(sign_prover_diff_masked, pcs_diff_masked, pcs_ones, sec_param)) {
+        if (!signVerifier::execute_sign_check(sign_prover_diff_masked, &pcs_diff_masked, &pcs_ones, sec_param)) {
             std::cout << "❌ Proving softmax diff_masked >= 0 failed: sign proof fails." << std::endl;
             return false;
         }
@@ -1007,7 +1072,7 @@ bool prove_softmax(const CNN::layer_info& layer,
         MultilinearPolynomial mle_input_zeros(input_zeros);
         auto pcs_input_zeros = ligero_commit_base(mle_input_zeros, rho_inv);
         signProver sign_prover_d_rem_sum(mle_d_rem_sum.get_eval_table(), input_zeros, scale, 2 * max_val, false, rho_inv);
-        if (!signVerifier::execute_sign_check(sign_prover_d_rem_sum, pcs_d_rem_sum, pcs_input_zeros, sec_param)) {
+        if (!signVerifier::execute_sign_check(sign_prover_d_rem_sum, &pcs_d_rem_sum, &pcs_input_zeros, sec_param)) {
             std::cout << "❌ Proving softmax d_rem - sum < 0 failed: sign proof fails." << std::endl;
             return false;
         }

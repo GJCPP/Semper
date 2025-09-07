@@ -149,8 +149,6 @@ VGG11::VGG11(std::string _data_dir, int epoch, int64_t scale, int64_t max_value,
         {}, // d_output = {}
         {}, // d_weight = {}
         "a_q0_label");
-
-    finish_add_layer();
     
 
     pause_timer("VGG11 load & commit");

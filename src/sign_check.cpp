@@ -69,21 +69,21 @@ std::vector<Goldilocks2::Element> get_sign(const std::vector<Goldilocks2::Elemen
     return std::move(sign);
 }
 
-bool signVerifier::execute_sign_check(const signProver& prover, ligeropcs_base pcs_x, ligeropcs_base pcs_sign, uint64_t sec_param) {
+bool signVerifier::execute_sign_check(const signProver& prover, const oracle *pcs_x, const oracle *pcs_sign, uint64_t sec_param) {
+    ligeropcs_base pcs_bias_x;
     if (prover.strict) {
-        // Check 
-        auto pcs_bias_x = prover.get_pcs_bias_x();
+        pcs_bias_x = prover.get_pcs_bias_x();
         auto alpha = random_vec_ext(prover.get_num_vars());
-        if (pcs_bias_x.open(alpha, sec_param) + Goldilocks2::one() != pcs_x.open(alpha, sec_param)) {
+        if (pcs_bias_x.open(alpha, sec_param) + Goldilocks2::one() != pcs_x->open(alpha, sec_param)) {
             std::cerr << "❌Sign check failed: pcs_x != pcs_bias_x + 1" << std::endl;
             return false;
         }
-        pcs_x = pcs_bias_x; // Update pcs_x to include bias
+        pcs_x = &pcs_bias_x; // Update pcs_x to include bias
     }
     if (prover.final_round()) {
         // Final round, check if pcs_sign = pcs_x + 1
         auto alpha = random_vec_ext(prover.get_num_vars());
-        if (pcs_x.open(alpha, sec_param) + Goldilocks2::one() != pcs_sign.open(alpha, sec_param)) {
+        if (pcs_x->open(alpha, sec_param) + Goldilocks2::one() != pcs_sign->open(alpha, sec_param)) {
             std::cerr << "❌Sign check failed: pcs_sign != pcs_x + 1" << std::endl;
             return false;
         }
@@ -93,12 +93,12 @@ bool signVerifier::execute_sign_check(const signProver& prover, ligeropcs_base p
         divProver div_prover = prover.next_prover(pcs_quo, pcs_rem, next_prover);
         // 1. Check pcs_x = pcs_quo * scale + pcs_rem
         if (!divVerifier::execute_div_check(
-            div_prover, pcs_x, pcs_quo, pcs_rem, sec_param)) {
+            div_prover, *pcs_x, pcs_quo, pcs_rem, sec_param)) {
             std::cerr << "❌Sign check failed: div check failed" << std::endl;
             return false;
         }
         // 2. Recursively check the next round
-        if (!execute_sign_check(next_prover, pcs_quo, pcs_sign, sec_param)) {
+        if (!execute_sign_check(next_prover, &pcs_quo, pcs_sign, sec_param)) {
             std::cerr << "❌Sign check failed: next round check failed" << std::endl;
             return false;
         }
