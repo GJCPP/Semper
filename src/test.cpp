@@ -669,6 +669,46 @@ bool test_sign_check() {
     return true;
 }
 
+bool test_pre_sign_check() {
+    for (int cnt = 0; cnt < CNT_TEST; ++cnt) {
+        lazy_pcs_pool pool;
+        srand(cnt);
+        bool strict = rand() % 2 == 0;
+        int64_t denom = (1ull << (rand() % 10 + 1));
+        int64_t n = (1 << (rand() % 10 + 1)), max_val = (1ull << (rand() % 20 + 1));
+        std::vector<int64_t> num_val(n), sign_val(n);
+        for (size_t i = 0; i < n; ++i) {
+            num_val[i] = (rand() % max_val) * (rand() % 2 == 0 ? 1 : -1);
+            if (!strict) sign_val[i] = (num_val[i] < 0) ? 0 : 1;
+            else sign_val[i] = (num_val[i] <= 0) ? 0 : 1;
+        }
+        std::vector<Goldilocks2::Element> num(n), sign(n);
+        for (size_t i = 0; i < n; ++i) {
+            num[i] = Goldilocks2::fromS64(num_val[i]);
+            sign[i] = Goldilocks2::fromS64(sign_val[i]);
+        }
+        signProver prover(num, sign, denom, max_val, strict, 2);
+        ligeropcs_base pcs_num = ligero_commit_base(num, 2);
+        ligeropcs_base pcs_sign = ligero_commit_base(sign, 2);
+        auto res = signVerifier::pre_execute_sign_check(prover, pcs_num, pcs_sign, &pool);
+        auto uni_pcs = pool.commit(2);
+        if (!signVerifier::execute_sign_check(
+            prover,
+            &pcs_num,
+            &pcs_sign,
+            32,
+            res)) {
+            std::cout << __LINE__ << ": Failed at execute_sign_check." << std::endl;
+            return false;
+        }
+        if (!pool.prove_open(uni_pcs, random_ext())) {
+            std::cout << __LINE__ << ": Failed at lazy_pcs_pool::check_all." << std::endl;
+            return false;
+        }
+    }
+    return true;
+}
+
 bool test_prod_check() {
     for (int cnt = 0; cnt < CNT_TEST; ++cnt) {
         srand(cnt);
@@ -1025,6 +1065,10 @@ bool run_test() {
     srand(79);
     if (!test_lazy_pcs()) {
         std::cout << "test_lazy_pcs failed" << std::endl;
+        return false;
+    }
+    if (!test_pre_sign_check()) {
+        std::cout << "test_pre_sign_check failed" << std::endl;
         return false;
     }
     // if (!test_arithmetic()) {

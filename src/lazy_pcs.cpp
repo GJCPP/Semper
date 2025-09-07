@@ -46,6 +46,7 @@ ligeropcs_base lazy_pcs_pool::commit(uint64_t rho_inv) {
     }
     all_vals.resize(total);
     uni_mle = all_vals;
+    std::cout << "Committing " << total << " elements into a unified PCS..." << std::endl;
     return ligero_commit_base(uni_mle, rho_inv);
 }
 
@@ -97,5 +98,7 @@ std::map<int, int> lazy_pcs_open_cnt;
 
 Goldilocks2::Element lazy_pcs::open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const {
     startCounter counter("lazy_pcs_open");
-    return mle->open(z, sec_param);
+    auto val = mle->open(z, sec_param);
+    pool->record_open(index, z, val, sec_param);
+    return val;
 }

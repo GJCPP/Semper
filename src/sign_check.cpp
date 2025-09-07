@@ -52,6 +52,15 @@ divProver signProver::next_prover(ligeropcs_base& pcs_quo, ligeropcs_base& pcs_r
     return divProver(vec, quo, rem, scale, false, rho_inv);
 }
 
+divProver signProver::pre_next_prover(lazy_pcs &pcs_quo, lazy_pcs &pcs_rem, signProver& next_prover, lazy_pcs_pool *pool) const {
+    auto [quo, rem] = get_quo_rem(vec, scale, false);
+    pcs_quo = commit_lazy_pcs(quo, pool);
+    pcs_rem = commit_lazy_pcs(rem, pool);
+    next_prover = signProver(quo, sign, scale, max_val / scale, false, rho_inv);
+
+    return divProver(vec, quo, rem, scale, false, rho_inv);
+}
+
 std::vector<Goldilocks2::Element> get_sign(const std::vector<Goldilocks2::Element>& vec, bool strict) {
     size_t sz = vec.size();
     std::vector<Goldilocks2::Element> sign(sz);
@@ -67,6 +76,89 @@ std::vector<Goldilocks2::Element> get_sign(const std::vector<Goldilocks2::Elemen
         }
     }
     return std::move(sign);
+}
+
+signVerifier::resource signVerifier::pre_execute_sign_check(
+    const signProver& prover,
+    const oracle& pcs_x,
+    const oracle& pcs_sign,
+    lazy_pcs_pool *pool) {
+
+    ligeropcs_base pcs_bias_x;
+    std::map<std::string, lazy_pcs> pcs;
+    resource ret;
+    if (prover.strict) {
+        pcs["pcs_bias_x"] = prover.pre_get_pcs_bias_x(pool);
+    }
+
+    
+    signProver next_prover;
+    divProver div_prover;
+    if (prover.final_round()) {
+        // Final round, check if pcs_sign = pcs_x + 1
+    } else {
+        lazy_pcs pcs_quo, pcs_rem;
+        div_prover = prover.pre_next_prover(pcs_quo, pcs_rem, next_prover, pool);
+        pcs["pcs_quo"] = pcs_quo;
+        pcs["pcs_rem"] = pcs_rem;
+        // 1. Check pcs_x = pcs_quo * scale + pcs_rem
+        // divVerifier::pre_execute_div_check(div_prover, pcs_x, pcs_quo, pcs_rem, sec_param);
+        // 2. Recursively check the next round
+        ret = pre_execute_sign_check(next_prover, pcs_quo, pcs_sign, pool);
+        
+    }
+    ret.push_back(pcs, div_prover, next_prover);
+    return ret;
+}
+
+bool signVerifier::execute_sign_check(
+    const signProver& prover, 
+    const oracle* pcs_x, 
+    const oracle* pcs_sign,
+    uint64_t sec_param,
+    resource& re) {
+
+    lazy_pcs pcs_bias_x;
+    if (prover.strict) {
+        pcs_bias_x = re.pcs.back().at("pcs_bias_x");
+        auto alpha = random_vec_ext(prover.get_num_vars());
+        if (pcs_bias_x.open(alpha, sec_param) + Goldilocks2::one() != pcs_x->open(alpha, sec_param)) {
+            std::cerr << "❌Sign check failed: pcs_x != pcs_bias_x + 1" << std::endl;
+            return false;
+        }
+        pcs_x = &pcs_bias_x; // Update pcs_x to include bias
+    }
+    if (prover.final_round()) {
+        if (re.pcs.size() != 1) {
+            throw std::runtime_error("signVerifier: Resource size mismatch in final round");
+        }
+        re.pop_back();
+        // Final round, check if pcs_sign = pcs_x + 1
+        auto alpha = random_vec_ext(prover.get_num_vars());
+        if (pcs_x->open(alpha, sec_param) + Goldilocks2::one() != pcs_sign->open(alpha, sec_param)) {
+            std::cerr << "❌Sign check failed: pcs_sign != pcs_x + 1" << std::endl;
+            return false;
+        }
+    } else {
+        lazy_pcs pcs_quo = re.pcs.back().at("pcs_quo");
+        lazy_pcs pcs_rem = re.pcs.back().at("pcs_rem");
+        divProver div_prover = re.div_provers.back();
+        signProver next_prover = re.sign_provers.back();
+        re.pop_back();
+
+        // 1. Check pcs_x = pcs_quo * scale + pcs_rem
+        if (!divVerifier::execute_div_check(
+            div_prover, *pcs_x, pcs_quo, pcs_rem, sec_param)) {
+            std::cerr << "❌Sign check failed: div check failed" << std::endl;
+            return false;
+        }
+        // 2. Recursively check the next round
+        if (!execute_sign_check(next_prover, &pcs_quo, pcs_sign, sec_param, re)) {
+            std::cerr << "❌Sign check failed: next round check failed" << std::endl;
+            return false;
+        }
+    }
+    return true;
 }
 
 bool signVerifier::execute_sign_check(const signProver& prover, const oracle *pcs_x, const oracle *pcs_sign, uint64_t sec_param) {

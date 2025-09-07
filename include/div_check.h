@@ -27,6 +27,8 @@ class divVerifier;
 class divProver {
     friend class divVerifier;
 public:
+    divProver() = default;
+    
     divProver(
         const std::vector<Goldilocks2::Element>& num,
         const std::vector<Goldilocks2::Element>& quo,

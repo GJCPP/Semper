@@ -16,11 +16,10 @@ public:
     enum layer_type {
         conv, pool, full, relu, softmax, flat
     };
-    class layer_wit {
+    class layer_res {
     public:
-        std::map<std::string, std::vector<Goldilocks2::Element>> vec;
-        std::map<std::string, array<Goldilocks2::Element>> arr;
         std::map<std::string, lazy_pcs> pcs;
+        std::map<std::string, std::shared_ptr<void>> res;
     };
     class layer_info {
     public:
@@ -43,7 +42,7 @@ public:
                                         pcs_d_input, pcs_d_output,
                                         pcs_aux;
 
-        layer_wit wit;
+        layer_res wit;
 
         int id;
 

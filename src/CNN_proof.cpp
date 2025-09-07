@@ -174,6 +174,7 @@ bool prove_conv(
         }
     }
     if (witness.empty()) {
+        std::cout << "Warning: No witness provided for convolution proof." << std::endl;
         pad_weights(IC, OC, in, m, padding,
             iX,
             iW,
@@ -422,13 +423,13 @@ bool prove_full_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_p
 }
 
 
-CNN::layer_wit pre_prove_relu_layer(
+CNN::layer_res pre_prove_relu_layer(
     const CNN::layer_info& layer,
     size_t scale, size_t max_val, size_t sqr_val,
     size_t rho_inv,
     lazy_pcs_pool* pool) {
 
-    CNN::layer_wit ret;
+    CNN::layer_res ret;
 
     const int batch = int(layer.input.shape(0));
 
@@ -460,16 +461,21 @@ CNN::layer_wit pre_prove_relu_layer(
         }
         auto X_rem = get_rem(X_copy, scale, X_quo, true);
 
-        ret.vec["X_quo" + _i] = X_quo;
-        ret.vec["X_rem" + _i] = X_rem;
-        ret.pcs["pcs_X_quo" + _i] = commit_lazy_pcs(X_quo, pool);
-        ret.pcs["pcs_X_rem" + _i] = commit_lazy_pcs(X_rem, pool);
+        // ret.vec["X_quo" + _i] = X_quo;
+        // ret.vec["X_rem" + _i] = X_rem;
+        lazy_pcs pcs_X_quo = commit_lazy_pcs(X_quo, pool);
+        lazy_pcs pcs_X_rem = commit_lazy_pcs(X_rem, pool);
+        ret.pcs["pcs_X_quo" + _i] = pcs_X_quo;
+        ret.pcs["pcs_X_rem" + _i] = pcs_X_rem;
 
         // 2. Prove sign of scaled X
         auto X_scale_sign = get_sign(X_quo, true);
-        ret.vec["X_scale_sign" + _i] = X_scale_sign;
-        ret.pcs["pcs_X_scale_sign" + _i] = commit_lazy_pcs(X_scale_sign, pool);
-
+        lazy_pcs pcs_X_scale_sign = commit_lazy_pcs(X_scale_sign, pool);
+        // ret.vec["X_scale_sign" + _i] = X_scale_sign;
+        ret.pcs["pcs_X_scale_sign" + _i] = pcs_X_scale_sign;
+        // signProver sign_prover_X(X_quo, X_scale_sign, scale, max_val, true, rho_inv);
+        // signVerifier::resource sign_res = signVerifier::pre_execute_sign_check(sign_prover_X, pcs_X_quo, pcs_X_scale_sign, pool);
+        // ret.res["sign_res" + _i] = std::make_shared<signVerifier::resource>(sign_res);
         // 3. Prove Y = X_scale_sign * X_quo
 
         // Prove backward
@@ -485,12 +491,12 @@ CNN::layer_wit pre_prove_relu_layer(
                 dY_filtered[j] = dY_copy[j];
             }
         }
-        ret.vec["dY_filtered" + _i] = dY_filtered;
+        // ret.vec["dY_filtered" + _i] = dY_filtered;
         ret.pcs["pcs_dY_filtered" + _i] = commit_lazy_pcs(dY_filtered, pool);
 
         // 2. Prove dX = dY_filtered / scale
         auto dX_rem = get_rem(dY_filtered, scale, dX_copy, true);
-        ret.vec["dX_rem" + _i] = dX_rem;
+        // ret.vec["dX_rem" + _i] = dX_rem;
         ret.pcs ["pcs_dX_rem" + _i] = commit_lazy_pcs(dX_rem, pool);
     }
     return ret;
@@ -498,7 +504,7 @@ CNN::layer_wit pre_prove_relu_layer(
 
 bool prove_relu_layer(const CNN::layer_info& layer,
     size_t scale, size_t max_val, size_t sqr_val,
-    size_t rho_inv, size_t sec_param, const CNN::layer_wit& wit) {
+    size_t rho_inv, size_t sec_param, const CNN::layer_res& wit) {
 
     startCounter counter("relu_proof");
 
@@ -520,9 +526,17 @@ bool prove_relu_layer(const CNN::layer_info& layer,
         X.copy_to(X_copy.data());
         Y.copy_to(Y_copy.data());
 
-        // 1. Prove scale_X
-        const auto& X_quo = wit.vec.at("X_quo" + _i);
-        const auto& X_rem = wit.vec.at("X_rem" + _i);
+        // 1. Prove scale_X        
+        std::vector<Goldilocks2::Element> X_quo(n);
+        for (size_t i = 0; i < n; ++i) {
+            if (Goldilocks2::toS64(X_copy[i]) > 0) {
+                X_quo[i] = Y_copy[i]; // ceil division
+            }
+            else {
+                X_quo[i] = Goldilocks2::fromS64(Goldilocks2::toS64(X_copy[i]) / int64_t(scale));
+            }
+        }
+        auto X_rem = get_rem(X_copy, scale, X_quo, true);
         const auto& pcs_X_quo = wit.pcs.at("pcs_X_quo" + _i);
         const auto& pcs_X_rem = wit.pcs.at("pcs_X_rem" + _i);
         divProver div_prover_X(X_copy, X_quo, X_rem, scale, true, rho_inv);
@@ -531,9 +545,10 @@ bool prove_relu_layer(const CNN::layer_info& layer,
             return false;
         }
         // 2. Prove sign of scaled X
-        const auto& X_scale_sign = wit.vec.at("X_scale_sign" + _i);
+        auto X_scale_sign = get_sign(X_quo, true);
         const auto& pcs_X_scale_sign = wit.pcs.at("pcs_X_scale_sign" + _i);
         signProver sign_prover_X(X_quo, X_scale_sign, scale, max_val, true, rho_inv);
+        // auto sign_res = reinterpret_cast<signVerifier::resource*>(wit.res.at("sign_res" + _i).get());
         if (!signVerifier::execute_sign_check(sign_prover_X, &pcs_X_quo, &pcs_X_scale_sign, sec_param)) {
             std::cout << "❌ Proving relu forward X_scale_sign failed." << std::endl;
             return false;
@@ -558,7 +573,12 @@ bool prove_relu_layer(const CNN::layer_info& layer,
         dY.copy_to(dY_copy.data());
 
         // 1. Prove scaled dY_filtered = dY * X_scale_sign
-        const auto& dY_filtered = wit.vec.at("dY_filtered" + _i);
+        std::vector<Goldilocks2::Element> dY_filtered(n);
+        for (size_t j = 0; j < n; ++j) {
+            if (X_scale_sign[j] == Goldilocks2::one()) {
+                dY_filtered[j] = dY_copy[j];
+            }
+        }
         const auto& pcs_dY_filtered = wit.pcs.at("pcs_dY_filtered" + _i);
 
         auto dY_challenge = random_vec_ext(logn); // draw new challenges
@@ -570,7 +590,7 @@ bool prove_relu_layer(const CNN::layer_info& layer,
             return false;
         }
         // 2. Prove dX = dY_filtered / scale
-        auto dX_rem = wit.vec.at("dX_rem" + _i);
+        auto dX_rem = get_rem(dY_filtered, scale, dX_copy, true);
         auto pcs_dX_rem = wit.pcs.at("pcs_dX_rem" + _i);
         divProver div_prover_dX(dY_filtered, dX_copy, dX_rem, scale, true, rho_inv);
         if (!divVerifier::execute_div_check(div_prover_dX, pcs_dY_filtered, pcs_dX, pcs_dX_rem, sec_param)) {
