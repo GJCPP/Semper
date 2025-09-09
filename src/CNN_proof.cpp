@@ -19,6 +19,7 @@ bool prove_conv(
     open_param oX, // [C, n, n]
     open_param oW, // [C, D, m, m]
     open_param oY, // [D, on, on]
+    open_param oflat_Y,
     const std::map<std::string, array<Goldilocks2::Element>>& wit,
     const array_view<Goldilocks2::Element>& X, // [C, n, n]
     const array_view<Goldilocks2::Element>& W, // [C, D, m, m]
@@ -32,59 +33,42 @@ bool prove_conv(
     auto prover = wit.empty() ?
              make_conv2_prover(C, D, n, m, padding, X, W, Y, mapto) :
              make_conv2_prover_wit(C, D, n, m, padding, wit.at("X"), wit.at("W"), wit.at("Y"), mapto);
-    // auto prover = make_conv2_prover(C, D, n, m, padding, X, W, Y, mapto);
-    
-    // DEBUG: Compare _prover.triple.X, W, Y with prover.triple.X, W, Y using a lambda.
-    // auto compare_arrays = [](const auto& a, const auto& b, const std::string& name) {
-    //     if (a.size() != b.size()) {
-    //         std::cerr << "Debug: _prover.triple." << name << " and prover.triple." << name << " have different sizes!" << std::endl;
-    //         return;
-    //     }
-    //     for (size_t i = 0; i != a.size(); ++i) {
-    //         if (a[i] != b[i]) {
-    //             std::cerr << "Debug: _prover.triple." << name << " and prover.triple." << name << " differ at index " << i << "!" << std::endl;
-    //             std::cerr << a[i] << " : " << b[i] << std::endl;
-    //             break;
-    //         }
-    //     }
-    // };
-    // compare_arrays(prover.triple.X->get_eval_table(), _prover.triple.X->get_eval_table(), "X");
-    // compare_arrays(prover.triple.W->get_eval_table(), _prover.triple.W->get_eval_table(), "W");
-    // compare_arrays(prover.triple.Y->get_eval_table(), _prover.triple.Y->get_eval_table(), "Y");
-    // if (!_prover.triple.check()) {
-    //     std::cerr << "Debug: _prover.triple.check() failed!" << std::endl;
-    // }
 
     prover.init_ori_Y(ori_Y);
-
-    // Check mapfrom & mapto with Y and prover.triple.Y
-    // std::cout << "(" << __LINE__ << ") Manually check mapfrom & to..." << std::endl;
-    // MLE _ori_Y = ori_Y;
-    // for (size_t i = 0; i != mapfrom.size(); ++i) {
-    //     if (_ori_Y.get_eval_table()[mapfrom[i]] != prover.triple.Y->get_eval_table()[mapto[i]]) {
-    //         std::cerr << "(" << __LINE__ << " Map check failed at " << i << std::endl;
-    //         std::cerr << "mapfrom = " << mapfrom[i] << " -> mapto = " << mapto[i] << std::endl;
-    //         throw;
-    //     }
-    // }
-    // std::cout << "(" << __LINE__ << ") Manually check mapfrom & to done." << std::endl;
-
-
-    // if (!prover.triple.check()) {
-    //     std::cout << "❌ Conv triple check failed." << std::endl;
-    //     return false;
-    // }
 
     oW.rev[2] = oW.rev[2] ^ true;
     oW.rev[3] = oW.rev[3] ^ true;
 
     
     set_timer("execute convcheck");
-    if (!convVerifier::execute_convcheck_2d(prover, oX, oW, oY, mapfrom, mapto, rho_inv, sec_param, true)) {
+    if (!convVerifier::execute_convcheck_2d(prover, oX, oW, oY, oflat_Y, mapfrom, mapto, rho_inv, sec_param, true)) {
         return false;
     }
     pause_timer("execute convcheck");
     return true;
+}
+
+void pre_prove_conv(
+    CNN::conv_wit wit,
+    int padding,
+    const array_view<Goldilocks2::Element>& X, // [N, IC, in, in]
+    const array_view<Goldilocks2::Element>& W, // [OC, IC, m, m]
+    const array_view<Goldilocks2::Element>& Y, // [N, OC, on, on]
+    bool pad_right_bottom,
+    CNN::layer_res& res, lazy_pcs_pool *pool, const std::string& prename) {
+
+    const int N = X.shape(0), IC = X.shape(1), in = X.shape(2), OC = Y.shape(1), on = Y.shape(2);
+    const int m = W.shape(2);
+    const int logN = find_ceiling_log2(N);
+
+    std::map<std::string, array<Goldilocks2::Element>> witness;
+    if (wit.empty()) {
+        std::cerr << "Error: No witness provided for convolution proof." << std::endl;
+        throw std::invalid_argument("CNN::pre_prove_conv: No witness provided");
+    }
+    witness = wit.get_conv_wit();
+
+    res.pcs[prename + "Y_flat"] = commit_lazy_pcs(MLE(witness["Y"]), pool);
 }
 
 bool prove_conv(
@@ -189,17 +173,157 @@ bool prove_conv(
     open_param open_cX(X, pcs_input);
     open_param oW(cW, pcs_weight);
     open_param open_cY(Y, pcs_output);
+    auto pcs_flat_Y = ligero_commit_ext(MLE(witness.at("Y")), rho_inv);
+    open_param open_flat_Y(witness.at("Y").view, &pcs_flat_Y);
     open_cX = open_cX(c_cha);
     open_cY = open_cY(c_cha);
 
     if (!prove_conv(IC, OC, in, new_m, new_padding,
-        open_cX, oW, open_cY,
+        open_cX, oW, open_cY, open_flat_Y,
         witness,
         pX, pW, pY, 
         iY,
         mapfrom, mapto,
         rho_inv, sec_param)) return false;
 
+    return true;
+}
+
+
+bool prove_conv(
+    CNN::conv_wit wit,
+    int padding,
+    const oracle* pcs_input, const oracle* pcs_weight, const oracle* pcs_output,
+    const array_view<Goldilocks2::Element>& X, // [N, IC, in, in]
+    const array_view<Goldilocks2::Element>& W, // [OC, IC, m, m]
+    const array_view<Goldilocks2::Element>& Y, // [N, OC, on, on]
+    bool pad_right_bottom,
+    size_t rho_inv, size_t sec_param,
+    const CNN::layer_res& res, const std::string& prename) {
+
+    const int N = X.shape(0), IC = X.shape(1), in = X.shape(2), OC = Y.shape(1), on = Y.shape(2);
+    const int m = W.shape(2);
+    const int logN = find_ceiling_log2(N);
+
+    assert(X.shape(0) == static_cast<size_t>(N));
+    assert(X.shape(1) == static_cast<size_t>(IC));
+    assert(X.shape(2) == static_cast<size_t>(in));
+    assert(X.shape(3) == static_cast<size_t>(in));
+    assert(W.shape(0) == static_cast<size_t>(OC));
+    assert(W.shape(1) == static_cast<size_t>(IC));
+    assert(W.shape(2) == static_cast<size_t>(m));
+    assert(W.shape(3) == static_cast<size_t>(m));
+    assert(Y.shape(0) == static_cast<size_t>(N));
+    assert(Y.shape(1) == static_cast<size_t>(OC));
+    assert(Y.shape(2) == static_cast<size_t>(on));
+    assert(Y.shape(3) == static_cast<size_t>(on));
+    assert(on == in + 2 * padding - m + 1);
+
+    // Step 1. Combine conv with same kernel
+    
+    array<Goldilocks2::Element> cX, cY;
+    cX.init({size_t(IC), size_t(in), size_t(in)});
+    cY.init({size_t(OC), size_t(on), size_t(on)});
+    auto c_cha = random_vec_ext(logN);
+    MLE_Eq c_cha_eq(c_cha);
+    auto c_cha_table = c_cha_eq.get_eval_table();
+    c_cha_table.resize(N);
+    for (int i = 0; i < N; ++i) {
+        for (int a = 0; a != IC; ++a) {
+            for (int b = 0; b != in; ++b) {
+                for (int c = 0; c != in; ++c) {
+                    cX(a, b, c) += c_cha_table[i] * X(i, a, b, c);
+                }
+            }
+        }
+    }
+    for (int i = 0; i < N; ++i) {
+        for (int a = 0; a != OC; ++a) {
+            for (int b = 0; b != on; ++b) {
+                for (int c = 0; c != on; ++c) {
+                    cY(a, b, c) += c_cha_table[i] * Y(i, a, b, c);
+                }
+            }
+        }
+    }
+    
+    std::map<std::string, array<Goldilocks2::Element>> witness;
+    if (!wit.empty()) {
+        set_timer("load conv wit");
+        witness = wit.get_conv_wit(c_cha_table);
+        pause_timer("load conv wit");
+    }
+
+    // Step 2. Padding
+    auto& iW = W;
+    double pad_time = 0, prove_time = 0;
+
+    auto iX = cX.view; // [C, n, n]
+    auto iY = cY.view; // [OC, on, on]
+    auto& pX = iX;
+    array<Goldilocks2::Element> pW; // [OC, IC, m, m]
+    array<Goldilocks2::Element> pY; // [OC, on, on]
+    size_t new_m, new_padding;
+
+    size_t up_on = (1ull << find_ceiling_log2(on));
+    std::vector<size_t> mapto(OC * on * on);
+    std::vector<size_t> mapfrom;
+    for (size_t i = 0; i != mapto.size(); ++i) mapto[i] = i;
+    mapfrom.reserve(OC * on * on);
+    for (int i = 0; i != OC; ++i) {
+        for (int j = 0; j != on; ++j) {
+            for (int k = 0; k != on; ++k) {
+                mapfrom.push_back(i * up_on * up_on + j * up_on + k);
+            }
+        }
+    }
+    if (witness.empty()) {
+        std::cerr << __LINE__ << ") Error: No witness provided for convolution proof." << std::endl;
+        throw std::invalid_argument("CNN::prove_conv: No witness provided");
+    }
+    pad_weights_map(IC, OC, in, m, padding, new_m, new_padding, mapto, pad_right_bottom);
+
+    auto cW = W;
+    cW.swap_dim(0, 1);
+    open_param open_cX(X, pcs_input);
+    open_param oW(cW, pcs_weight);
+    open_param open_cY(Y, pcs_output);
+    open_param open_flat_Y(witness.at("raw_Y").view, &res.pcs.at(prename + "Y_flat"));
+
+    open_cX = open_cX(c_cha);
+    open_cY = open_cY(c_cha);
+    open_flat_Y = open_flat_Y(c_cha);
+
+    if (!prove_conv(IC, OC, in, new_m, new_padding,
+        open_cX, oW, open_cY, open_flat_Y,
+        witness,
+        pX, pW, pY, 
+        iY,
+        mapfrom, mapto,
+        rho_inv, sec_param)) return false;
+
+    return true;
+}
+
+bool pre_prove_conv_forward(const CNN::layer_info& layer, CNN::conv_wit wit, int padding, CNN::layer_res& res, lazy_pcs_pool* pool) {
+    int bat = int(layer.input.shape(0));
+    int img = int(layer.input.shape(1));
+    size_t C = layer.input.shape(2);
+    size_t D = layer.output.shape(2);
+    size_t n = layer.input.shape(3);
+    size_t m = layer.weight.shape(3);
+
+    wit.set_forward();
+
+    for (int i = 0; i < bat; ++i) {
+
+        wit.set_batch(i);
+
+        pre_prove_conv(wit, padding,
+            layer.input[i], layer.weight[i], layer.output[i],
+            true,
+            res, pool, "forward_" + std::to_string(i));
+    }
     return true;
 }
 
@@ -214,7 +338,6 @@ bool prove_conv_forward(const CNN::layer_info& layer, CNN::conv_wit wit, int pad
     wit.set_forward();
 
     for (int i = 0; i < bat; ++i) {
-        double pad_time = 0, prove_time = 0;
         auto pcs_input = layer.get_pcs_input(i);
         auto pcs_weight = layer.get_pcs_weight(i);
         auto pcs_output = layer.get_pcs_output(i);
@@ -225,7 +348,8 @@ bool prove_conv_forward(const CNN::layer_info& layer, CNN::conv_wit wit, int pad
             &pcs_input, &pcs_weight, &pcs_output,
             layer.input[i], layer.weight[i], layer.output[i],
             true,
-            rho_inv, sec_param)) return false;
+            rho_inv, sec_param,
+            layer.wit, "forward_" + std::to_string(i))) return false;
     }
     return true;
 }
@@ -241,7 +365,6 @@ bool prove_conv_backward_dW(const CNN::layer_info& layer,  CNN::conv_wit wit, in
     wit.set_dW();
 
     for (int i = 0; i < bat; ++i) {
-        double pad_time = 0, prove_time = 0;
         auto pcs_input = layer.get_pcs_input(i);
         auto pcs_d_output = layer.get_pcs_d_output(i);
         auto pcs_d_weight = layer.get_pcs_d_weight(i);
@@ -295,6 +418,34 @@ bool prove_conv_backward_dX(const CNN::layer_info& layer, CNN::conv_wit wit, int
             rho_inv, sec_param)) return false;
     }
     return true;
+}
+
+CNN::layer_res pre_prove_conv_layer(const CNN::layer_info& layer, CNN::conv_wit wit, lazy_pcs_pool* pool) {
+    const int padding = 1;
+
+    assert(layer.type == CNN::layer_type::conv);
+    assert(layer.input.get_dims() == 5); // bat x img x C x n x n
+    assert(layer.weight.get_dims() == 5); // bat x D x C x m x m
+    assert(layer.output.get_dims() == 5); // bat x img x D x n x n
+
+
+
+    CNN::layer_res res;
+
+    set_timer("preprove conv forward");
+    pre_prove_conv_forward(layer, wit, padding, res, pool);
+    pause_timer("preprove conv forward");
+
+    // set_timer("prove conv dW");
+    // pre_prove_conv_backward_dW(layer, wit, padding, res, pool);
+    // pause_timer("prove conv dW");
+
+    // set_timer("prove conv dX");
+    // pre_prove_conv_backward_dX(layer, wit, padding, res, pool);
+    // pause_timer("prove conv dX");
+
+
+    return res;
 }
 
 bool prove_conv_layer(const CNN::layer_info& layer, CNN::conv_wit wit, size_t rho_inv, size_t sec_param) {
@@ -474,7 +625,7 @@ CNN::layer_res pre_prove_relu_layer(
         // ret.vec["X_scale_sign" + _i] = X_scale_sign;
         ret.pcs["pcs_X_scale_sign" + _i] = pcs_X_scale_sign;
         signProver sign_prover_X(X_quo, X_scale_sign, scale, max_val, true, rho_inv);
-        signVerifier::resource sign_res = signVerifier::pre_execute_sign_check(sign_prover_X, pcs_X_quo, pcs_X_scale_sign, pool);
+        signVerifier::resource sign_res = signVerifier::pre_execute_sign_check(sign_prover_X, pool);
         ret.res["sign_res" + _i] = std::make_shared<signVerifier::resource>(sign_res);
         // 3. Prove Y = X_scale_sign * X_quo
 
@@ -629,9 +780,138 @@ bool prove_pool_shrink(int logimg, int logC, int logN, const oracle& before, con
     return sum == after.open(after_cha, sec_param);
 }
 
+CNN::layer_res pre_prove_pool_layer(const CNN::layer_info& layer,
+    size_t scale, size_t max_val,
+    size_t rho_inv, lazy_pcs_pool* pool)  {
+    
+    CNN::layer_res ret;
+    startCounter counter("pool_proof");
+
+    const int batch = int(layer.input.shape(0));
+    const int img = int(layer.input.shape(1));
+    const int C = int(layer.input.shape(2));
+    const int N = layer.input.shape(3);
+    // stride = kernel size = 2
+    // layer.input : [batch, img, C, N, N]
+    // layer.output: [batch, img, C, N/2, N/2]
+    int logimg = find_ceiling_log2(img);
+    int logC = find_ceiling_log2(C);
+    int logN = find_ceiling_log2(N);
+
+    for (int i = 0; i < batch; ++i) {
+        std::string _i = "_" + std::to_string(i);
+        auto input = layer.input[i]; // [img, C, N, N]
+        auto output = layer.output[i]; // [img, C, N/2, N/2]
+        auto d_input = layer.d_input[i]; // [img, C, N, N]
+        auto d_output = layer.d_output[i]; // [img, C, N/2, N/2]
+        auto aux = layer.aux[i];
+
+        const auto& mle_input = *layer.mle_input[i];
+        const auto& mle_output = *layer.mle_output[i];
+        const auto& mle_d_input = *layer.mle_d_input[i];
+        const auto& mle_d_output = *layer.mle_d_output[i];
+
+        // I. Prepare one-hot selector
+        // I.1 Commit selector and reversed selector
+        array<Goldilocks2::Element> sel(input.get_shape()), rev_sel(input.get_shape());
+        for (int j = 0; j < img; ++j) {
+            for (int k = 0; k < C; ++k) {
+                auto sel_j_k = sel.view[j][k], rev_sel_j_k = rev_sel.view[j][k];
+                for (int x = 0; x < N / 2; ++x) {
+                    for (int y = 0; y < N / 2; ++y) {
+                        sel_j_k.get(aux(j, k, x, y)[0].fe) = Goldilocks2::one();
+                    }
+                }
+                for (int x = 0; x < N; ++x) {
+                    for (int y = 0; y < N; ++y) {
+                        rev_sel_j_k(x, y) = Goldilocks2::one() - sel_j_k(x, y);
+                    }
+                }
+            }
+        }
+        MultilinearPolynomial mle_sel(sel.view), mle_rev_sel(rev_sel.view);
+        auto pcs_sel = commit_lazy_pcs(mle_sel, pool);
+        auto pcs_rev_sel = commit_lazy_pcs(mle_rev_sel, pool);
+        ret.pcs["pcs_sel" + _i] = pcs_sel;
+        ret.pcs["pcs_rev_sel" + _i] = pcs_rev_sel;
+        // TODO 1. Check pcs_sel = pcs_rev_sel
+
+        // I.2 Prove sel is boolean
+
+        // I.3 Prove sel is one-hot
+
+
+
+        // II. Forward.
+        // II.1 Prover commits diff
+        array<Goldilocks2::Element> diff(input.get_shape());
+        for (int j = 0; j < img; ++j) {
+            for (int k = 0; k < C; ++k) {
+                auto diff_j_k = diff.view[j][k];
+                for (int x = 0; x < N; ++x) {
+                    for (int y = 0; y < N; ++y) {
+                        diff(j, k, x, y) = output(j, k, x / 2, y / 2) - input(j, k, x, y);
+                    }
+                }
+            }
+        }
+        auto pcs_diff = commit_lazy_pcs(diff.view, pool);
+        ret.pcs["pcs_diff" + _i] = pcs_diff;
+        // II.2. Prover proves diff = expand(output) - input
+
+        // II.3 Prover proves diff is non-negative
+        std::vector<Goldilocks2::Element> input_ones(input.size(), Goldilocks2::one());
+        MLE mle_input_ones = MLE(input_ones);
+        // TODO 3. Check pcs_input_ones = 1
+        signProver sign_prover_diff(diff.data, input_ones, scale, max_val * 2, false, rho_inv);
+        auto sign_res = signVerifier::pre_execute_sign_check(sign_prover_diff, pool);
+        ret.res["sign_res_diff" + _i] = std::make_shared<signVerifier::resource>(sign_res);
+
+        // II.4 Prover commits and proves sel_input = input * sel
+        array<Goldilocks2::Element> sel_input(input.get_shape());
+        for (int j = 0; j < img; ++j) {
+            for (int k = 0; k < C; ++k) {
+                for (int x = 0; x < N; ++x) {
+                    for (int y = 0; y < N; ++y) {
+                        sel_input(j, k, x, y) = input(j, k, x, y) * sel(j, k, x, y);
+                    }
+                }
+            }
+        }
+        MultilinearPolynomial mle_sel_input(sel_input.view);
+        auto pcs_sel_input = commit_lazy_pcs(mle_sel_input, pool);
+        ret.pcs["pcs_sel_input" + _i] = pcs_sel_input;
+        
+        // II.5 Prover proves output = shrink(sel_input)
+        
+
+        // III. Backward.
+        // III.1 Prover commits and proves sel_d_input = d_input * sel
+        array<Goldilocks2::Element> sel_d_input(input.get_shape());
+        for (int j = 0; j < img; ++j) {
+            for (int k = 0; k < C; ++k) {
+                auto sel_d_input_j_k = sel_d_input.view[j][k];
+                for (int x = 0; x < N; ++x) {
+                    for (int y = 0; y < N; ++y) {
+                        sel_d_input_j_k(x, y) = d_input(j, k, x, y) * sel(j, k, x, y);
+                    }
+                }
+            }
+        }
+        auto pcs_sel_d_input = commit_lazy_pcs(sel_d_input.view, pool);
+        ret.pcs["pcs_sel_d_input" + _i] = pcs_sel_d_input;
+        // auto pcs_sel_d_input = ligero_commit_base(sel_d_input.view, rho_inv);
+
+        // III.3 Prover proves 0 = d_input * rev_sel
+
+
+        // IV. Check all TODO
+    }
+    return ret;
+}
 bool prove_pool_layer(const CNN::layer_info& layer,
     size_t scale, size_t max_val,
-    size_t rho_inv, size_t sec_param) {
+    size_t rho_inv, size_t sec_param, const CNN::layer_res& wit) {
 
     startCounter counter("pool_proof");
 
@@ -647,6 +927,8 @@ bool prove_pool_layer(const CNN::layer_info& layer,
     int logN = find_ceiling_log2(N);
 
     for (int i = 0; i < batch; ++i) {
+        std::string _i = "_" + std::to_string(i);
+
         auto pcs_input = layer.get_pcs_input(i);
         auto pcs_output = layer.get_pcs_output(i);
         auto pcs_d_input = layer.get_pcs_d_input(i);
@@ -682,16 +964,16 @@ bool prove_pool_layer(const CNN::layer_info& layer,
             }
         }
         MultilinearPolynomial mle_sel(sel.view), mle_rev_sel(rev_sel.view);
-        auto pcs_sel = ligero_commit_base(mle_sel, rho_inv);
-        auto pcs_rev_sel = ligero_commit_base(mle_rev_sel, rho_inv);
+        auto pcs_sel = wit.pcs.at("pcs_sel" + _i), pcs_rev_sel = wit.pcs.at("pcs_rev_sel" + _i);
+        // auto pcs_sel = ligero_commit_base(mle_sel, rho_inv);
+        // auto pcs_rev_sel = ligero_commit_base(mle_rev_sel, rho_inv);
         // TODO 1. Check pcs_sel = pcs_rev_sel
 
         // I.2 Prove sel is boolean
         std::vector<Goldilocks2::Element> input_zeros(input.size());
         MultilinearPolynomial mle_input_zeros(input_zeros);
-        auto pcs_input_zeros = ligero_commit_base(mle_input_zeros, rho_inv);
         // TODO 2. Check pcs_input_zeros = 0
-        if (!prove_mle_product(mle_input_zeros, mle_sel, mle_rev_sel, pcs_input_zeros, pcs_sel, pcs_rev_sel, sec_param)) {
+        if (!prove_mle_product(mle_input_zeros, mle_sel, mle_rev_sel, mle_input_zeros, pcs_sel, pcs_rev_sel, sec_param)) {
             std::cout << "❌ I.2 Proving selector is boolean failed." << std::endl;
             return false;
         }
@@ -725,7 +1007,7 @@ bool prove_pool_layer(const CNN::layer_info& layer,
                 }
             }
         }
-        auto pcs_diff = ligero_commit_base(diff.view, rho_inv);
+        auto pcs_diff = wit.pcs.at("pcs_diff" + _i);
         // II.2. Prover proves diff = expand(output) - input
         std::vector<Goldilocks2::Element> input_cha = random_vec_ext(logimg + logC + 2 * logN);
         std::vector<Goldilocks2::Element> extra_cha = {input_cha[p0], input_cha[p1]};
@@ -755,10 +1037,11 @@ bool prove_pool_layer(const CNN::layer_info& layer,
         }
         // II.3 Prover proves diff is non-negative
         std::vector<Goldilocks2::Element> input_ones(input.size(), Goldilocks2::one());
-        auto pcs_input_ones = ligero_commit_base(input_ones, rho_inv);
+        MLE mle_input_ones = MLE(input_ones);
         // TODO 3. Check pcs_input_ones = 1
+        signVerifier::resource sign_res_diff = *reinterpret_cast<signVerifier::resource*>(wit.res.at("sign_res_diff" + _i).get());
         signProver sign_prover_diff(diff.data, input_ones, scale, max_val * 2, false, rho_inv);
-        if (!signVerifier::execute_sign_check(sign_prover_diff, &pcs_diff, &pcs_input_ones, sec_param)) {
+        if (!signVerifier::execute_sign_check(sign_prover_diff, &pcs_diff, &mle_input_ones, sec_param, sign_res_diff)) {
             std::cout << "❌ II.3 Proving diff is non-negative failed: sign proof fails." << std::endl;
             return false;
         }
@@ -774,7 +1057,7 @@ bool prove_pool_layer(const CNN::layer_info& layer,
             }
         }
         MultilinearPolynomial mle_sel_input(sel_input.view);
-        auto pcs_sel_input = ligero_commit_base(mle_sel_input, rho_inv);
+        auto pcs_sel_input = wit.pcs.at("pcs_sel_input" + _i);
         if (!prove_mle_product(mle_sel_input, mle_sel, input, pcs_sel_input, pcs_sel, pcs_input, sec_param)) {
             std::cout << "❌ II.4 Proving sel_input = input * sel failed." << std::endl;
             return false;
@@ -798,7 +1081,8 @@ bool prove_pool_layer(const CNN::layer_info& layer,
                 }
             }
         }
-        auto pcs_sel_d_input = ligero_commit_base(sel_d_input.view, rho_inv);
+        auto pcs_sel_d_input = wit.pcs.at("pcs_sel_d_input" + _i);
+        // auto pcs_sel_d_input = ligero_commit_base(sel_d_input.view, rho_inv);
         MultilinearPolynomial mle_sel_d_input(sel_d_input.view);
         if (!prove_mle_product(mle_sel_d_input, mle_sel, d_input,
             pcs_sel_d_input, pcs_sel, pcs_d_input, sec_param)) {
@@ -812,7 +1096,7 @@ bool prove_pool_layer(const CNN::layer_info& layer,
         }
         // III.3 Prover proves 0 = d_input * rev_sel
         if (!prove_mle_product(mle_input_zeros, mle_d_input, mle_rev_sel,
-            pcs_input_zeros, pcs_d_input, pcs_rev_sel, sec_param)) {
+            mle_input_zeros, pcs_d_input, pcs_rev_sel, sec_param)) {
             std::cout << "❌ III.3 Proving 0 = d_input * rev_sel failed." << std::endl;
             return false;
         }
@@ -821,14 +1105,6 @@ bool prove_pool_layer(const CNN::layer_info& layer,
         input_cha = random_vec_ext(logimg + logC + 2 * logN);
         if (pcs_sel.open(input_cha, sec_param) != Goldilocks2::one() - pcs_rev_sel.open(input_cha, sec_param)) {
             std::cout << "❌ IV.1 Proving pcs_sel + pcs_rev_sel = 1 failed." << std::endl;
-            return false;
-        }
-        if (pcs_input_zeros.open(input_cha, sec_param) != Goldilocks2::zero()) {
-            std::cout << "❌ IV.2 Proving pcs_input_zeros is zero failed." << std::endl;
-            return false;
-        }
-        if (pcs_input_ones.open(input_cha, sec_param) != Goldilocks2::one()) {
-            std::cout << "❌ IV.3 Proving pcs_input_ones is one failed." << std::endl;
             return false;
         }
     }

@@ -373,9 +373,11 @@ bool test_conv2_check() {
 
         auto pcs_x = ligero_commit_ext(p1, 2);
         auto pcs_y = ligero_commit_ext(p3, 2);
+        auto pcs_flat_Y = ligero_commit_ext(*prover.triple.Y, 2);
         open_param op_x(X_view, &pcs_x);
         open_param op_w(W_pad.view, &pcs_w);
         open_param op_y(Y_view, &pcs_y);
+        open_param op_flaty(Y_pad.view, &pcs_flat_Y);
         
         op_w.rev[2] = op_w.rev[2] ^ true;
         op_w.rev[3] = op_w.rev[3] ^ true;
@@ -385,7 +387,7 @@ bool test_conv2_check() {
             return false;
         }
 
-        if (!convVerifier::execute_convcheck_2d(prover, op_x, op_w, op_y, mapfrom, mapto, 2, 32, true)) {
+        if (!convVerifier::execute_convcheck_2d(prover, op_x, op_w, op_y, op_flaty, mapfrom, mapto, 2, 32, true)) {
             return false;
         }
     }
@@ -500,6 +502,7 @@ bool test_pad_weights() {
         open_param op_x(X.view, &pcs_x);
         open_param op_w(W_pad.view, &pcs_w);
         open_param op_y(Y.view, &pcs_y);
+        open_param op_flat_y(Y_pad.view, &pcs_y);
 
         op_w.rev[2] = op_w.rev[2] ^ true;
         op_w.rev[3] = op_w.rev[3] ^ true;
@@ -509,7 +512,7 @@ bool test_pad_weights() {
         //     return false;
         // }
 
-        if (!convVerifier::execute_convcheck_2d(prover, op_x, op_w, op_w, mapfrom, mapto, 2, 32, true)) {
+        if (!convVerifier::execute_convcheck_2d(prover, op_x, op_w, op_w, op_flat_y, mapfrom, mapto, 2, 32, true)) {
             return false;
         }
     }
@@ -690,7 +693,7 @@ bool test_pre_sign_check() {
         signProver prover(num, sign, denom, max_val, strict, 2);
         ligeropcs_base pcs_num = ligero_commit_base(num, 2);
         ligeropcs_base pcs_sign = ligero_commit_base(sign, 2);
-        auto res = signVerifier::pre_execute_sign_check(prover, pcs_num, pcs_sign, &pool);
+        auto res = signVerifier::pre_execute_sign_check(prover, &pool);
         auto uni_pcs = pool.commit(2);
         if (!signVerifier::execute_sign_check(
             prover,

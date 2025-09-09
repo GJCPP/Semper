@@ -80,8 +80,6 @@ std::vector<Goldilocks2::Element> get_sign(const std::vector<Goldilocks2::Elemen
 
 signVerifier::resource signVerifier::pre_execute_sign_check(
     const signProver& prover,
-    const oracle& pcs_x,
-    const oracle& pcs_sign,
     lazy_pcs_pool *pool) {
 
     ligeropcs_base pcs_bias_x;
@@ -104,7 +102,7 @@ signVerifier::resource signVerifier::pre_execute_sign_check(
         // 1. Check pcs_x = pcs_quo * scale + pcs_rem
         // divVerifier::pre_execute_div_check(div_prover, pcs_x, pcs_quo, pcs_rem, sec_param);
         // 2. Recursively check the next round
-        ret = pre_execute_sign_check(next_prover, pcs_quo, pcs_sign, pool);
+        ret = pre_execute_sign_check(next_prover, pool);
         
     }
     ret.push_back(pcs, div_prover, next_prover);

@@ -51,17 +51,18 @@ public:
 
     LogupProver get_logup_prover() const;
 
-    inline ligeropcs_base get_pcs_range() const {
-        return pcs_range[{denom, allow_neg_rem, rho_inv}];
+    inline MLE get_mle_range() const {
+        return mle_range[{denom, allow_neg_rem, rho_inv}];
     }
 
-    inline ligeropcs_base get_pcs_valid() const {
-        return pcs_valid[{denom, allow_neg_rem, rho_inv}];
+    inline MLE get_mle_valid() const {
+        return mle_valid[{denom, allow_neg_rem, rho_inv}];
     }
 
-    inline ligeropcs_base get_pcs_zeros() const {
-        return pcs_zeros[{rem_u64.size(), rho_inv}];
+    inline MLE get_mle_zeros() const {
+        return mle_zeros[{rem_u64.size(), rho_inv}];
     }
+
 
 protected:
     bool allow_neg_rem;
@@ -76,8 +77,8 @@ protected:
     static std::map<std::array<uint64_t, 2>, std::vector<uint64_t>> range_u64, valid_u64;
     static std::map<uint64_t, std::vector<uint64_t>> zeros_u64;
     
-    static std::map<std::array<uint64_t, 3>, ligeropcs_base> pcs_range, pcs_valid;
-    static std::map<std::array<uint64_t, 2>, ligeropcs_base> pcs_zeros;
+    static std::map<std::array<uint64_t, 3>, MLE> mle_range, mle_valid;
+    static std::map<std::array<uint64_t, 2>, MLE> mle_zeros;
 };
 
 class divVerifier {

@@ -430,6 +430,7 @@ bool convVerifier::execute_convcheck_2d(
     open_param X,
     open_param W,
     open_param Y,
+    open_param flat_Y,
     const std::vector<size_t>& mapfrom,
     const std::vector<size_t>& mapto,
     size_t rho_inv,
@@ -437,14 +438,6 @@ bool convVerifier::execute_convcheck_2d(
     bool ext) {
     set_timer("conv2d_prove_perm");
     startCounter counter("conv2d_proof");
-    std::unique_ptr<oracle> pcs_flat_Y;
-    if (!ext) {
-        pcs_flat_Y = std::make_unique<ligeropcs_base>(ligero_commit_base(*prover.triple.Y, rho_inv));
-    }
-    else {
-        pcs_flat_Y = std::make_unique<ligeropcs_ext>(ligero_commit_ext(*prover.triple.Y, rho_inv));
-    }
-
     
     // copy constraint between Y and Y_flatten
     
@@ -453,7 +446,7 @@ bool convVerifier::execute_convcheck_2d(
         startCounter perm_counter("conv2d_perm");
         mapProver perm_prover = prover.get_map_prover(mapfrom, mapto);
         mapVerifier perm_verifier;
-        perm_verifier.add_pcs(&Y, pcs_flat_Y.get());
+        perm_verifier.add_pcs(&Y, &flat_Y);
         if (!perm_verifier.execute_check(perm_prover, rho_inv, sec_param)) {
             std::cerr << "convVerifier::execute_convcheck_2d : perm check fail" << std::endl;
             return false;
@@ -466,7 +459,7 @@ bool convVerifier::execute_convcheck_2d(
     set_timer("conv2d_prove_conv");
 
     std::array<const oracle*, 3> ora_1d = {
-        X.pcs, W.pcs, pcs_flat_Y.get()
+        X.pcs, W.pcs, &flat_Y
     };
     auto claim = execute_convcheck(prover, ora_1d, sec_param);
     if (!claim) return false;

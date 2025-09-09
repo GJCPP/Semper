@@ -9,9 +9,9 @@ std::map<uint64_t, std::vector<Goldilocks2::Element>> divProver::zeros;
 std::map<std::array<uint64_t, 2>, std::vector<uint64_t>> divProver::range_u64;
 std::map<std::array<uint64_t, 2>, std::vector<uint64_t>> divProver::valid_u64;
 std::map<uint64_t, std::vector<uint64_t>> divProver::zeros_u64;
-std::map<std::array<uint64_t, 3>, ligeropcs_base> divProver::pcs_range;
-std::map<std::array<uint64_t, 3>, ligeropcs_base> divProver::pcs_valid;
-std::map<std::array<uint64_t, 2>, ligeropcs_base> divProver::pcs_zeros;
+std::map<std::array<uint64_t, 3>, MLE> divProver::mle_range;
+std::map<std::array<uint64_t, 3>, MLE> divProver::mle_valid;
+std::map<std::array<uint64_t, 2>, MLE> divProver::mle_zeros;
 
 divProver::divProver(
     const std::vector<Goldilocks2::Element>& num,
@@ -110,9 +110,9 @@ void divProver::init_range(uint64_t denominator, bool allow_neg_rem, uint64_t rh
         range_u64[{denom, allow_neg_rem}] = std::move(new_r_u64);
         valid_u64[{denom, allow_neg_rem}] = std::move(new_v_u64);
     }
-    if (pcs_range.find({denom, allow_neg_rem, rho_inv}) == pcs_range.end()) {
-        pcs_range[{denom, allow_neg_rem, rho_inv}] = ligero_commit_base(range[{denom, allow_neg_rem}], rho_inv, 6);
-        pcs_valid[{denom, allow_neg_rem, rho_inv}] = ligero_commit_base(valid[{denom, allow_neg_rem}], rho_inv, 6);
+    if (mle_range.find({denom, allow_neg_rem, rho_inv}) == mle_range.end()) {
+        mle_range[{denom, allow_neg_rem, rho_inv}] = MLE(range[{denom, allow_neg_rem}]);
+        mle_valid[{denom, allow_neg_rem, rho_inv}] = MLE(valid[{denom, allow_neg_rem}]);
     }
 }
 
@@ -124,8 +124,8 @@ void divProver::init_zeros(size_t vec_len) {
         zeros[vec_len] = std::vector<Goldilocks2::Element>(vec_len, Goldilocks2::zero());
         zeros_u64[vec_len] = std::vector<uint64_t>(vec_len, 0);
     }
-    if (pcs_zeros.find({vec_len, rho_inv}) == pcs_zeros.end()) {
-        pcs_zeros[{vec_len, rho_inv}] = ligero_commit_base(zeros[vec_len], rho_inv, 6);
+    if (mle_zeros.find({vec_len, rho_inv}) == mle_zeros.end()) {
+        mle_zeros[{vec_len, rho_inv}] = MLE(zeros[vec_len]);
     }
 }
 
@@ -224,9 +224,9 @@ bool divVerifier::execute_div_check(
     auto logup_prover = prover.get_logup_prover();
     if (!LogupVerifier::execute_logup(logup_prover,
         pcs_rem,
-        prover.get_pcs_zeros(),
-        prover.get_pcs_range(),
-        prover.get_pcs_valid(),
+        prover.get_mle_zeros(),
+        prover.get_mle_range(),
+        prover.get_mle_valid(),
         prover.rho_inv, sec_param)) {
         std::cerr << "❌ Div check failed: Logup verification failed" << std::endl;
         return false;

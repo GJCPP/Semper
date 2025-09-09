@@ -11,6 +11,9 @@
 #include "timer.h"
 #include "counter.h"
 
+// opt_loga for sec_param=32
+int opt_loga[] = {-1, 0, 1, 2, 3, 4, 5, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11};
+
 // reed solomon encode data on base field
 std::vector<Goldilocks::Element> rsencode(const std::vector<Goldilocks::Element>& data, const uint64_t& rho_inv) {
     // return eval_with_ntt_ext(data, data.size() * rho_inv);
@@ -35,20 +38,23 @@ std::vector<Goldilocks2::Element> rsencode(const std::vector<Goldilocks2::Elemen
     return eval_with_ntt(data, data.size() * rho_inv);
 }
 
+void get_ab(int num_vars, int loga, size_t& a, size_t& b) {
+    if (loga == -1 || loga > num_vars) {
+        a = (1ull << opt_loga[num_vars]);
+        b = (1ull << (num_vars - opt_loga[num_vars]));
+    } else {
+        a = (1ull << loga);
+        b = (1ull << (num_vars - loga));
+    }
+}
+
 ligeroProver_base::ligeroProver_base(const MultilinearPolynomial& w, const uint64_t& rho_inv, int loga) 
     :rho_inv(rho_inv) {
     const auto& evals = w.get_eval_table();
     num_vars = find_ceiling_log2(evals.size());
 
     // 2^l = a * b
-    if (loga == -1 || loga > num_vars) {
-        a = 1ull << (num_vars >> 1);       //floor(l/2)
-        b = a << (num_vars & 1);           //ceil(l/2)
-    } else {
-        a = (1ull << loga);
-        b = (1ull << (num_vars - loga));
-    }
-    
+    get_ab(num_vars, loga, a, b);
 
     M.resize(1ull << num_vars, Goldilocks::zero());
     codelen = b * rho_inv;
@@ -71,14 +77,7 @@ ligeroProver_base::ligeroProver_base(const std::vector<Goldilocks::Element>& w, 
     num_vars = find_ceiling_log2(w.size());
 
     // 2^l = a * b
-    
-    if (loga == -1 || loga > num_vars) {
-        a = 1ull << (num_vars >> 1);       //floor(l/2)
-        b = a << (num_vars & 1);           //ceil(l/2)
-    } else {
-        a = (1ull << loga);
-        b = (1ull << (num_vars - loga));
-    }
+    get_ab(num_vars, loga, a, b);
 
     M.resize(1ull << num_vars, Goldilocks::zero());
     codelen = b * rho_inv;
@@ -101,14 +100,7 @@ ligeroProver_base::ligeroProver_base(const std::vector<uint64_t>& w, const uint6
     // std::cout << l << '\n';
 
     // 2^l = a * b
-
-    if (loga == -1 || loga > num_vars) {
-        a = 1ull << (num_vars >> 1);       //floor(l/2)
-        b = a << (num_vars & 1);           //ceil(l/2)
-    } else {
-        a = (1ull << loga);
-        b = (1ull << (num_vars - loga));
-    }
+    get_ab(num_vars, loga, a, b);
 
 
 
@@ -176,8 +168,7 @@ ligeroProver_ext::ligeroProver_ext(const std::vector<Goldilocks2::Element>& w, c
     num_vars = find_ceiling_log2(w.size());
     M.resize(1ull << num_vars, Goldilocks2::zero());
     // 2^l = a * b
-    a = 1ull << (num_vars >> 1);       //floor(l/2)
-    b = a << (num_vars & 1);           //ceil(l/2)
+    get_ab(num_vars, -1, a, b);
 
     codelen = b * rho_inv;
     for (size_t i = 0; i < w.size(); ++i) {
@@ -359,24 +350,29 @@ Goldilocks2::Element dot_product(const std::vector<Goldilocks2::Element>& b, con
 
 void find_parameter() {
     clear_proof();
-    for (int i = 4; i < 24; ++i) {
+    for (int i = 25; i < 30; ++i) {
         double opt_sz;
         int optj = 0;
-        for (int j = 1; j < i; ++j) {
-            start_proof("find_parameter");
+        for (int j = 10; j < i; ++j) {
             size_t N = (1ull << i);
             size_t rho_inv = 2;
             std::vector<Goldilocks2::Element> e(N);
             auto pcs = ligero_commit_base(e, rho_inv, j);
+            start_proof("find_parameter");
             pcs.open(random_vec_ext(i), 32);
             end_proof("find_parameter");
             double sz = get_proof_size("find_parameter", Counter::KB);
-            if (j == 1 || sz < opt_sz) {
+            clear_proof();
+            if (optj && sz > opt_sz) {
+                break;
+            }
+            if (!optj || sz < opt_sz) {
                 opt_sz = sz;
                 optj = j;
             }
             std::cout << "logn = " << i << ", a = " << j << ", proof size = " << sz << " KB" << std::endl;
         }
+        std::cout << "--------- logn = " << i << ", a = " << optj << ", proof size = " << opt_sz << " KB" << std::endl;
     }
     clear_proof();
 }

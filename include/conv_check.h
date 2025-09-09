@@ -91,6 +91,7 @@ public:
         open_param X_open,
         open_param W_open,
         open_param Y_open,
+        open_param flat_Y_open,
         const std::vector<size_t>& mapfrom,
         const std::vector<size_t>& mapto,
         size_t rho_inv,

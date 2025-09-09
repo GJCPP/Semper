@@ -6,6 +6,10 @@
 #include "ligero.h"
 #include "counter.h"
 ligeropcs_base lazy_pcs_pool::commit(uint64_t rho_inv) {
+    // std::cout << "====== warning: lazy_pcs_pool::commit skipped." << std::endl;
+    // committed = true;
+    // return {};
+
     if (committed) {
         throw std::runtime_error("lazy_pcs_pool::commit: already committed");
     }
@@ -49,6 +53,8 @@ ligeropcs_base lazy_pcs_pool::commit(uint64_t rho_inv) {
 }
 
 void lazy_pcs_pool::record_open(size_t ind, const std::vector<Goldilocks2::Element>& z, Goldilocks2::Element val, size_t sec) {
+    // std::cout << "====== warning: lazy_pcs_pool::record_open skipped." << std::endl;
+    // return ;
     if (!committed) {
         throw std::runtime_error("lazy_pcs_pool::record_open: not committed");
     }
@@ -71,6 +77,9 @@ void lazy_pcs_pool::record_open(size_t ind, const std::vector<Goldilocks2::Eleme
 }
 
 bool lazy_pcs_pool::prove_open(ligeropcs_base pcs, Goldilocks2::Element lambda) const {
+    // std::cout << "====== warning: lazy_pcs_pool::prove_open skipped." << std::endl;
+    // return true;
+
     std::vector<Goldilocks2::Element> table(1ull << num_vars);
     Goldilocks2::Element claim = Goldilocks2::zero();
     Goldilocks2::Element base = Goldilocks2::one();

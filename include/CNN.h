@@ -81,7 +81,7 @@ public:
                 break;
             }
             
-            auto& X = res["X"], &W = res["W"], &Y = res["Y"];
+            auto& X = res["X"], &W = res["W"], &Y = res["Y"], raw_Y = res["Y"];
             int C = X.view.shape(1), in = X.view.shape(2),
                 D = Y.view.shape(1), on = Y.view.shape(2);
             auto batch_sz = X.view.shape(0);
@@ -112,6 +112,40 @@ public:
             ret["X"] = std::move(rX);
             ret["W"] = std::move(W);
             ret["Y"] = std::move(rY);
+            ret["raw_Y"] = std::move(raw_Y);
+            return ret;
+        }
+        
+        std::map<std::string, array<Goldilocks2::Element>> get_conv_wit() const {
+            std::map<std::string, array<Goldilocks2::Element>> res;
+            if (batch == -1) {
+                throw std::invalid_argument("CNN::conv_wit::get_conv_wit Batch not set");
+            }
+            switch (state) {
+            case 0:
+                res = to_field(loadConvWitForward(data_dir, epoch, batch, conv_id));
+                break;
+            case 1:
+                res = to_field(loadConvWitDW(data_dir, epoch, batch, conv_id));
+                break;
+            case 2:
+                res = to_field(loadConvWitDX(data_dir, epoch, batch, conv_id));
+                break;
+            }
+            
+            auto& X = res["X"], &W = res["W"], &Y = res["Y"];
+            int C = X.view.shape(1), in = X.view.shape(2),
+                D = Y.view.shape(1), on = Y.view.shape(2);
+            auto batch_sz = X.view.shape(0);
+            if (Y.view.shape(0) != batch_sz) {
+                throw std::runtime_error("conv_wit::get_conv_wit: Batch size mismatch");
+            }
+
+            // Combine X and Y
+            std::map<std::string, array<Goldilocks2::Element>> ret;
+            ret["X"] = std::move(X);
+            ret["W"] = std::move(W);
+            ret["Y"] = std::move(Y);
             return ret;
         }
 
