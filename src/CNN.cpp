@@ -355,13 +355,13 @@ bool CNN::prove(size_t sec_param) {
     std::cout << "model_name = " << model_name << std::endl;
     std::cout << "Checking input..." << std::endl;
     
-    std::cout << "===================Warning: skip proving input." << std::endl;
-    // set_timer("check input");
-    // if (!prove_input(sec_param)) {
-    //     std::cout << "❌ Input layer failed." << std::endl;
-    //     return false;
-    // }
-    // pause_timer("check input");
+    // std::cout << "===================Warning: skip proving input." << std::endl;
+    set_timer("check input");
+    if (!prove_input(sec_param)) {
+        std::cout << "❌ Input layer failed." << std::endl;
+        return false;
+    }
+    pause_timer("check input");
     for (auto& layer : layers) {
         // print_all_proof_size(Counter::MB);
         // if (layer.type != layer_type::conv) {

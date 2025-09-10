@@ -1,14 +1,16 @@
+#include <cassert>
+#include <unordered_map>
+#include <array>
+#include <vector>
+#include <random>
+
 #include "logup.h"
 #include "goldilocks_quadratic_ext.h"
 #include "mle_sumcheck.h"
 #include "product3_sumcheck.h"
 #include "util.h"
 #include "timer.h"
-#include <cassert>
-#include <unordered_map>
-#include <array>
-#include <vector>
-#include <random>
+#include "counter.h"
 
 LogupProver::LogupProver(const table_base& f_1, const table_base& f_2, const table_base& t_1, const table_base& t_2)
     : f1(f_1), f2(f_2), t1(t_1), t2(t_2), polyg(find_ceiling_log2(f1.size())), polyh(find_ceiling_log2(f2.size())) {
@@ -178,6 +180,7 @@ bool LogupVerifier::execute_logup(LogupProver& lpr,
         const oracle& t1, const oracle& t2,
         const uint64_t& rho_inv, const size_t& sec_param) {
 
+    startCounter counter("logup");
     std::array<const oracle*, 4> ft = { &f1, &f2, &t1, &t2 };
     // set_timer("check commitment of f, t");
     // for (auto pc : ft) {

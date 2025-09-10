@@ -690,20 +690,26 @@ bool prove_relu_layer(const CNN::layer_info& layer,
         auto X_rem = get_rem(X_copy, scale, X_quo, true);
         const auto& pcs_X_quo = wit.pcs.at("pcs_X_quo" + _i);
         const auto& pcs_X_rem = wit.pcs.at("pcs_X_rem" + _i);
+        start_proof("relu_div_proof");
         divProver div_prover_X(X_copy, X_quo, X_rem, scale, true, rho_inv);
         if (!divVerifier::execute_div_check(div_prover_X, pcs_X, pcs_X_quo, pcs_X_rem, sec_param)) {
             std::cout << "❌ Proving relu forward scale_X failed." << std::endl;
             return false;
         }
+        end_proof("relu_div_proof");
+
         // 2. Prove sign of scaled X
         auto X_scale_sign = get_sign(X_quo, true);
         const auto& pcs_X_scale_sign = wit.pcs.at("pcs_X_scale_sign" + _i);
+        start_proof("relu_sign_proof");
         signProver sign_prover_X(X_quo, X_scale_sign, scale, max_val, true, rho_inv);
         auto sign_res = reinterpret_cast<signVerifier::resource*>(wit.res.at("sign_res" + _i).get());
         if (!signVerifier::execute_sign_check(sign_prover_X, &pcs_X_quo, &pcs_X_scale_sign, sec_param, *sign_res)) {
             std::cout << "❌ Proving relu forward X_scale_sign failed." << std::endl;
             return false;
         }
+        end_proof("relu_sign_proof");
+
         // 3. Prove Y = X_scale_sign * X_quo
         auto Y_challenge = random_vec_ext(logn); // draw new challenges
         auto mle_challenge = MLE_Eq(Y_challenge);
@@ -743,11 +749,13 @@ bool prove_relu_layer(const CNN::layer_info& layer,
         // 2. Prove dX = dY_filtered / scale
         auto dX_rem = get_rem(dY_filtered, scale, dX_copy, true);
         auto pcs_dX_rem = wit.pcs.at("pcs_dX_rem" + _i);
+        start_proof("relu_div_proof");
         divProver div_prover_dX(dY_filtered, dX_copy, dX_rem, scale, true, rho_inv);
         if (!divVerifier::execute_div_check(div_prover_dX, pcs_dY_filtered, pcs_dX, pcs_dX_rem, sec_param)) {
             std::cout << "❌ Proving relu backward dX failed." << std::endl;
             return false;
         }
+        end_proof("relu_div_proof");
     }
     return true;
 }
