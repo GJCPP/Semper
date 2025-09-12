@@ -74,6 +74,7 @@ void lazy_pcs_pool::record_open(size_t ind, const std::vector<Goldilocks2::Eleme
     }
     open_val.push_back(val);
     open_eqs.push_back(zpad);
+    open_ind.push_back(ind);
 }
 
 bool lazy_pcs_pool::prove_open(ligeropcs_base pcs, Goldilocks2::Element lambda) const {
@@ -83,31 +84,27 @@ bool lazy_pcs_pool::prove_open(ligeropcs_base pcs, Goldilocks2::Element lambda) 
     std::vector<Goldilocks2::Element> table(1ull << num_vars);
     Goldilocks2::Element claim = Goldilocks2::zero();
     Goldilocks2::Element base = Goldilocks2::one();
+    oracle_sum eq_sum_oracle;
     for (size_t i = 0; i != open_eqs.size(); ++i) {
-        int j = 0;
+        int pre_len = prefix[open_ind[i]].size();
         size_t offset = 0;
-        while (open_eqs[i][j] == Goldilocks2::one() || open_eqs[i][j] == Goldilocks2::zero()) {
+        for (int j = 0; j != pre_len; ++j) {
             offset = open_eqs[i][j] == Goldilocks2::one() ? ((offset << 1) | 1) : (offset << 1);
-            ++j;
         }
-        offset <<= (num_vars - j);
-        MLE_Eq eq(open_eqs[i].begin() + j, open_eqs[i].end());
+        offset <<= (num_vars - pre_len);
+        MLE_Eq eq(open_eqs[i].begin() + pre_len, open_eqs[i].end());
         auto& eqt = eq.get_eval_table();
-        for (size_t k = 0; k != (1ull << (num_vars - j)); ++k) {
+        for (size_t k = 0; k != (1ull << (num_vars - pre_len)); ++k) {
             table[k + offset] += eqt[k] * base;
         }
+        eq_sum_oracle.add(std::make_shared<MLE_Eq_Oracle>(open_eqs[i]), base);
         claim += open_val[i] * base;
         base *= lambda;
     }
     MLE mle_sum(std::move(table));
     p2Prover prover(mle_sum.clone(), uni_mle.clone());
-    auto cha = p2Verifier::partial_sumcheck(prover, claim, sec_param);
-    if (!cha) {
-        std::cerr << __LINE__ << ": lazy_pcs_pool::prove_open: partial_sumcheck failed" << std::endl;
-        return false;
-    }
-    if (cha->claim != pcs.open(cha->challenges, sec_param) * mle_sum.open(cha->challenges, sec_param)) {
-        std::cerr << __LINE__ << ": lazy_pcs_pool::prove_open: open value mismatch" << std::endl;
+    if (!p2Verifier::execute_sumcheck(prover, {&eq_sum_oracle, &pcs}, claim, sec_param)) {
+        std::cerr << __LINE__ << ": lazy_pcs_pool::prove_open: sumcheck failed" << std::endl;
         return false;
     }
     return true;

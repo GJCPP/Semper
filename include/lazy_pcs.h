@@ -52,6 +52,7 @@ protected:
     std::vector<std::pair<MLE, size_t>> mles; // (mle, add order)
     std::vector<std::vector<Goldilocks2::Element>> prefix;
     std::vector<std::vector<Goldilocks2::Element>> open_eqs;
+    std::vector<size_t> open_ind;
     std::vector<Goldilocks2::Element> open_val;
     MLE uni_mle;
 

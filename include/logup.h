@@ -22,7 +22,7 @@ public:
     using table_base = std::vector<uint64_t>;
     using table_ext = std::vector<Goldilocks2::Element>;
     // should be replaced with a pcs
-private:
+// private:
     table_base f1, f2, t1, t2, c; // c : multiplicity
     table_ext g, h;
     MultilinearPolynomial polyg, polyh;

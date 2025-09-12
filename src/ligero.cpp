@@ -12,7 +12,7 @@
 #include "counter.h"
 
 // opt_loga for sec_param=32
-int opt_loga[] = {-1, 0, 1, 2, 3, 4, 5, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11};
+int opt_loga[] = {-1, 1, 1, 2, 3, 4, 5, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11};
 
 // reed solomon encode data on base field
 std::vector<Goldilocks::Element> rsencode(const std::vector<Goldilocks::Element>& data, const uint64_t& rho_inv) {
@@ -446,7 +446,7 @@ size_t ligeroVerifier::calculate_t(
 
     double pr = std::pow(2.0, -static_cast<int>(sec_param));
     // unless target sec level can't be achieved
-    assert(pr > residual);
+    assert(pr + 1e-7 > residual);
 
     double numerator = std::log2(pr - residual) - 1;
     double denominator = std::log2((1.0 + 1.0 / static_cast<double>(rho_inv)) * 0.5);

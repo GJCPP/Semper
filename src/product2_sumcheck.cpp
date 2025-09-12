@@ -89,8 +89,12 @@ inline void p2Verifier::interpolate_2(Goldilocks2::Element& fr, const Goldilocks
 }
 
 bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<const oracle*, 2>& oracle, const size_t& sec_param) {
+    return execute_sumcheck(pr, oracle, pr.get_sum(), sec_param);
+}
 
-    Goldilocks2::Element sum = pr.get_sum();
+bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<const oracle*, 2>& oracle, Goldilocks2::Element claim, const size_t& sec_param) {
+
+    Goldilocks2::Element sum = claim;
     size_t nrnd = pr.get_rounds();
     std::vector<Goldilocks2::Element> challenges;
     startCounter counter("p2sumcheck");

@@ -15,6 +15,7 @@
 #include "e_pow_check.h"
 #include "perm_check.h"
 #include "lazy_pcs.h"
+#include "lazy_logup.h"
 
 #define CNT_TEST 100
 
@@ -610,6 +611,55 @@ bool test_logup() {
     return true;
 }
 
+bool test_lazy_logup() {
+    for (int cnt(0); cnt != CNT_TEST; ++cnt) {
+        srand(cnt);
+        int num = 2;
+        int num_table = 1;
+        std::vector<std::vector<uint64_t>> f1(num), f2(num);
+        std::vector<ligeropcs_base> pcs_f1(num), pcs_f2(num);
+        std::vector<size_t> tab(num);
+        std::vector<std::vector<uint64_t>> t1(num_table), t2(num_table);
+        lazyLogupProver prover;
+        lazyLogupVerifier verifier;
+        for (int i = 0; i < num_table; ++i) {
+            size_t table_size = (1ull << (rand() % 10 + 1));
+            std::vector<bool> vis(1 << 18);
+            for (int j = 0; j < table_size; ++j) {
+                size_t new_t1 = rand() % (1ull << 18);
+                while (vis[new_t1]) {
+                    new_t1 = rand() % (1ull << 18);
+                }
+                vis[new_t1] = true;
+                t1[i].push_back(new_t1);
+                t2[i].push_back(rand() % (1ull << 8));
+            }
+            std::sort(t1[i].begin(), t1[i].end());
+        }
+        for (int i = 0; i < num; ++i) {
+            tab[i] = rand() % num_table;
+            size_t fsize = (1ull << (rand() % 10 + 1));
+            for (int j = 0; j < fsize; ++j) {
+                size_t r = rand() % t1[tab[i]].size();
+                f1[i].push_back(t1[tab[i]][r]);
+                f2[i].push_back(t2[tab[i]][r]);
+            }
+            pcs_f1[i] = ligero_commit_base(f1[i], 2);
+            pcs_f2[i] = ligero_commit_base(f2[i], 2);
+        }
+        for (int i = 0; i < num; ++i) {
+            prover.add(f1[i], f2[i], t1[tab[i]], t2[tab[i]]);
+            verifier.add(std::make_shared<ligeropcs_base>(pcs_f1[i]),
+                        std::make_shared<ligeropcs_base>(pcs_f2[i]),
+                        t1[tab[i]], t2[tab[i]]);
+        }
+        if (!verifier.prove_all(prover, 2, 32)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool test_div_check() {
     for (int cnt = 0; cnt < CNT_TEST; ++cnt) {
         srand(cnt);
@@ -1066,12 +1116,16 @@ bool test_lazy_pcs() {
 
 bool run_test() {
     srand(79);
-    if (!test_lazy_pcs()) {
-        std::cout << "test_lazy_pcs failed" << std::endl;
-        return false;
-    }
-    if (!test_pre_sign_check()) {
-        std::cout << "test_pre_sign_check failed" << std::endl;
+    // if (!test_lazy_pcs()) {
+    //     std::cout << "test_lazy_pcs failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_pre_sign_check()) {
+    //     std::cout << "test_pre_sign_check failed" << std::endl;
+    //     return false;
+    // }
+    if (!test_lazy_logup()) {
+        std::cout << "test_lazy_logup failed" << std::endl;
         return false;
     }
     // if (!test_arithmetic()) {

@@ -86,6 +86,31 @@ protected:
 
 typedef MultilinearPolynomial MLE;
 
+class MLE_Sum : public MLE {
+public:
+    MLE_Sum() = default;
+    
+    void add(const MLE& mle, Goldilocks2::Element coeff = Goldilocks2::one()) {
+        if (evaluations.empty()) {
+            num_vars = mle.get_num_vars();
+            evaluations.resize(1ull << num_vars, Goldilocks2::zero());
+        } else if (num_vars != mle.get_num_vars()) {
+            throw std::runtime_error("MLE_Sum::add: number of variables does not match.");
+        }
+        size_t sz = 1ull << num_vars;
+        for (size_t i = 0; i < sz; ++i) {
+            evaluations[i] += coeff * mle[i];
+        }
+    }
+    
+    inline int get_num_vars() const override {
+        if (evaluations.empty()) {
+            throw std::runtime_error("MLE_Sum::get_num_vars: no MLE added.");
+        }
+        return num_vars;
+    }
+};
+
 // mle_aux_info process_challenges(
 //     int n,
 //     const std::vector<size_t>& shape,
