@@ -13,7 +13,7 @@
 
 class VGG11 : public CNN {
 public:
-    VGG11(std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv);
+    VGG11(std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv, uint64_t sec_param);
 };
 
 

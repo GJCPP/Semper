@@ -3,7 +3,7 @@
 #include "mle.h"
 #include "div_check.h"
 #include "lazy_pcs.h"
-
+#include "lazy_logup.h"
 
 std::vector<Goldilocks2::Element> get_sign(const std::vector<Goldilocks2::Element>& vec, bool strict_positive);
 
@@ -16,11 +16,15 @@ public:
 
     signProver(const std::vector<Goldilocks2::Element>& vec,
             const std::vector<Goldilocks2::Element>& sign,
-            uint64_t scale, uint64_t max_val, bool strict_positive, uint64_t rho_inv);
+            uint64_t scale, uint64_t max_val, bool strict_positive, 
+            uint64_t rho_inv,
+            lazyLogupProver *lazy_logup_prover);
             
     signProver(const std::vector<uint64_t>& vec,
             const std::vector<uint64_t>& sign,
-            uint64_t scale, uint64_t max_val, bool strict_positive, uint64_t rho_inv);
+            uint64_t scale, uint64_t max_val, bool strict_positive,
+            uint64_t rho_inv,
+            lazyLogupProver *lazy_logup_prover);
 
     divProver next_prover(ligeropcs_base& pcs_quo, ligeropcs_base& pcs_rem, signProver& next_prover) const;
 
@@ -54,12 +58,16 @@ public:
         return commit_lazy_pcs(vec, pool);
     }
 
+    inline bool use_lazy_logup() const {
+        return lazy_logup_prover != nullptr;
+    }
+
 protected:
     uint64_t scale, max_val;
     bool strict;
     uint64_t rho_inv, num_vars;
     std::vector<Goldilocks2::Element> vec, sign; 
-
+    lazyLogupProver *lazy_logup_prover = nullptr;
 };
 
 class signVerifier {
@@ -86,7 +94,8 @@ public:
 
     static resource pre_execute_sign_check(
         const signProver& prover,
-        lazy_pcs_pool *pool
+        lazy_pcs_pool *pool,
+        lazyLogupVerifier *lazy_logup_verifier
     );
 
     static bool execute_sign_check(
@@ -94,6 +103,7 @@ public:
         std::shared_ptr<oracle> pcs_x,
         std::shared_ptr<oracle> pcs_sign,
         uint64_t sec_param,
+        lazyLogupVerifier *lazy_logup_verifier,
         resource& prev_resource
     );
 
@@ -101,6 +111,7 @@ public:
         const signProver& prover,
         std::shared_ptr<oracle> pcs_x,
         std::shared_ptr<oracle> pcs_sign,
-        uint64_t sec_param
+        uint64_t sec_param,
+        lazyLogupVerifier *lazy_logup_verifier
     );
 };

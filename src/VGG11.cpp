@@ -7,8 +7,8 @@
 #include "timer.h"
 // static std::unordered_map<size_t, size_t> relu_map = {};
 
-VGG11::VGG11(std::string _data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv)
-    : CNN("VGG11", _data_dir + "/VGG11", epoch, scale, max_value, rho_inv) {
+VGG11::VGG11(std::string _data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv, uint64_t sec_param)
+    : CNN("VGG11", _data_dir + "/VGG11", epoch, scale, max_value, rho_inv, sec_param) {
 
     set_timer("VGG11 load & commit");
 

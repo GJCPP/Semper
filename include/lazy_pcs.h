@@ -36,6 +36,8 @@ protected:
 class lazy_pcs_pool {
 public:
     friend class lazy_pcs;
+    
+    lazy_pcs_pool(size_t sec_param) : sec_param(sec_param) {}
     size_t add_mle(const MLE& mle) {
         mles.push_back({mle, mles.size()});
         return mles.size() - 1;
@@ -47,8 +49,8 @@ public:
 
 protected:
     bool committed = false;
-    int num_vars;
-    size_t sec_param;
+    int num_vars = 0;
+    size_t sec_param = 32;
     std::vector<std::pair<MLE, size_t>> mles; // (mle, add order)
     std::vector<std::vector<Goldilocks2::Element>> prefix;
     std::vector<std::vector<Goldilocks2::Element>> open_eqs;

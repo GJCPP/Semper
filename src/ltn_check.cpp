@@ -4,8 +4,9 @@
 ltnProver::ltnProver(
     const std::vector<Goldilocks2::Element>& vec,
     Goldilocks2::Element bar,
-    uint64_t scale, uint64_t max_val, bool strict, uint64_t rho_inv)
-    : vec(vec), bar(bar), scale(scale), max_val(max_val), strict(strict), rho_inv(rho_inv) {
+    uint64_t scale, uint64_t max_val, bool strict, uint64_t rho_inv,
+    lazyLogupProver* lazy_logup_prover)
+    : vec(vec), bar(bar), scale(scale), max_val(max_val), strict(strict), rho_inv(rho_inv), lazy_logup_prover(lazy_logup_prover) {
     num = vec.size();
     init_ltn();
 }
@@ -13,8 +14,9 @@ ltnProver::ltnProver(
 ltnProver::ltnProver(
     const std::vector<uint64_t>& vec_u,
     Goldilocks2::Element bar,
-    uint64_t scale, uint64_t max_val, bool strict, uint64_t rho_inv)
-    : vec(vec_u.size()), bar(bar), scale(scale), max_val(max_val), strict(strict), rho_inv(rho_inv) {
+    uint64_t scale, uint64_t max_val, bool strict, uint64_t rho_inv,
+    lazyLogupProver* lazy_logup_prover)
+    : vec(vec_u.size()), bar(bar), scale(scale), max_val(max_val), strict(strict), rho_inv(rho_inv), lazy_logup_prover(lazy_logup_prover) {
     num = vec.size();
     ltn.resize(num);
     for (size_t i = 0; i < vec.size(); ++i) {
@@ -45,7 +47,7 @@ signProver ltnProver::prove_rev_ltn(bool _strict) {
     if (strict != _strict) {
         throw std::invalid_argument("ltnProver: Proving with different strictness than initialized");
     }
-    return signProver(sub, rev_ltn, scale, 2 * max_val, !strict, rho_inv);
+    return signProver(sub, rev_ltn, scale, 2 * max_val, !strict, rho_inv, lazy_logup_prover);
 }
 
 void ltnProver::init_ltn() {
@@ -74,10 +76,16 @@ bool ltnVerifier::execute_ltn_check(
     Goldilocks2::Element bar,
     uint64_t max_val,
     bool strict,
-    size_t sec_param) {
+    size_t sec_param,
+    lazyLogupVerifier* lazy_logup_verifier) {
 
     size_t num = prover.get_num();
     int lognum = find_ceiling_log2(num);
+
+    bool use_lazy_logup = (lazy_logup_verifier != nullptr);
+    if (use_lazy_logup != prover.use_lazy_logup()) {
+        throw std::invalid_argument("ltnVerifier: disagree in lazy_logup.");
+    }
 
     // Step 1. Commit/Prove sub, rev_ltn
     auto pcs_sub = prover.commit_sub(), pcs_rev_ltn = prover.commit_rev_ltn();
@@ -97,7 +105,8 @@ bool ltnVerifier::execute_ltn_check(
         sign_prover, 
         std::make_shared<ligeropcs_base>(pcs_sub), 
         std::make_shared<ligeropcs_base>(pcs_rev_ltn), 
-        sec_param)) {
+        sec_param,
+        lazy_logup_verifier)) {
         std::cerr << "❌ LTN check failed: Sign check failed" << std::endl;
         return false;
     }

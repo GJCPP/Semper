@@ -122,7 +122,14 @@ bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<const oracle*, 
             if (round == nrnd) {
                 challenges.push_back(challenge());
 
-                Goldilocks2::Element f_r = oracle[0]->open(challenges, sec_param) * oracle[1]->open(challenges, sec_param);
+                start_proof("p2 final open1");
+                auto o1 = oracle[0]->open(challenges, sec_param);
+                end_proof("p2 final open1");
+                start_proof("p2 final open2");
+                auto o2 = oracle[1]->open(challenges, sec_param);
+                end_proof("p2 final open2");
+                auto f_r = o1 * o2;
+                // Goldilocks2::Element f_r = oracle[0]->open(challenges, sec_param) * oracle[1]->open(challenges, sec_param);
                 Goldilocks2::Element slrl;
                 Goldilocks2::Element rl = challenges[round - 1];
                 interpolate_2(slrl, rl, si[0], si[1], si[2]);

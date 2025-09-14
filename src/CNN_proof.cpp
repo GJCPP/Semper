@@ -578,6 +578,8 @@ CNN::layer_res pre_prove_relu_layer(
     const CNN::layer_info& layer,
     size_t scale, size_t max_val, size_t sqr_val,
     size_t rho_inv,
+    lazyLogupProver* lazy_logup_prover,
+    lazyLogupVerifier* lazy_logup_verifier,
     lazy_pcs_pool* pool) {
 
     CNN::layer_res ret;
@@ -624,8 +626,8 @@ CNN::layer_res pre_prove_relu_layer(
         lazy_pcs pcs_X_scale_sign = commit_lazy_pcs(X_scale_sign, pool);
         // ret.vec["X_scale_sign" + _i] = X_scale_sign;
         ret.pcs["pcs_X_scale_sign" + _i] = pcs_X_scale_sign;
-        signProver sign_prover_X(X_quo, X_scale_sign, scale, max_val, true, rho_inv);
-        signVerifier::resource sign_res = signVerifier::pre_execute_sign_check(sign_prover_X, pool);
+        signProver sign_prover_X(X_quo, X_scale_sign, scale, max_val, true, rho_inv, lazy_logup_prover);
+        signVerifier::resource sign_res = signVerifier::pre_execute_sign_check(sign_prover_X, pool, lazy_logup_verifier);
         ret.res["sign_res" + _i] = std::make_shared<signVerifier::resource>(sign_res);
         // 3. Prove Y = X_scale_sign * X_quo
 
@@ -707,13 +709,14 @@ bool prove_relu_layer(const CNN::layer_info& layer,
         auto X_scale_sign = get_sign(X_quo, true);
         const auto& pcs_X_scale_sign = wit.pcs.at("pcs_X_scale_sign" + _i);
         start_proof("relu_sign_proof");
-        signProver sign_prover_X(X_quo, X_scale_sign, scale, max_val, true, rho_inv);
+        signProver sign_prover_X(X_quo, X_scale_sign, scale, max_val, true, rho_inv, lazy_logup_prover);
         auto sign_res = reinterpret_cast<signVerifier::resource*>(wit.res.at("sign_res" + _i).get());
         if (!signVerifier::execute_sign_check(
             sign_prover_X, 
             std::make_shared<lazy_pcs>(pcs_X_quo), 
             std::make_shared<lazy_pcs>(pcs_X_scale_sign), 
             sec_param, 
+            lazy_logup_verifier,
             *sign_res)) {
 
             std::cout << "❌ Proving relu forward X_scale_sign failed." << std::endl;
@@ -761,12 +764,13 @@ bool prove_relu_layer(const CNN::layer_info& layer,
         auto dX_rem = get_rem(dY_filtered, scale, dX_copy, true);
         auto pcs_dX_rem = wit.pcs.at("pcs_dX_rem" + _i);
         start_proof("relu_div_proof");
-        divProver div_prover_dX(dY_filtered, dX_copy, dX_rem, scale, true, rho_inv);
+        divProver div_prover_dX(dY_filtered, dX_copy, dX_rem, scale, true, rho_inv, lazy_logup_prover);
         if (!divVerifier::execute_div_check(div_prover_dX,
             std::make_shared<lazy_pcs>(pcs_dY_filtered),
             std::make_shared<lazy_pcs>(pcs_dX),
             std::make_shared<lazy_pcs>(pcs_dX_rem),
-            sec_param)) {
+            sec_param, 
+            lazy_logup_verifier)) {
             std::cout << "❌ Proving relu backward dX failed." << std::endl;
             return false;
         }
@@ -805,7 +809,10 @@ bool prove_pool_shrink(int logimg, int logC, int logN, const oracle& before, con
 
 CNN::layer_res pre_prove_pool_layer(const CNN::layer_info& layer,
     size_t scale, size_t max_val,
-    size_t rho_inv, lazy_pcs_pool* pool)  {
+    size_t rho_inv, 
+    lazyLogupProver* lazy_logup_prover,
+    lazyLogupVerifier* lazy_logup_verifier,
+    lazy_pcs_pool* pool)  {
     
     CNN::layer_res ret;
     startCounter counter("pool_proof");
@@ -886,8 +893,8 @@ CNN::layer_res pre_prove_pool_layer(const CNN::layer_info& layer,
         std::vector<Goldilocks2::Element> input_ones(input.size(), Goldilocks2::one());
         MLE mle_input_ones = MLE(input_ones);
         // TODO 3. Check pcs_input_ones = 1
-        signProver sign_prover_diff(diff.data, input_ones, scale, max_val * 2, false, rho_inv);
-        auto sign_res = signVerifier::pre_execute_sign_check(sign_prover_diff, pool);
+        signProver sign_prover_diff(diff.data, input_ones, scale, max_val * 2, false, rho_inv, lazy_logup_prover);
+        auto sign_res = signVerifier::pre_execute_sign_check(sign_prover_diff, pool, lazy_logup_verifier);
         ret.res["sign_res_diff" + _i] = std::make_shared<signVerifier::resource>(sign_res);
 
         // II.4 Prover commits and proves sel_input = input * sel
@@ -934,7 +941,10 @@ CNN::layer_res pre_prove_pool_layer(const CNN::layer_info& layer,
 }
 bool prove_pool_layer(const CNN::layer_info& layer,
     size_t scale, size_t max_val,
-    size_t rho_inv, size_t sec_param, const CNN::layer_res& wit) {
+    size_t rho_inv, size_t sec_param,
+    lazyLogupProver* lazy_logup_prover,
+    lazyLogupVerifier* lazy_logup_verifier,
+    const CNN::layer_res& wit) {
 
     startCounter counter("pool_proof");
 
@@ -1062,12 +1072,13 @@ bool prove_pool_layer(const CNN::layer_info& layer,
         MLE mle_input_ones = MLE(input_ones);
         // TODO 3. Check pcs_input_ones = 1
         signVerifier::resource sign_res_diff = *reinterpret_cast<signVerifier::resource*>(wit.res.at("sign_res_diff" + _i).get());
-        signProver sign_prover_diff(diff.data, input_ones, scale, max_val * 2, false, rho_inv);
+        signProver sign_prover_diff(diff.data, input_ones, scale, max_val * 2, false, rho_inv, lazy_logup_prover);
         if (!signVerifier::execute_sign_check(
             sign_prover_diff, 
             std::make_shared<lazy_pcs>(pcs_diff), 
-            std::make_shared<MLE>(mle_input_ones), 
+            std::make_shared<MLE>(mle_input_ones),
             sec_param, 
+            lazy_logup_verifier,
             sign_res_diff)) {
             std::cout << "❌ II.3 Proving diff is non-negative failed: sign proof fails." << std::endl;
             return false;
@@ -1176,12 +1187,13 @@ bool prove_softmax(const CNN::layer_info& layer,
         MultilinearPolynomial mle_quo(quo);
         auto pcs_quo = ligero_commit_base(mle_quo, rho_inv);
         auto pcs_rem = ligero_commit_base(rem, rho_inv);
-        divProver div_prover(input_copy, quo, rem, scale, true, rho_inv);
+        divProver div_prover(input_copy, quo, rem, scale, true, rho_inv, lazy_logup_prover);
         if (!divVerifier::execute_div_check(div_prover,
             std::make_shared<lazy_pcs>(pcs_input),
             std::make_shared<ligeropcs_base>(pcs_quo),
             std::make_shared<ligeropcs_base>(pcs_rem),
-            sec_param)) {
+            sec_param,
+            lazy_logup_verifier)) {
             std::cout << "❌ Proving softmax scale input failed." << std::endl;
             return false;
         }
@@ -1288,12 +1300,13 @@ bool prove_softmax(const CNN::layer_info& layer,
         MLE mle_ones = MLE(ones);
         // auto pcs_ones = ligero_commit_base(ones, rho_inv);
         // TODO: Check pcs_ones = 1
-        signProver sign_prover_diff_masked(diff_masked.data, ones, scale, 2 * max_val, false, rho_inv);
+        signProver sign_prover_diff_masked(diff_masked.data, ones, scale, 2 * max_val, false, rho_inv, lazy_logup_prover);
         if (!signVerifier::execute_sign_check(
             sign_prover_diff_masked, 
             std::make_shared<ligeropcs_base>(pcs_diff_masked), 
             std::make_shared<MLE>(mle_ones), 
-            sec_param)) {
+            sec_param,
+            lazy_logup_verifier)) {
 
             std::cout << "❌ Proving softmax diff_masked >= 0 failed: sign proof fails." << std::endl;
             return false;
@@ -1404,12 +1417,13 @@ bool prove_softmax(const CNN::layer_info& layer,
         }
         std::vector<Goldilocks2::Element> input_zeros(img * (1 << logn));
         std::shared_ptr<MultilinearPolynomial> mle_input_zeros = std::make_shared<MLE>(input_zeros);
-        signProver sign_prover_d_rem_sum(mle_d_rem_sum.get_eval_table(), input_zeros, scale, 2 * max_val, false, rho_inv);
+        signProver sign_prover_d_rem_sum(mle_d_rem_sum.get_eval_table(), input_zeros, scale, 2 * max_val, false, rho_inv, lazy_logup_prover);
         if (!signVerifier::execute_sign_check(
             sign_prover_d_rem_sum, 
             std::make_shared<ligeropcs_base>(pcs_d_rem_sum), 
             mle_input_zeros, 
-            sec_param)) {
+            sec_param,
+            lazy_logup_verifier)) {
             std::cout << "❌ Proving softmax d_rem - sum < 0 failed: sign proof fails." << std::endl;
             return false;
         }
@@ -1423,12 +1437,13 @@ bool prove_softmax(const CNN::layer_info& layer,
         }
         auto d_input_rem = get_rem(mle_d_delta.get_eval_table(), img, mle_d_input.get_eval_table(), true);
         auto pcs_d_input_rem = ligero_commit_base(d_input_rem, rho_inv);
-        divProver div_prover_d_input(mle_d_delta.get_eval_table(), mle_d_input.get_eval_table(), d_input_rem, img, true, rho_inv);
+        divProver div_prover_d_input(mle_d_delta.get_eval_table(), mle_d_input.get_eval_table(), d_input_rem, img, true, rho_inv, lazy_logup_prover);
         if (!divVerifier::execute_div_check(div_prover_d_input, 
             std::make_shared<ligeropcs_base>(pcs_d_delta), 
             std::make_shared<lazy_pcs>(pcs_d_input), 
             std::make_shared<ligeropcs_base>(pcs_d_input_rem), 
-            sec_param)) {
+            sec_param,
+            lazy_logup_verifier)) {
             std::cout << "❌ Proving softmax d_input = (d_quo - sel * scale) / n failed." << std::endl;
             return false;
         }

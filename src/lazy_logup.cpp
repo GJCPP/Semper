@@ -135,7 +135,7 @@ void lazyLogupVerifier::add(
 }
 
 bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, uint64_t rho_inv, uint64_t sec_param) {
-    lazy_pcs_pool pool;
+    lazy_pcs_pool pool(sec_param);
     std::vector<lazy_pcs> pcs_f1_all, pcs_f2_all;
     for (size_t id = 0; id < tables_all.size(); id++) { // table id
         // 0. preprocess

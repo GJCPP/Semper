@@ -63,7 +63,7 @@ LogupProver eProver::get_logup_prover(
 
 ltnProver eProver::prove_ltn(uint64_t n) {
     bar = n;
-    return ltnProver(from, Goldilocks2::fromU64(bar), scale, max_val, true, rho_inv);
+    return ltnProver(from, Goldilocks2::fromU64(bar), scale, max_val, true, rho_inv, lazy_logup_prover);
 }
 
 ligeropcs_base eProver::commit_filtered_from() {
@@ -164,7 +164,7 @@ bool eVerifier::execute_check(
             pcs_from,
             pcs_ltn,
             Goldilocks2::fromU64(bar),
-            max_val, true, sec_param)) {
+            max_val, true, sec_param, lazy_logup_verifier)) {
             std::cerr << "❌ eVerifier: execute_ltn_check failed." << std::endl;
             return false;
         }

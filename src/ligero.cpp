@@ -12,7 +12,7 @@
 #include "counter.h"
 
 // opt_loga for sec_param=32
-int opt_loga[] = {-1, 1, 1, 2, 3, 4, 5, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11};
+int opt_loga[] = {-1, 1, 1, 2, 3, 4, 5, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13};
 
 // reed solomon encode data on base field
 std::vector<Goldilocks::Element> rsencode(const std::vector<Goldilocks::Element>& data, const uint64_t& rho_inv) {
@@ -40,6 +40,10 @@ std::vector<Goldilocks2::Element> rsencode(const std::vector<Goldilocks2::Elemen
 
 void get_ab(int num_vars, int loga, size_t& a, size_t& b) {
     if (loga == -1 || loga > num_vars) {
+        if (num_vars > 33) {
+            std::cerr << "⚠️ Warning: num_vars > 33." << std::endl;
+            throw;
+        }
         a = (1ull << opt_loga[num_vars]);
         b = (1ull << (num_vars - opt_loga[num_vars]));
     } else {

@@ -4,8 +4,10 @@
 signProver::signProver(
     const std::vector<Goldilocks2::Element>& vec,
     const std::vector<Goldilocks2::Element>& sign,
-    uint64_t scale, uint64_t max_val, bool strict_positive, uint64_t rho_inv)
-    : scale(scale), max_val(max_val), strict(strict_positive), rho_inv(rho_inv), num_vars(find_ceiling_log2(vec.size())), vec(vec), sign(sign) {
+    uint64_t scale, uint64_t max_val, bool strict_positive,
+    uint64_t rho_inv,
+    lazyLogupProver *lazy_logup_prover)
+    : scale(scale), max_val(max_val), strict(strict_positive), rho_inv(rho_inv), num_vars(find_ceiling_log2(vec.size())), vec(vec), sign(sign), lazy_logup_prover(lazy_logup_prover) {
     if (!is_power_of_2(scale)) {
         throw std::invalid_argument("signProver: Scale must be a power of 2");
     }
@@ -22,8 +24,10 @@ signProver::signProver(
 signProver::signProver(
     const std::vector<uint64_t>& vec_u,
     const std::vector<uint64_t>& sign_u,
-    uint64_t scale, uint64_t max_val, bool strict_positive, uint64_t rho_inv)
-    : scale(scale), max_val(max_val), strict(strict_positive), rho_inv(rho_inv), num_vars(find_ceiling_log2(vec.size())) {
+    uint64_t scale, uint64_t max_val, bool strict_positive,
+    uint64_t rho_inv,
+    lazyLogupProver *lazy_logup_prover)
+    : scale(scale), max_val(max_val), strict(strict_positive), rho_inv(rho_inv), num_vars(find_ceiling_log2(vec.size())), lazy_logup_prover(lazy_logup_prover) {
     if (!is_power_of_2(scale)) {
         throw std::invalid_argument("signProver: Scale must be a power of 2");
     }
@@ -47,18 +51,18 @@ divProver signProver::next_prover(ligeropcs_base& pcs_quo, ligeropcs_base& pcs_r
     auto [quo, rem] = get_quo_rem(vec, scale, false);
     pcs_quo = ligero_commit_base(quo, rho_inv);
     pcs_rem = ligero_commit_base(rem, rho_inv);
-    next_prover = signProver(quo, sign, scale, max_val / scale, false, rho_inv);
+    next_prover = signProver(quo, sign, scale, max_val / scale, false, rho_inv, lazy_logup_prover);
 
-    return divProver(vec, quo, rem, scale, false, rho_inv);
+    return divProver(vec, quo, rem, scale, false, rho_inv, lazy_logup_prover);
 }
 
 divProver signProver::pre_next_prover(lazy_pcs &pcs_quo, lazy_pcs &pcs_rem, signProver& next_prover, lazy_pcs_pool *pool) const {
     auto [quo, rem] = get_quo_rem(vec, scale, false);
     pcs_quo = commit_lazy_pcs(quo, pool);
     pcs_rem = commit_lazy_pcs(rem, pool);
-    next_prover = signProver(quo, sign, scale, max_val / scale, false, rho_inv);
+    next_prover = signProver(quo, sign, scale, max_val / scale, false, rho_inv, lazy_logup_prover);
 
-    return divProver(vec, quo, rem, scale, false, rho_inv);
+    return divProver(vec, quo, rem, scale, false, rho_inv, lazy_logup_prover);
 }
 
 std::vector<Goldilocks2::Element> get_sign(const std::vector<Goldilocks2::Element>& vec, bool strict) {
@@ -80,7 +84,8 @@ std::vector<Goldilocks2::Element> get_sign(const std::vector<Goldilocks2::Elemen
 
 signVerifier::resource signVerifier::pre_execute_sign_check(
     const signProver& prover,
-    lazy_pcs_pool *pool) {
+    lazy_pcs_pool *pool,
+    lazyLogupVerifier *lazy_logup_verifier) {
 
     ligeropcs_base pcs_bias_x;
     std::map<std::string, lazy_pcs> pcs;
@@ -102,7 +107,7 @@ signVerifier::resource signVerifier::pre_execute_sign_check(
         // 1. Check pcs_x = pcs_quo * scale + pcs_rem
         // divVerifier::pre_execute_div_check(div_prover, pcs_x, pcs_quo, pcs_rem, sec_param);
         // 2. Recursively check the next round
-        ret = pre_execute_sign_check(next_prover, pool);
+        ret = pre_execute_sign_check(next_prover, pool, lazy_logup_verifier);
         
     }
     ret.push_back(pcs, div_prover, next_prover);
@@ -114,7 +119,13 @@ bool signVerifier::execute_sign_check(
     std::shared_ptr<oracle> pcs_x, 
     std::shared_ptr<oracle> pcs_sign,
     uint64_t sec_param,
+    lazyLogupVerifier *lazy_logup_verifier,
     resource& re) {
+
+    bool use_lazy_logup = (lazy_logup_verifier != nullptr);
+    if (use_lazy_logup != prover.use_lazy_logup()) {
+        throw std::runtime_error("signVerifier: Mismatch in lazy logup usage between prover and verifier");
+    }
 
     lazy_pcs pcs_bias_x;
     if (prover.strict) {
@@ -150,12 +161,13 @@ bool signVerifier::execute_sign_check(
             pcs_x, 
             std::make_shared<lazy_pcs>(pcs_quo), 
             std::make_shared<lazy_pcs>(pcs_rem), 
-            sec_param)) {
+            sec_param,
+            lazy_logup_verifier)) {
             std::cerr << "❌Sign check failed: div check failed" << std::endl;
             return false;
         }
         // 2. Recursively check the next round
-        if (!execute_sign_check(next_prover, std::make_shared<lazy_pcs>(pcs_quo), pcs_sign, sec_param, re)) {
+        if (!execute_sign_check(next_prover, std::make_shared<lazy_pcs>(pcs_quo), pcs_sign, sec_param, lazy_logup_verifier, re)) {
             std::cerr << "❌Sign check failed: next round check failed" << std::endl;
             return false;
         }
@@ -167,7 +179,8 @@ bool signVerifier::execute_sign_check(
     const signProver& prover, 
     std::shared_ptr<oracle> pcs_x, 
     std::shared_ptr<oracle> pcs_sign, 
-    uint64_t sec_param) {
+    uint64_t sec_param,
+    lazyLogupVerifier *lazy_logup_verifier) {
 
     ligeropcs_base pcs_bias_x;
     if (prover.strict) {
@@ -195,8 +208,10 @@ bool signVerifier::execute_sign_check(
             div_prover, 
             pcs_x, 
             std::make_shared<ligeropcs_base>(pcs_quo), 
-            std::make_shared<ligeropcs_base>(pcs_rem), 
-            sec_param)) {
+            std::make_shared<ligeropcs_base>(pcs_rem),
+            sec_param,
+            lazy_logup_verifier
+        )) {
             std::cerr << "❌Sign check failed: div check failed" << std::endl;
             return false;
         }
@@ -204,8 +219,9 @@ bool signVerifier::execute_sign_check(
         if (!execute_sign_check(
             next_prover, 
             std::make_shared<ligeropcs_base>(pcs_quo), 
-            pcs_sign, 
-            sec_param)) {
+            pcs_sign,
+            sec_param,
+            lazy_logup_verifier)) {
 
             std::cerr << "❌Sign check failed: next round check failed" << std::endl;
             return false;

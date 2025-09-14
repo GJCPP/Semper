@@ -9,8 +9,8 @@
 #include "counter.h"
 
 
-CNN::CNN(std::string _model_name, std::string _data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv)
-    : model_name(_model_name), data_dir(_data_dir), epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * scale), rho_inv(rho_inv) {
+CNN::CNN(std::string _model_name, std::string _data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv, uint64_t sec_param)
+    : model_name(_model_name), data_dir(_data_dir), epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * scale), rho_inv(rho_inv), sec_param(sec_param), pcs_pool(sec_param) {
     ;
 }
 
@@ -301,13 +301,13 @@ void CNN::pre_prove(size_t sec_param) {
 
             case layer_type::relu:
                 set_timer("preprove relu");
-                layer.wit = pre_prove_relu_layer(layer, scale, max_val, sqr_val, rho_inv, &pcs_pool);
+                layer.wit = pre_prove_relu_layer(layer, scale, max_val, sqr_val, rho_inv, &lazy_logup_prover, &lazy_logup_verifier, &pcs_pool);
                 pause_timer("preprove relu");
                 break;
 
             case layer_type::pool:
                 set_timer("preprove pool");
-                layer.wit = pre_prove_pool_layer(layer, scale, max_val, rho_inv, &pcs_pool);
+                layer.wit = pre_prove_pool_layer(layer, scale, max_val, rho_inv, &lazy_logup_prover, &lazy_logup_verifier, &pcs_pool);
                 pause_timer("preprove pool");
                 break;
 
@@ -364,8 +364,8 @@ bool CNN::prove(size_t sec_param) {
     pause_timer("check input");
     for (auto& layer : layers) {
         // print_all_proof_size(Counter::MB);
-        // if (layer.type != layer_type::conv) {
-        //     std::cout << "=================Skipping layer " << layer.name << " (not conv)" << std::endl;
+        // if (layer.type != layer_type::relu) {
+        //     std::cout << "=================Skipping layer " << layer.name << " (not relu)" << std::endl;
         //     continue;
         // }
         std::cout << "Proving layer " << layer.name << "..." << std::endl;
@@ -399,7 +399,7 @@ bool CNN::prove(size_t sec_param) {
 
             case layer_type::pool:
                 set_timer("prove pool");
-                if (!prove_pool_layer(layer, scale, max_val, rho_inv, sec_param, layer.wit)) {
+                if (!prove_pool_layer(layer, scale, max_val, rho_inv, sec_param, &lazy_logup_prover, &lazy_logup_verifier, layer.wit)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
                     return false;
                 }
@@ -429,9 +429,19 @@ bool CNN::prove(size_t sec_param) {
         }
     }
 
-    // std::cout << "==============Warning: Skipping final open proof." << std::endl;
+    start_proof("final logup");
+    if (!lazy_logup_verifier.prove_all(lazy_logup_prover, rho_inv, sec_param)) {
+        std::cout << "❌ Final lazy logup proof failed." << std::endl;
+        return false;
+    }
+    end_proof("final logup");
+
+    // std::cout << "===================Warning: skip final opening." << std::endl;
     start_proof("final open");
-    prove_final_open(random_ext());
+    if (!prove_final_open(random_ext())) {
+        std::cout << "❌ Final opening proof failed." << std::endl;
+        return false;
+    }
     end_proof("final open");
 
     pause_timer(std::format("prove {} total", model_name));

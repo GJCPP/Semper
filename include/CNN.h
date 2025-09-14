@@ -174,7 +174,7 @@ public:
         }
     };
 
-    CNN(std::string model_name, std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv);
+    CNN(std::string model_name, std::string data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv, uint64_t sec_param);
 
     // This is for checking data integrity, and is not to be executed in real proof.
     bool check(size_t n_samples = 0) const;
@@ -213,7 +213,7 @@ protected:
 
     int epoch, minibatch, img_per_batch;
     int64_t scale, max_val, sqr_val;
-    uint64_t rho_inv;
+    uint64_t rho_inv, sec_param;
     
     cnpy::npz_t dataset, filedata; // responsible for releasing data
     

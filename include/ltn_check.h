@@ -6,6 +6,7 @@
 #include "mle.h"
 #include "ligero.h"
 #include "sign_check.h"
+#include "lazy_logup.h"
 
 class ltnProver {
 public:
@@ -13,11 +14,14 @@ public:
 
     ltnProver(const std::vector<Goldilocks2::Element>& vec,
               Goldilocks2::Element bar,
-              uint64_t scale, uint64_t max_val, bool strict, uint64_t rho_inv);
+              uint64_t scale, uint64_t max_val, bool strict, 
+              uint64_t rho_inv,
+              lazyLogupProver* lazy_logup_prover);
 
     ltnProver(const std::vector<uint64_t>& vec,
               Goldilocks2::Element bar,
-              uint64_t scale, uint64_t max_val, bool strict, uint64_t rho_inv);
+              uint64_t scale, uint64_t max_val, bool strict, uint64_t rho_inv,
+              lazyLogupProver* lazy_logup_prover);
 
     inline const std::vector<Goldilocks2::Element>& get_ltn() const { return ltn; }
 
@@ -28,6 +32,10 @@ public:
     inline ligeropcs_base get_pcs_rev_ltn() const { 
         if (pcs_rev_ltn.empty()) throw std::runtime_error("ltnProver::get_pcs_rev_ltn: pcs_rev_ltn not initialized");
         return pcs_rev_ltn;
+    }
+
+    inline bool use_lazy_logup() const {
+        return lazy_logup_prover != nullptr;
     }
 
     ligeropcs_base commit_sub();
@@ -45,6 +53,8 @@ protected:
 
     ligeropcs_base pcs_ltn, pcs_rev_ltn, pcs_sub;
 
+    lazyLogupProver* lazy_logup_prover = nullptr;
+
     void init_ltn();
 };
 
@@ -57,6 +67,7 @@ public:
         Goldilocks2::Element bar,
         uint64_t max_val,
         bool strict,
-        size_t sec_param);
+        size_t sec_param,
+        lazyLogupVerifier* lazy_logup_verifier);
 };
 

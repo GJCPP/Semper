@@ -718,14 +718,15 @@ bool test_sign_check() {
             num[i] = Goldilocks2::fromS64(num_val[i]);
             sign[i] = Goldilocks2::fromS64(sign_val[i]);
         }
-        signProver prover(num, sign, denom, max_val, strict, 2);
+        signProver prover(num, sign, denom, max_val, strict, 2, nullptr);
         ligeropcs_base pcs_num = ligero_commit_base(num, 2);
         ligeropcs_base pcs_sign = ligero_commit_base(sign, 2);
         if (!signVerifier::execute_sign_check(
             prover,
             std::make_shared<ligeropcs_base>(pcs_num),
             std::make_shared<ligeropcs_base>(pcs_sign),
-            32)) {
+            32,
+            nullptr)) {
             return false;
         }
     }
@@ -734,7 +735,7 @@ bool test_sign_check() {
 
 bool test_pre_sign_check() {
     for (int cnt = 0; cnt < CNT_TEST; ++cnt) {
-        lazy_pcs_pool pool;
+        lazy_pcs_pool pool(32);
         srand(cnt);
         bool strict = rand() % 2 == 0;
         int64_t denom = (1ull << (rand() % 10 + 1));
@@ -750,16 +751,17 @@ bool test_pre_sign_check() {
             num[i] = Goldilocks2::fromS64(num_val[i]);
             sign[i] = Goldilocks2::fromS64(sign_val[i]);
         }
-        signProver prover(num, sign, denom, max_val, strict, 2);
+        signProver prover(num, sign, denom, max_val, strict, 2, nullptr);
         ligeropcs_base pcs_num = ligero_commit_base(num, 2);
         ligeropcs_base pcs_sign = ligero_commit_base(sign, 2);
-        auto res = signVerifier::pre_execute_sign_check(prover, &pool);
+        auto res = signVerifier::pre_execute_sign_check(prover, &pool, nullptr);
         auto uni_pcs = pool.commit(2);
         if (!signVerifier::execute_sign_check(
             prover,
             std::make_shared<ligeropcs_base>(pcs_num),
             std::make_shared<ligeropcs_base>(pcs_sign),
             32,
+            nullptr,
             res)) {
             std::cout << __LINE__ << ": Failed at execute_sign_check." << std::endl;
             return false;
@@ -817,7 +819,7 @@ bool test_ltn_check() {
             a[i] = Goldilocks2::fromS64((rand() % 1999) - 999);
         }
         bool strict = rand() % 2 == 0;
-        ltnProver prover(a, b, 1<<14, 1000, strict, 2);
+        ltnProver prover(a, b, 1<<14, 1000, strict, 2, nullptr);
         auto ltn = prover.get_ltn();
         for (size_t i = 0; i < n; ++i) {
             if (strict) {
@@ -839,7 +841,7 @@ bool test_ltn_check() {
             pcs_a,
             pcs_ltn,
             b,
-            1000, strict, 32)) {
+            1000, strict, 32, nullptr)) {
             return false;
         }
     }
@@ -1100,7 +1102,7 @@ bool test_lazy_pcs() {
         for (size_t i = 0; i != sz; ++i) {
             mleA[i] = A[i];
         }
-        lazy_pcs_pool pool;
+        lazy_pcs_pool pool(32);
         std::vector<lazy_pcs> pcs;
         for (size_t i = 0; i != sz; ++i) {
             pcs.push_back(commit_lazy_pcs(mleA[i], &pool));
@@ -1134,7 +1136,7 @@ bool test_lazy_pcs() {
             random_vec_u64(A[i].data(), A[i].size());
             mleA[i] = A[i];
         }
-        lazy_pcs_pool pool;
+        lazy_pcs_pool pool(32);
         std::vector<lazy_pcs> pcs;
         for (size_t i = 0; i != sz; ++i) {
             pcs.push_back(commit_lazy_pcs(mleA[i], &pool));
