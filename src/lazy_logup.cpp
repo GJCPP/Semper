@@ -135,8 +135,9 @@ void lazyLogupVerifier::add(
 }
 
 bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, uint64_t rho_inv, uint64_t sec_param) {
+    lazy_pcs_pool pool;
+    std::vector<lazy_pcs> pcs_f1_all, pcs_f2_all;
     for (size_t id = 0; id < tables_all.size(); id++) { // table id
-        lazy_pcs_pool pool;
         // 0. preprocess
         size_t sz = 0;
         int num_vars;
@@ -154,7 +155,20 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, uint64_t rho_inv, uin
         if (num_vars != pcs_f1.get_num_vars() || num_vars != pcs_f2.get_num_vars()) {
             throw std::runtime_error("lazyLogupVerifier: committed f does not match the number of variables");
         }
-        auto pcs_pool = pool.commit(rho_inv);
+        pcs_f1_all.push_back(pcs_f1);
+        pcs_f2_all.push_back(pcs_f2);
+    }
+    auto pcs_pool = pool.commit(rho_inv);
+    for (size_t id = 0; id < tables_all.size(); id++) { // table id
+        // 0. preprocess
+        size_t sz = 0;
+        int num_vars;
+        for (const auto& inst : instances_all[id]) {
+            sz += (1ull << inst.pcs_f1->get_num_vars());
+        }
+        num_vars = find_ceiling_log2(sz);
+        auto &pcs_f1 = pcs_f1_all[id], &pcs_f2 = pcs_f2_all[id];
+        auto &t1 = tables_all[id].t1, &t2 = tables_all[id].t2;
 
         // 2. Check committed f
         std::vector<Goldilocks2::Element> cha = random_vec_ext(num_vars);
@@ -231,10 +245,9 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, uint64_t rho_inv, uin
             std::cout << "lazyLogupVerifier: logup proof failed." << std::endl;
             return false;
         }
-
-        // 4. Prove lazy_pcs
-        pool.prove_open(pcs_pool, random_ext());
     }
+    // 4. Prove lazy_pcs
+    pool.prove_open(pcs_pool, random_ext());
     return true;
 }
 
