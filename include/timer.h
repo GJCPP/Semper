@@ -103,7 +103,6 @@ private:
     Timer& operator=(const Timer&) = delete;
 };
 
-
 inline void pause_timer(const std::string& label) {
     Timer::getInstance().pause(label);
 }
@@ -127,3 +126,15 @@ inline void clear_all_timers() {
 inline void print_all_timers() {
     Timer::getInstance().printAll();
 }
+
+class startTimer {
+public:
+    startTimer(const std::string& label) : label(label) {
+        Timer::getInstance().start(label);
+    }
+    ~startTimer() {
+        Timer::getInstance().pause(label);
+    }
+protected:
+    std::string label;
+};

@@ -480,6 +480,7 @@ bool convVerifier::execute_convcheck_2d(
     set_timer("conv2d_openX");
     start_proof("conv2d_openX");
     if (prover.triple.padding == false) { // No padding
+        pause_timer("conv2d_openX");
         return X.parse_all(claim->at(0).challenges).open(sec_param) == claim->at(0).claim;
     }
     end_proof("conv2d_openX");
@@ -530,10 +531,10 @@ bool convVerifier::execute_convcheck_2d(
             }
         }
     }
+    pause_timer("conv2d_openX");
     if (res != claim->at(0).claim) {
         return false;
     }
-    pause_timer("conv2d_openX");
     return true;
 }
 

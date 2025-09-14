@@ -111,8 +111,8 @@ signVerifier::resource signVerifier::pre_execute_sign_check(
 
 bool signVerifier::execute_sign_check(
     const signProver& prover, 
-    const oracle* pcs_x, 
-    const oracle* pcs_sign,
+    std::shared_ptr<oracle> pcs_x, 
+    std::shared_ptr<oracle> pcs_sign,
     uint64_t sec_param,
     resource& re) {
 
@@ -124,7 +124,7 @@ bool signVerifier::execute_sign_check(
             std::cerr << "❌Sign check failed: pcs_x != pcs_bias_x + 1" << std::endl;
             return false;
         }
-        pcs_x = &pcs_bias_x; // Update pcs_x to include bias
+        pcs_x = std::make_shared<lazy_pcs>(pcs_bias_x); // Update pcs_x to include bias
     }
     if (prover.final_round()) {
         if (re.pcs.size() != 1) {
@@ -146,12 +146,16 @@ bool signVerifier::execute_sign_check(
 
         // 1. Check pcs_x = pcs_quo * scale + pcs_rem
         if (!divVerifier::execute_div_check(
-            div_prover, *pcs_x, pcs_quo, pcs_rem, sec_param)) {
+            div_prover, 
+            pcs_x, 
+            std::make_shared<lazy_pcs>(pcs_quo), 
+            std::make_shared<lazy_pcs>(pcs_rem), 
+            sec_param)) {
             std::cerr << "❌Sign check failed: div check failed" << std::endl;
             return false;
         }
         // 2. Recursively check the next round
-        if (!execute_sign_check(next_prover, &pcs_quo, pcs_sign, sec_param, re)) {
+        if (!execute_sign_check(next_prover, std::make_shared<lazy_pcs>(pcs_quo), pcs_sign, sec_param, re)) {
             std::cerr << "❌Sign check failed: next round check failed" << std::endl;
             return false;
         }
@@ -159,7 +163,12 @@ bool signVerifier::execute_sign_check(
     return true;
 }
 
-bool signVerifier::execute_sign_check(const signProver& prover, const oracle *pcs_x, const oracle *pcs_sign, uint64_t sec_param) {
+bool signVerifier::execute_sign_check(
+    const signProver& prover, 
+    std::shared_ptr<oracle> pcs_x, 
+    std::shared_ptr<oracle> pcs_sign, 
+    uint64_t sec_param) {
+
     ligeropcs_base pcs_bias_x;
     if (prover.strict) {
         pcs_bias_x = prover.get_pcs_bias_x();
@@ -168,7 +177,7 @@ bool signVerifier::execute_sign_check(const signProver& prover, const oracle *pc
             std::cerr << "❌Sign check failed: pcs_x != pcs_bias_x + 1" << std::endl;
             return false;
         }
-        pcs_x = &pcs_bias_x; // Update pcs_x to include bias
+        pcs_x = std::make_shared<ligeropcs_base>(pcs_bias_x); // Update pcs_x to include bias
     }
     if (prover.final_round()) {
         // Final round, check if pcs_sign = pcs_x + 1
@@ -183,12 +192,21 @@ bool signVerifier::execute_sign_check(const signProver& prover, const oracle *pc
         divProver div_prover = prover.next_prover(pcs_quo, pcs_rem, next_prover);
         // 1. Check pcs_x = pcs_quo * scale + pcs_rem
         if (!divVerifier::execute_div_check(
-            div_prover, *pcs_x, pcs_quo, pcs_rem, sec_param)) {
+            div_prover, 
+            pcs_x, 
+            std::make_shared<ligeropcs_base>(pcs_quo), 
+            std::make_shared<ligeropcs_base>(pcs_rem), 
+            sec_param)) {
             std::cerr << "❌Sign check failed: div check failed" << std::endl;
             return false;
         }
         // 2. Recursively check the next round
-        if (!execute_sign_check(next_prover, &pcs_quo, pcs_sign, sec_param)) {
+        if (!execute_sign_check(
+            next_prover, 
+            std::make_shared<ligeropcs_base>(pcs_quo), 
+            pcs_sign, 
+            sec_param)) {
+
             std::cerr << "❌Sign check failed: next round check failed" << std::endl;
             return false;
         }

@@ -390,7 +390,7 @@ bool CNN::prove(size_t sec_param) {
 
             case layer_type::relu:
                 set_timer("prove relu");
-                if (!prove_relu_layer(layer, scale, max_val, sqr_val, rho_inv, sec_param, layer.wit)) {
+                if (!prove_relu_layer(layer, scale, max_val, sqr_val, rho_inv, sec_param, layer.wit, &lazy_logup_prover, &lazy_logup_verifier)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
                     return false;
                 }
@@ -408,7 +408,7 @@ bool CNN::prove(size_t sec_param) {
 
             case layer_type::softmax:
                 set_timer("prove softmax");
-                if (!prove_softmax(layer, scale, max_val, rho_inv, sec_param)) {
+                if (!prove_softmax(layer, scale, max_val, rho_inv, sec_param, &lazy_logup_prover, &lazy_logup_verifier)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
                     return false;
                 }

@@ -4,8 +4,11 @@
 #include "ltn_check.h"
 #include "counter.h"
 
-eProver::eProver(const std::vector<size_t>& from, const std::vector<size_t>& to, size_t scale, size_t max_val, size_t rho_inv)
-    : from(from), to(to), num(from.size()), scale(scale), max_val(max_val), rho_inv(rho_inv) {
+eProver::eProver(
+    const std::vector<size_t>& from, const std::vector<size_t>& to, 
+    size_t scale, size_t max_val, size_t rho_inv, 
+    lazyLogupProver *lazy_logup_prover)
+    : from(from), to(to), num(from.size()), scale(scale), max_val(max_val), rho_inv(rho_inv), lazy_logup_prover(lazy_logup_prover) {
     
     if (from.size() != to.size()) {
         throw std::invalid_argument("eProver: Size of 'from' and 'to' vectors must be the same.");
@@ -21,9 +24,13 @@ eProver::eProver(const std::vector<size_t>& from, const std::vector<size_t>& to,
     eVerifier::init_e_table(scale, rho_inv);
 }
 
-eProver::eProver(const std::vector<Goldilocks2::Element>& from_e, const std::vector<Goldilocks2::Element>& to_e, size_t scale, size_t max_val, size_t rho_inv)
-    : num(from_e.size()), scale(scale), max_val(max_val), rho_inv(rho_inv) {
-    
+eProver::eProver(
+    const std::vector<Goldilocks2::Element>& from_e, 
+    const std::vector<Goldilocks2::Element>& to_e, 
+    size_t scale, size_t max_val, size_t rho_inv, 
+    lazyLogupProver *lazy_logup_prover)
+    : num(from_e.size()), scale(scale), max_val(max_val), rho_inv(rho_inv), lazy_logup_prover(lazy_logup_prover) {
+
     if (from_e.size() != to_e.size()) {
         throw std::invalid_argument("eProver: Size of 'from' and 'to' vectors must be the same.");
     }
@@ -44,7 +51,13 @@ eProver::eProver(const std::vector<Goldilocks2::Element>& from_e, const std::vec
     eVerifier::init_e_table(scale, rho_inv);
 }
 
-LogupProver eProver::get_logup_prover(const std::vector<uint64_t>& e_from, const std::vector<uint64_t>& e_to) {
+LogupProver eProver::get_logup_prover(
+    const std::vector<uint64_t>& e_from, 
+    const std::vector<uint64_t>& e_to) {
+    if (lazy_logup_prover) {
+        lazy_logup_prover->add(from, to, e_from, e_to);
+        return {};
+    }
     return LogupProver(from, to, e_from, e_to);
 }
 
@@ -75,7 +88,13 @@ ligeropcs_base eProver::commit_masked_from() {
     return pcs_masked_from;
 }
 
-LogupProver eProver::get_masked_logup_prover(const std::vector<uint64_t>& e_from, const std::vector<uint64_t>& e_to) {
+LogupProver eProver::get_masked_logup_prover(
+    const std::vector<uint64_t>& e_from,
+    const std::vector<uint64_t>& e_to) {
+    if (lazy_logup_prover) {
+        lazy_logup_prover->add(masked_from, to, e_from, e_to);
+        return {};
+    }
     return LogupProver(masked_from, to, e_from, e_to);
 }
 
@@ -94,29 +113,45 @@ void eVerifier::init_e_table(size_t scale, size_t rho_inv) {
             if (end == i) break;
         }
     }
-    pcs_e_pow_from[{scale, rho_inv}] = ligero_commit_base(from, rho_inv);
-    pcs_e_pow_to[{scale, rho_inv}] = ligero_commit_base(to, rho_inv);
+    mle_e_pow_from[scale] = MLE(from);
+    mle_e_pow_to[scale] = MLE(to);
 }
 
-bool eVerifier::execute_check(eProver& prover, ligeropcs_base pcs_from, ligeropcs_base pcs_to, size_t sec_param) {
+bool eVerifier::execute_check(
+    eProver& prover, 
+    ligeropcs_base pcs_from, 
+    ligeropcs_base pcs_to, 
+    size_t sec_param, 
+    lazyLogupVerifier* lazy_logup_verifier) {
+
     startCounter counter("epow_proof");
     const size_t scale = prover.get_scale();
     const size_t max_val = prover.get_max_val();
     const size_t rho_inv = prover.get_rho_inv();
-    if (pcs_e_pow_from.find({scale, rho_inv}) == pcs_e_pow_from.end()) {
-        throw std::invalid_argument("eVerifier: e_pow table not initialized for the given scale and rho_inv.");
+    
+    bool use_lazy_logup = (lazy_logup_verifier != nullptr);
+    if (use_lazy_logup != prover.use_lazy_logup()) {
+        throw std::invalid_argument("eVerifier: disagree in lazy_logup.");
     }
+
     const auto& e_pow_from = eVerifier::e_pow_from[scale];
     const auto& e_pow_to = eVerifier::e_pow_to[scale];
-    const auto& pcs_e_pow_from = eVerifier::pcs_e_pow_from[{scale, rho_inv}];
-    const auto& pcs_e_pow_to = eVerifier::pcs_e_pow_to[{scale, rho_inv}];
+    const auto& mle_e_pow_from = eVerifier::mle_e_pow_from[scale];
+    const auto& mle_e_pow_to = eVerifier::mle_e_pow_to[scale];
     const size_t bar = e_pow_from.size();
     const size_t num = prover.get_num();
     const int lognum = find_ceiling_log2(num);
     if (max_val < e_pow_from.size()) {
         // Just look up the table.
         auto logup_prover = prover.get_logup_prover(e_pow_from, e_pow_to);
-        if (!LogupVerifier::execute_logup(logup_prover, pcs_from, pcs_to, pcs_e_pow_from, pcs_e_pow_to, rho_inv, sec_param)) {
+        if (use_lazy_logup) {
+            lazy_logup_verifier->add(
+                std::make_shared<ligeropcs_base>(pcs_from),
+                std::make_shared<ligeropcs_base>(pcs_to),
+                e_pow_from, e_pow_to);
+            return true;
+        }
+        if (!LogupVerifier::execute_logup(logup_prover, pcs_from, pcs_to, mle_e_pow_from, mle_e_pow_to, rho_inv, sec_param)) {
             std::cerr << "❌ eVerifier: execute_logup failed (pure lookup)." << std::endl;
             return false;
         }
@@ -153,8 +188,15 @@ bool eVerifier::execute_check(eProver& prover, ligeropcs_base pcs_from, ligeropc
 
         // Step 3. Look up with masked_from
         LogupProver logup_prover = prover.get_masked_logup_prover(e_pow_from, e_pow_to);
+        if (use_lazy_logup) {
+            lazy_logup_verifier->add(
+                std::make_shared<ligeropcs_base>(pcs_masked_from),
+                std::make_shared<ligeropcs_base>(pcs_to),
+                e_pow_from, e_pow_to);
+            return true;
+        }
         if (!LogupVerifier::execute_logup(
-            logup_prover, pcs_masked_from, pcs_to, pcs_e_pow_from, pcs_e_pow_to, rho_inv, sec_param)) {
+            logup_prover, pcs_masked_from, pcs_to, mle_e_pow_from, mle_e_pow_to, rho_inv, sec_param)) {
             std::cerr << "❌ eVerifier: execute_logup failed (masked lookup)." << std::endl;
             return false;
         }
@@ -176,4 +218,4 @@ std::vector<size_t> eVerifier::get_exp_inv(const std::vector<size_t>& from, size
 
 
 std::map<size_t, std::vector<uint64_t>> eVerifier::e_pow_from, eVerifier::e_pow_to;    
-std::map<std::array<size_t, 2>, ligeropcs_base> eVerifier::pcs_e_pow_from, eVerifier::pcs_e_pow_to;
+std::map<size_t, MLE> eVerifier::mle_e_pow_from, eVerifier::mle_e_pow_to;

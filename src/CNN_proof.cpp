@@ -655,7 +655,8 @@ CNN::layer_res pre_prove_relu_layer(
 
 bool prove_relu_layer(const CNN::layer_info& layer,
     size_t scale, size_t max_val, size_t sqr_val,
-    size_t rho_inv, size_t sec_param, const CNN::layer_res& wit) {
+    size_t rho_inv, size_t sec_param, const CNN::layer_res& wit,
+    lazyLogupProver* lazy_logup_prover, lazyLogupVerifier* lazy_logup_verifier) {
 
     startCounter counter("relu_proof");
 
@@ -691,8 +692,12 @@ bool prove_relu_layer(const CNN::layer_info& layer,
         const auto& pcs_X_quo = wit.pcs.at("pcs_X_quo" + _i);
         const auto& pcs_X_rem = wit.pcs.at("pcs_X_rem" + _i);
         start_proof("relu_div_proof");
-        divProver div_prover_X(X_copy, X_quo, X_rem, scale, true, rho_inv);
-        if (!divVerifier::execute_div_check(div_prover_X, pcs_X, pcs_X_quo, pcs_X_rem, sec_param)) {
+        divProver div_prover_X(X_copy, X_quo, X_rem, scale, true, rho_inv, lazy_logup_prover);
+        if (!divVerifier::execute_div_check(div_prover_X,
+            std::make_shared<lazy_pcs>(pcs_X),
+            std::make_shared<lazy_pcs>(pcs_X_quo),
+            std::make_shared<lazy_pcs>(pcs_X_rem),
+            sec_param, lazy_logup_verifier)) {
             std::cout << "❌ Proving relu forward scale_X failed." << std::endl;
             return false;
         }
@@ -704,7 +709,13 @@ bool prove_relu_layer(const CNN::layer_info& layer,
         start_proof("relu_sign_proof");
         signProver sign_prover_X(X_quo, X_scale_sign, scale, max_val, true, rho_inv);
         auto sign_res = reinterpret_cast<signVerifier::resource*>(wit.res.at("sign_res" + _i).get());
-        if (!signVerifier::execute_sign_check(sign_prover_X, &pcs_X_quo, &pcs_X_scale_sign, sec_param, *sign_res)) {
+        if (!signVerifier::execute_sign_check(
+            sign_prover_X, 
+            std::make_shared<lazy_pcs>(pcs_X_quo), 
+            std::make_shared<lazy_pcs>(pcs_X_scale_sign), 
+            sec_param, 
+            *sign_res)) {
+
             std::cout << "❌ Proving relu forward X_scale_sign failed." << std::endl;
             return false;
         }
@@ -751,7 +762,11 @@ bool prove_relu_layer(const CNN::layer_info& layer,
         auto pcs_dX_rem = wit.pcs.at("pcs_dX_rem" + _i);
         start_proof("relu_div_proof");
         divProver div_prover_dX(dY_filtered, dX_copy, dX_rem, scale, true, rho_inv);
-        if (!divVerifier::execute_div_check(div_prover_dX, pcs_dY_filtered, pcs_dX, pcs_dX_rem, sec_param)) {
+        if (!divVerifier::execute_div_check(div_prover_dX,
+            std::make_shared<lazy_pcs>(pcs_dY_filtered),
+            std::make_shared<lazy_pcs>(pcs_dX),
+            std::make_shared<lazy_pcs>(pcs_dX_rem),
+            sec_param)) {
             std::cout << "❌ Proving relu backward dX failed." << std::endl;
             return false;
         }
@@ -980,7 +995,6 @@ bool prove_pool_layer(const CNN::layer_info& layer,
         // I.2 Prove sel is boolean
         std::vector<Goldilocks2::Element> input_zeros(input.size());
         MultilinearPolynomial mle_input_zeros(input_zeros);
-        // TODO 2. Check pcs_input_zeros = 0
         if (!prove_mle_product(mle_input_zeros, mle_sel, mle_rev_sel, mle_input_zeros, pcs_sel, pcs_rev_sel, sec_param)) {
             std::cout << "❌ I.2 Proving selector is boolean failed." << std::endl;
             return false;
@@ -1049,7 +1063,12 @@ bool prove_pool_layer(const CNN::layer_info& layer,
         // TODO 3. Check pcs_input_ones = 1
         signVerifier::resource sign_res_diff = *reinterpret_cast<signVerifier::resource*>(wit.res.at("sign_res_diff" + _i).get());
         signProver sign_prover_diff(diff.data, input_ones, scale, max_val * 2, false, rho_inv);
-        if (!signVerifier::execute_sign_check(sign_prover_diff, &pcs_diff, &mle_input_ones, sec_param, sign_res_diff)) {
+        if (!signVerifier::execute_sign_check(
+            sign_prover_diff, 
+            std::make_shared<lazy_pcs>(pcs_diff), 
+            std::make_shared<MLE>(mle_input_ones), 
+            sec_param, 
+            sign_res_diff)) {
             std::cout << "❌ II.3 Proving diff is non-negative failed: sign proof fails." << std::endl;
             return false;
         }
@@ -1121,7 +1140,8 @@ bool prove_pool_layer(const CNN::layer_info& layer,
 
 bool prove_softmax(const CNN::layer_info& layer,
     size_t scale, size_t max_val,
-    size_t rho_inv, size_t sec_param) {
+    size_t rho_inv, size_t sec_param,
+    lazyLogupProver* lazy_logup_prover, lazyLogupVerifier *lazy_logup_verifier) {
     
     startCounter counter("softmax_proof");
 
@@ -1157,7 +1177,11 @@ bool prove_softmax(const CNN::layer_info& layer,
         auto pcs_quo = ligero_commit_base(mle_quo, rho_inv);
         auto pcs_rem = ligero_commit_base(rem, rho_inv);
         divProver div_prover(input_copy, quo, rem, scale, true, rho_inv);
-        if (!divVerifier::execute_div_check(div_prover, pcs_input, pcs_quo, pcs_rem, sec_param)) {
+        if (!divVerifier::execute_div_check(div_prover,
+            std::make_shared<lazy_pcs>(pcs_input),
+            std::make_shared<ligeropcs_base>(pcs_quo),
+            std::make_shared<ligeropcs_base>(pcs_rem),
+            sec_param)) {
             std::cout << "❌ Proving softmax scale input failed." << std::endl;
             return false;
         }
@@ -1261,20 +1285,26 @@ bool prove_softmax(const CNN::layer_info& layer,
         }
         // 5. Prove diff_masked >= 0
         std::vector<Goldilocks2::Element> ones(diff_masked.data.size(), Goldilocks2::one());
-        auto pcs_ones = ligero_commit_base(ones, rho_inv);
+        MLE mle_ones = MLE(ones);
+        // auto pcs_ones = ligero_commit_base(ones, rho_inv);
         // TODO: Check pcs_ones = 1
         signProver sign_prover_diff_masked(diff_masked.data, ones, scale, 2 * max_val, false, rho_inv);
-        if (!signVerifier::execute_sign_check(sign_prover_diff_masked, &pcs_diff_masked, &pcs_ones, sec_param)) {
+        if (!signVerifier::execute_sign_check(
+            sign_prover_diff_masked, 
+            std::make_shared<ligeropcs_base>(pcs_diff_masked), 
+            std::make_shared<MLE>(mle_ones), 
+            sec_param)) {
+
             std::cout << "❌ Proving softmax diff_masked >= 0 failed: sign proof fails." << std::endl;
             return false;
         }
         // 6. Prove diff_masked contains zero
         std::vector<Goldilocks2::Element> zeros(img, Goldilocks2::zero());
-        MultilinearPolynomial mle_zeros(zeros);
-        auto pcs_zeros = ligero_commit_base(mle_zeros, rho_inv);
+        std::shared_ptr<MLE> mle_zeros = std::make_shared<MLE>(zeros);
+        // auto pcs_zeros = ligero_commit_base(mle_zeros, rho_inv);
         // TODO: Check pcs_zeros = 0
-        prodProver prod_prover(mle_diff_masked, mle_zeros, logn, rho_inv);
-        if (!prodVerifier::execute_prod_check(prod_prover, {logimg + logn, &pcs_diff_masked}, {logimg, &pcs_zeros}, sec_param)) {
+        prodProver prod_prover(mle_diff_masked, *mle_zeros, logn, rho_inv);
+        if (!prodVerifier::execute_prod_check(prod_prover, {logimg + logn, &pcs_diff_masked}, {logimg, mle_zeros.get()}, sec_param)) {
             std::cout << "❌ Proving softmax diff_masked contains zero failed." << std::endl;
             return false;
         }
@@ -1286,8 +1316,8 @@ bool prove_softmax(const CNN::layer_info& layer,
         exp_diff = eVerifier::get_exp_inv(diff_masked_vec, scale, rho_inv);
         MultilinearPolynomial mle_exp_diff(exp_diff);
         auto pcs_exp_diff = ligero_commit_base(mle_exp_diff, rho_inv);
-        eProver e_prover(diff_masked_vec, exp_diff, scale, max_val, rho_inv);
-        if (!eVerifier::execute_check(e_prover, pcs_diff_masked, pcs_exp_diff, sec_param)) {
+        eProver e_prover(diff_masked_vec, exp_diff, scale, max_val, rho_inv, lazy_logup_prover);
+        if (!eVerifier::execute_check(e_prover, pcs_diff_masked, pcs_exp_diff, sec_param, lazy_logup_verifier)) {
             std::cout << "❌ Proving softmax exp(diff_masked) * scale failed." << std::endl;
             return false;
         }
@@ -1373,10 +1403,13 @@ bool prove_softmax(const CNN::layer_info& layer,
             return false;
         }
         std::vector<Goldilocks2::Element> input_zeros(img * (1 << logn));
-        MultilinearPolynomial mle_input_zeros(input_zeros);
-        auto pcs_input_zeros = ligero_commit_base(mle_input_zeros, rho_inv);
+        std::shared_ptr<MultilinearPolynomial> mle_input_zeros = std::make_shared<MLE>(input_zeros);
         signProver sign_prover_d_rem_sum(mle_d_rem_sum.get_eval_table(), input_zeros, scale, 2 * max_val, false, rho_inv);
-        if (!signVerifier::execute_sign_check(sign_prover_d_rem_sum, &pcs_d_rem_sum, &pcs_input_zeros, sec_param)) {
+        if (!signVerifier::execute_sign_check(
+            sign_prover_d_rem_sum, 
+            std::make_shared<ligeropcs_base>(pcs_d_rem_sum), 
+            mle_input_zeros, 
+            sec_param)) {
             std::cout << "❌ Proving softmax d_rem - sum < 0 failed: sign proof fails." << std::endl;
             return false;
         }
@@ -1391,22 +1424,12 @@ bool prove_softmax(const CNN::layer_info& layer,
         auto d_input_rem = get_rem(mle_d_delta.get_eval_table(), img, mle_d_input.get_eval_table(), true);
         auto pcs_d_input_rem = ligero_commit_base(d_input_rem, rho_inv);
         divProver div_prover_d_input(mle_d_delta.get_eval_table(), mle_d_input.get_eval_table(), d_input_rem, img, true, rho_inv);
-        if (!divVerifier::execute_div_check(div_prover_d_input, pcs_d_delta, pcs_d_input, pcs_d_input_rem, sec_param)) {
+        if (!divVerifier::execute_div_check(div_prover_d_input, 
+            std::make_shared<ligeropcs_base>(pcs_d_delta), 
+            std::make_shared<lazy_pcs>(pcs_d_input), 
+            std::make_shared<ligeropcs_base>(pcs_d_input_rem), 
+            sec_param)) {
             std::cout << "❌ Proving softmax d_input = (d_quo - sel * scale) / n failed." << std::endl;
-            return false;
-        }
-        // 11. Check constants
-        auto input_cha = random_vec_ext(logimg + logn);
-        if (pcs_ones.open(input_cha, sec_param) != Goldilocks2::one()) {
-            std::cout << "❌ Proving pcs_ones is one failed." << std::endl;
-            return false;
-        }
-        if (pcs_input_zeros.open(input_cha, sec_param) != Goldilocks2::zero()) {
-            std::cout << "❌ Proving pcs_input_zeros is zero failed." << std::endl;
-            return false;
-        }
-        if (pcs_zeros.open(random_vec_ext(logimg), sec_param) != Goldilocks2::zero()) {
-            std::cout << "❌ Proving pcs_zeros is zero failed." << std::endl;
             return false;
         }
     }

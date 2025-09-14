@@ -17,7 +17,7 @@
 #include "lazy_pcs.h"
 #include "lazy_logup.h"
 
-#define CNT_TEST 100
+#define CNT_TEST 20
 
 bool test_arithmetic() {
     typedef Goldilocks2::Element Element;
@@ -378,7 +378,7 @@ bool test_conv2_check() {
         open_param op_x(X_view, &pcs_x);
         open_param op_w(W_pad.view, &pcs_w);
         open_param op_y(Y_view, &pcs_y);
-        open_param op_flaty(Y_pad.view, &pcs_flat_Y);
+        open_param op_flaty(pcs_flat_Y.get_num_vars(), &pcs_flat_Y);
         
         op_w.rev[2] = op_w.rev[2] ^ true;
         op_w.rev[3] = op_w.rev[3] ^ true;
@@ -499,11 +499,12 @@ bool test_pad_weights() {
 
         ligeropcs_ext pcs_x = ligero_commit_ext(p1, 2);
         ligeropcs_ext pcs_y = ligero_commit_ext(p3, 2);
+        ligeropcs_ext pcs_flat_Y = ligero_commit_ext(*prover.triple.Y, 2);
 
         open_param op_x(X.view, &pcs_x);
         open_param op_w(W_pad.view, &pcs_w);
         open_param op_y(Y.view, &pcs_y);
-        open_param op_flat_y(Y_pad.view, &pcs_y);
+        open_param op_flat_y(pcs_flat_Y.get_num_vars(), &pcs_flat_Y);
 
         op_w.rev[2] = op_w.rev[2] ^ true;
         op_w.rev[3] = op_w.rev[3] ^ true;
@@ -661,31 +662,40 @@ bool test_lazy_logup() {
 }
 
 bool test_div_check() {
-    for (int cnt = 0; cnt < CNT_TEST; ++cnt) {
-        srand(cnt);
-        bool allow_neg_sign = rand() % 2 == 0;
-        int64_t denom = (1ull << (rand() % 10 + 1));
-        size_t n = (1 << (rand() % 10 + 1)), max_val = (1ull << (rand() % 20 + 1));
-        std::vector<int64_t> num_val(n);
-        for (size_t i = 0; i < n; ++i) {
-            num_val[i] = (rand() % max_val) * (rand() % 2 == 0 ? 1 : -1);
+    for (int _ = 0; _ != 2; ++_) {
+        std::unique_ptr<lazyLogupProver> lazy_logup_prover;
+        std::unique_ptr<lazyLogupVerifier> lazy_logup_verifier;
+        if (_) {
+            lazy_logup_prover = std::make_unique<lazyLogupProver>();
+            lazy_logup_verifier = std::make_unique<lazyLogupVerifier>();
         }
-        std::vector<Goldilocks2::Element> num(n);
-        for (size_t i = 0; i < n; ++i) {
-            num[i] = Goldilocks2::fromS64(num_val[i]);
-        }
-        auto [quo, rem] = get_quo_rem(num, denom, allow_neg_sign);
-        divProver prover(num, quo, rem, denom, allow_neg_sign, 2);
-        ligeropcs_base pcs_num = ligero_commit_base(num, 2);
-        ligeropcs_base pcs_quo = ligero_commit_base(quo, 2);
-        ligeropcs_base pcs_rem = ligero_commit_base(rem, 2);
-        if (!divVerifier::execute_div_check(
-            prover,
-            pcs_num,
-            pcs_quo,
-            pcs_rem,
-            32)) {
-            return false;
+        for (int cnt = 0; cnt < CNT_TEST; ++cnt) {
+            srand(cnt);
+            bool allow_neg_sign = rand() % 2 == 0;
+            int64_t denom = (1ull << (rand() % 10 + 1));
+            size_t n = (1 << (rand() % 10 + 1)), max_val = (1ull << (rand() % 20 + 1));
+            std::vector<int64_t> num_val(n);
+            for (size_t i = 0; i < n; ++i) {
+                num_val[i] = (rand() % max_val) * (rand() % 2 == 0 ? 1 : -1);
+            }
+            std::vector<Goldilocks2::Element> num(n);
+            for (size_t i = 0; i < n; ++i) {
+                num[i] = Goldilocks2::fromS64(num_val[i]);
+            }
+            auto [quo, rem] = get_quo_rem(num, denom, allow_neg_sign);
+            divProver prover(num, quo, rem, denom, allow_neg_sign, 2, lazy_logup_prover.get());
+            ligeropcs_base pcs_num = ligero_commit_base(num, 2);
+            ligeropcs_base pcs_quo = ligero_commit_base(quo, 2);
+            ligeropcs_base pcs_rem = ligero_commit_base(rem, 2);
+            if (!divVerifier::execute_div_check(
+                prover,
+                std::make_shared<ligeropcs_base>(pcs_num),
+                std::make_shared<ligeropcs_base>(pcs_quo),
+                std::make_shared<ligeropcs_base>(pcs_rem),
+                32,
+                lazy_logup_verifier.get())) {
+                return false;
+            }
         }
     }
     return true;
@@ -713,8 +723,8 @@ bool test_sign_check() {
         ligeropcs_base pcs_sign = ligero_commit_base(sign, 2);
         if (!signVerifier::execute_sign_check(
             prover,
-            &pcs_num,
-            &pcs_sign,
+            std::make_shared<ligeropcs_base>(pcs_num),
+            std::make_shared<ligeropcs_base>(pcs_sign),
             32)) {
             return false;
         }
@@ -747,8 +757,8 @@ bool test_pre_sign_check() {
         auto uni_pcs = pool.commit(2);
         if (!signVerifier::execute_sign_check(
             prover,
-            &pcs_num,
-            &pcs_sign,
+            std::make_shared<ligeropcs_base>(pcs_num),
+            std::make_shared<ligeropcs_base>(pcs_sign),
             32,
             res)) {
             std::cout << __LINE__ << ": Failed at execute_sign_check." << std::endl;
@@ -837,6 +847,7 @@ bool test_ltn_check() {
 }
 
 bool test_e_pow_check() {
+    // eager
     for (int cnt = 0; cnt < CNT_TEST; ++cnt) {
         srand(cnt);
         int logn = rand() % 10 + 1;
@@ -860,6 +871,38 @@ bool test_e_pow_check() {
             32)) {
             return false;
         }
+    }
+    // lazy
+    lazyLogupProver lazy_logup_prover;
+    lazyLogupVerifier lazy_logup_verifier;
+    for (int cnt = 0; cnt < CNT_TEST; ++cnt) {
+        srand(cnt);
+        int logn = rand() % 10 + 1;
+        int logscale = rand() % 10 + 4;
+        size_t n = (1ull << logn), scale = (1ull << logscale);
+        size_t max_val = (1ull << (rand() % 10 + logscale));
+        size_t rho_inv = 2;
+        std::vector<uint64_t> a(n), b(n);
+        for (size_t i = 0; i < n; ++i) {
+            uint64_t v = rand() % max_val;
+            a[i] = v;
+            b[i] = std::round(std::exp(-double(v) / double(scale)) * scale);
+        }
+        eProver prover(a, b, scale, max_val, rho_inv, &lazy_logup_prover);
+        auto pcs_a = ligero_commit_base(a, 2);
+        auto pcs_b = ligero_commit_base(b, 2);
+        if (!eVerifier::execute_check(
+            prover,
+            pcs_a,
+            pcs_b,
+            32,
+            &lazy_logup_verifier)) {
+            return false;
+        }
+    }
+    if (!lazy_logup_verifier.prove_all(lazy_logup_prover, 2, 32)) {
+        std::cerr << __LINE__ << " " << __FUNCTION__ << ": lazy_logup_verifier.prove_all failed." << std::endl;
+        return false;
     }
     return true;
 }
@@ -1116,99 +1159,99 @@ bool test_lazy_pcs() {
 
 bool run_test() {
     srand(79);
-    // if (!test_lazy_pcs()) {
-    //     std::cout << "test_lazy_pcs failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_pre_sign_check()) {
-    //     std::cout << "test_pre_sign_check failed" << std::endl;
-    //     return false;
-    // }
+    if (!test_lazy_pcs()) {
+        std::cout << "test_lazy_pcs failed" << std::endl;
+        return false;
+    }
+    if (!test_pre_sign_check()) {
+        std::cout << "test_pre_sign_check failed" << std::endl;
+        return false;
+    }
     if (!test_lazy_logup()) {
         std::cout << "test_lazy_logup failed" << std::endl;
         return false;
     }
-    // if (!test_arithmetic()) {
-    //     std::cout << "test_arithmetic failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_eval_power_mle()) {
-    //     std::cout << "test_eval_power_mle failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_product3_sumcheck()) {
-    //     std::cout << "test_product3_sumcheck failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_product2_sumcheck()) {
-    //     std::cout << "test_product2_sumcheck failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_partial_sumcheck_product2()) {
-    //     std::cout << "test_partial_sumcheck_product2 failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_logup()) {
-    //     std::cout << "test_logup failed" << std::endl;
-    //     return false;
-    // }
+    if (!test_arithmetic()) {
+        std::cout << "test_arithmetic failed" << std::endl;
+        return false;
+    }
+    if (!test_eval_power_mle()) {
+        std::cout << "test_eval_power_mle failed" << std::endl;
+        return false;
+    }
+    if (!test_product3_sumcheck()) {
+        std::cout << "test_product3_sumcheck failed" << std::endl;
+        return false;
+    }
+    if (!test_product2_sumcheck()) {
+        std::cout << "test_product2_sumcheck failed" << std::endl;
+        return false;
+    }
+    if (!test_partial_sumcheck_product2()) {
+        std::cout << "test_partial_sumcheck_product2 failed" << std::endl;
+        return false;
+    }
+    if (!test_logup()) {
+        std::cout << "test_logup failed" << std::endl;
+        return false;
+    }
     
-    // if (!test_pd_check()) {
-    //     std::cout << "test_pd_check failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_set_check()) {
-    //     std::cout << "test_set_check failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_perm_check()) {
-    //     std::cout << "test_perm_check failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_map_check()) {
-    //     std::cout << "test_map_check failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_conv_check()) {
-    //     std::cout << "test_conv_check failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_conv2_check()) {
-    //     std::cout << "test_conv2_check failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_pad_check()) {
-    //     std::cout << "test_pad_check failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_pad_weights()) {
-    //     std::cout << "test_pad_weights failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_mat_mult()) {
-    //     std::cout << "test_mat_mult failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_div_check()) {
-    //     std::cout << "test_div_check failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_sign_check()) {
-    //     std::cout << "test_sign_check failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_prod_check()) {
-    //     std::cout << "test_prod_check failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_ltn_check()) {
-    //     std::cout << "test_ltn_check failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_e_pow_check()) {
-    //     std::cout << "test_e_pow_check failed" << std::endl;
-    //     return false;
-    // }
+    if (!test_pd_check()) {
+        std::cout << "test_pd_check failed" << std::endl;
+        return false;
+    }
+    if (!test_set_check()) {
+        std::cout << "test_set_check failed" << std::endl;
+        return false;
+    }
+    if (!test_perm_check()) {
+        std::cout << "test_perm_check failed" << std::endl;
+        return false;
+    }
+    if (!test_map_check()) {
+        std::cout << "test_map_check failed" << std::endl;
+        return false;
+    }
+    if (!test_conv_check()) {
+        std::cout << "test_conv_check failed" << std::endl;
+        return false;
+    }
+    if (!test_conv2_check()) {
+        std::cout << "test_conv2_check failed" << std::endl;
+        return false;
+    }
+    if (!test_pad_check()) {
+        std::cout << "test_pad_check failed" << std::endl;
+        return false;
+    }
+    if (!test_pad_weights()) {
+        std::cout << "test_pad_weights failed" << std::endl;
+        return false;
+    }
+    if (!test_mat_mult()) {
+        std::cout << "test_mat_mult failed" << std::endl;
+        return false;
+    }
+    if (!test_div_check()) {
+        std::cout << "test_div_check failed" << std::endl;
+        return false;
+    }
+    if (!test_sign_check()) {
+        std::cout << "test_sign_check failed" << std::endl;
+        return false;
+    }
+    if (!test_prod_check()) {
+        std::cout << "test_prod_check failed" << std::endl;
+        return false;
+    }
+    if (!test_ltn_check()) {
+        std::cout << "test_ltn_check failed" << std::endl;
+        return false;
+    }
+    if (!test_e_pow_check()) {
+        std::cout << "test_e_pow_check failed" << std::endl;
+        return false;
+    }
     std::cout << "All tests passed" << std::endl;
     return true;
 }

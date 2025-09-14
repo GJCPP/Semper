@@ -10,6 +10,7 @@
 #include "goldilocks_quadratic_ext.h"
 #include "data_loader.h"
 #include "lazy_pcs.h"
+#include "lazy_logup.h"
 #include "timer.h"
 class CNN {
 public:
@@ -229,5 +230,8 @@ protected:
     std::vector<layer_info> layers;
     lazy_pcs_pool pcs_pool;
     ligeropcs_base pcs_all;
+
+    lazyLogupProver lazy_logup_prover;
+    lazyLogupVerifier lazy_logup_verifier;
 };
 

@@ -4,6 +4,7 @@
 
 #include "mle.h"
 #include "logup.h"
+#include "lazy_logup.h"
 
 std::array<std::vector<Goldilocks2::Element>, 2> get_quo_rem(
     const std::vector<Goldilocks2::Element>& num,
@@ -33,13 +34,15 @@ public:
         const std::vector<Goldilocks2::Element>& num,
         const std::vector<Goldilocks2::Element>& quo,
         const std::vector<Goldilocks2::Element>& rem,
-        uint64_t denominator, bool allow_neg_rem, uint64_t rho_inv);
+        uint64_t denominator, bool allow_neg_rem, uint64_t rho_inv,
+        lazyLogupProver *lazy_logup_prover = nullptr);
 
     divProver(
         const std::vector<uint64_t>& num,
         const std::vector<uint64_t>& quo,
         const std::vector<uint64_t>& rem,
-        uint64_t denominator, bool allow_neg_rem, uint64_t rho_inv);
+        uint64_t denominator, bool allow_neg_rem, uint64_t rho_inv,
+        lazyLogupProver *lazy_logup_prover = nullptr);
 
     inline int get_num_vars() const { return num_vars; }
 
@@ -63,6 +66,18 @@ public:
         return mle_zeros[{rem_u64.size(), rho_inv}];
     }
 
+    inline std::vector<uint64_t> get_range() const {
+        return range_u64[{denom, allow_neg_rem}];
+    }
+
+    inline std::vector<uint64_t> get_valid() const {
+        return valid_u64[{denom, allow_neg_rem}];
+    }
+
+    inline bool use_lazy_logup() const {
+        return lazy_logup_prover != nullptr;
+    }
+
 
 protected:
     bool allow_neg_rem;
@@ -70,6 +85,9 @@ protected:
     uint64_t rho_inv;
     int num_vars;
     std::vector<uint64_t> num_u64, quo_u64, rem_u64;
+
+    lazyLogupProver* lazy_logup_prover;
+
     static std::map<std::array<uint64_t, 2>, std::vector<Goldilocks2::Element>> range; // (-denom, denom) or (0, denom) if allow_neg_rem is false
     static std::map<std::array<uint64_t, 2>, std::vector<Goldilocks2::Element>> valid; // = 0 if valid, = 1 if not
     static std::map<uint64_t, std::vector<Goldilocks2::Element>> zeros; // Assume all valid
@@ -85,9 +103,10 @@ class divVerifier {
 public:
     static bool execute_div_check(
         const divProver& prover,
-        const oracle& pcs_x,
-        const oracle& pcs_quo,
-        const oracle& pcs_rem,
-        size_t sec_param
+        std::shared_ptr<oracle> pcs_x,
+        std::shared_ptr<oracle> pcs_quo,
+        std::shared_ptr<oracle> pcs_rem,
+        size_t sec_param,
+        lazyLogupVerifier* lazy_logup_verifier = nullptr
     );
 };

@@ -91,16 +91,16 @@ public:
 
     static bool execute_sign_check(
         const signProver& prover,
-        const oracle *pcs_x,
-        const oracle *pcs_sign,
+        std::shared_ptr<oracle> pcs_x,
+        std::shared_ptr<oracle> pcs_sign,
         uint64_t sec_param,
         resource& prev_resource
     );
 
     static bool execute_sign_check(
         const signProver& prover,
-        const oracle *pcs_x,
-        const oracle *pcs_sign,
+        std::shared_ptr<oracle> pcs_x,
+        std::shared_ptr<oracle> pcs_sign,
         uint64_t sec_param
     );
 };

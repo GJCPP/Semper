@@ -17,8 +17,9 @@ divProver::divProver(
     const std::vector<Goldilocks2::Element>& num,
     const std::vector<Goldilocks2::Element>& quo,
     const std::vector<Goldilocks2::Element>& rem,
-    uint64_t denominator, bool allow_neg_rem, uint64_t rho_inv)
-    : denom(denominator), allow_neg_rem(allow_neg_rem), rho_inv(rho_inv)
+    uint64_t denominator, bool allow_neg_rem, uint64_t rho_inv,
+    lazyLogupProver* _lazy_logup_prover)
+    : denom(denominator), allow_neg_rem(allow_neg_rem), rho_inv(rho_inv), lazy_logup_prover(_lazy_logup_prover)
 {
     // Step 1. Store num and quo and rem
     if (num.size() != quo.size() || num.size() != rem.size()) {
@@ -51,8 +52,9 @@ divProver::divProver(
     const std::vector<uint64_t>& num,
     const std::vector<uint64_t>& quo,
     const std::vector<uint64_t>& rem,
-    uint64_t denominator, bool allow_neg_rem, uint64_t rho_inv)
-    : denom(denominator), allow_neg_rem(allow_neg_rem), rho_inv(rho_inv)
+    uint64_t denominator, bool allow_neg_rem, uint64_t rho_inv,
+    lazyLogupProver* _lazy_logup_prover)
+    : denom(denominator), allow_neg_rem(allow_neg_rem), rho_inv(rho_inv), lazy_logup_prover(_lazy_logup_prover)
 {
     // Step 1. Store num and quo and rem
     if (num.size() != quo.size() || num.size() != rem.size()) {
@@ -198,32 +200,51 @@ uint64_t divProver::get_denom() const {
 }
 
 LogupProver divProver::get_logup_prover() const {
+    if (lazy_logup_prover) {
+        lazy_logup_prover->add(rem_u64, zeros_u64[rem_u64.size()], range_u64[{denom, allow_neg_rem}], valid_u64[{denom, allow_neg_rem}]);
+        return {};
+    }
     return LogupProver(rem_u64, zeros_u64[rem_u64.size()], range_u64[{denom, allow_neg_rem}], valid_u64[{denom, allow_neg_rem}]);
 }
 
 bool divVerifier::execute_div_check(
     const divProver& prover,
-    const oracle &pcs_num,
-    const oracle &pcs_quo,
-    const oracle &pcs_rem,
-    size_t sec_param) {
+    std::shared_ptr<oracle> pcs_num,
+    std::shared_ptr<oracle> pcs_quo,
+    std::shared_ptr<oracle> pcs_rem,
+    size_t sec_param,
+    lazyLogupVerifier* lazy_logup_verifier) {
 
     startCounter counter("div_proof");
 
+    bool use_lazy_logup = (lazy_logup_verifier != nullptr);
+    if (use_lazy_logup != prover.use_lazy_logup()) {
+        throw std::invalid_argument("divVerifier: Lazy logup prover/verifier mismatch");
+    }
+
     // Step 1. Prove pcs_num = pcs_quo * denom + pcs_rem
     std::vector<Goldilocks2::Element> cha = random_vec_ext(prover.get_num_vars());
-    if (pcs_num.open(cha, sec_param) != pcs_quo.open(cha, sec_param) * Goldilocks2::fromU64(prover.get_denom()) + pcs_rem.open(cha, sec_param)) {
+    if (pcs_num->open(cha, sec_param) != pcs_quo->open(cha, sec_param) * Goldilocks2::fromU64(prover.get_denom()) + pcs_rem->open(cha, sec_param)) {
         std::cerr << "❌ Div check failed: pcs_num != pcs_quo * denom + pcs_rem" << std::endl;
-        std::cerr << "pcs_num: " << pcs_num.open(cha, sec_param) << std::endl;
-        std::cerr << "pcs_quo: " << pcs_quo.open(cha, sec_param) << std::endl;
-        std::cerr << "pcs_rem: " << pcs_rem.open(cha, sec_param) << std::endl;
+        std::cerr << "pcs_num: " << pcs_num->open(cha, sec_param) << std::endl;
+        std::cerr << "pcs_quo: " << pcs_quo->open(cha, sec_param) << std::endl;
+        std::cerr << "pcs_rem: " << pcs_rem->open(cha, sec_param) << std::endl;
         std::cerr << "denom: " << prover.get_denom() << std::endl;
         return false;
     }
+
     // Step 2. Check if pcs_rem is in the valid range
     auto logup_prover = prover.get_logup_prover();
+    if (use_lazy_logup) {
+        lazy_logup_verifier->add(
+            pcs_rem,
+            std::make_shared<MLE>(prover.get_mle_zeros()),
+            prover.get_range(),
+            prover.get_valid());
+        return true;
+    }
     if (!LogupVerifier::execute_logup(logup_prover,
-        pcs_rem,
+        *pcs_rem,
         prover.get_mle_zeros(),
         prover.get_mle_range(),
         prover.get_mle_valid(),

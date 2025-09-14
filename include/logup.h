@@ -22,7 +22,7 @@ public:
     using table_base = std::vector<uint64_t>;
     using table_ext = std::vector<Goldilocks2::Element>;
     // should be replaced with a pcs
-// private:
+private:
     table_base f1, f2, t1, t2, c; // c : multiplicity
     table_ext g, h;
     MultilinearPolynomial polyg, polyh;
@@ -31,6 +31,7 @@ public:
 public:
 
     // Prove (f1[i], f2[i]) in { (t1[i], t2[i]) }
+    LogupProver() = default;
     LogupProver(const table_base& f1, const table_base& f2, const table_base& t1, const table_base& t2);
     LogupProver(const table_ext& f1, const table_ext& f2, const table_ext& t1, const table_ext& t2);
     void calculate_multiplicities();
