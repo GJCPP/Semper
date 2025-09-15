@@ -27,7 +27,8 @@ bool prove_conv(
     const array_view<Goldilocks2::Element>& ori_Y,
     std::vector<size_t>& mapfrom,
     std::vector<size_t>& mapto,
-    size_t rho_inv, size_t sec_param) {
+    size_t rho_inv, size_t sec_param,
+    lazyMapProver *lazy_map_prover, lazyMapVerifier *lazy_map_verifier) {
 
     // auto _mapto = mapto;
     auto prover = wit.empty() ?
@@ -41,7 +42,7 @@ bool prove_conv(
 
     
     set_timer("execute convcheck");
-    if (!convVerifier::execute_convcheck_2d(prover, oX, oW, oY, oflat_Y, mapfrom, mapto, rho_inv, sec_param, true)) {
+    if (!convVerifier::execute_convcheck_2d(prover, oX, oW, oY, oflat_Y, mapfrom, mapto, rho_inv, sec_param, true, lazy_map_prover, lazy_map_verifier)) {
         return false;
     }
     pause_timer("execute convcheck");
@@ -79,7 +80,8 @@ bool prove_conv(
     const array_view<Goldilocks2::Element>& W, // [OC, IC, m, m]
     const array_view<Goldilocks2::Element>& Y, // [N, OC, on, on]
     bool pad_right_bottom,
-    size_t rho_inv, size_t sec_param) {
+    size_t rho_inv, size_t sec_param,
+    lazyMapProver *lazy_map_prover, lazyMapVerifier *lazy_map_verifier) {
 
     const int N = X.shape(0), IC = X.shape(1), in = X.shape(2), OC = Y.shape(1), on = Y.shape(2);
     const int m = W.shape(2);
@@ -184,7 +186,8 @@ bool prove_conv(
         pX, pW, pY, 
         iY,
         mapfrom, mapto,
-        rho_inv, sec_param)) return false;
+        rho_inv, sec_param,
+        lazy_map_prover, lazy_map_verifier)) return false;
 
     return true;
 }
@@ -199,7 +202,8 @@ bool prove_conv(
     const array_view<Goldilocks2::Element>& Y, // [N, OC, on, on]
     bool pad_right_bottom,
     size_t rho_inv, size_t sec_param,
-    const CNN::layer_res& res, const std::string& prename) {
+    const CNN::layer_res& res, const std::string& prename,
+    lazyMapProver *lazy_map_prover, lazyMapVerifier *lazy_map_verifier) {
 
     const int N = X.shape(0), IC = X.shape(1), in = X.shape(2), OC = Y.shape(1), on = Y.shape(2);
     const int m = W.shape(2);
@@ -300,7 +304,8 @@ bool prove_conv(
         pX, pW, pY, 
         iY,
         mapfrom, mapto,
-        rho_inv, sec_param)) return false;
+        rho_inv, sec_param,
+        lazy_map_prover, lazy_map_verifier)) return false;
 
     return true;
 }
@@ -327,7 +332,12 @@ bool pre_prove_conv_forward(const CNN::layer_info& layer, CNN::conv_wit wit, int
     return true;
 }
 
-bool prove_conv_forward(const CNN::layer_info& layer, CNN::conv_wit wit, int padding, size_t rho_inv, size_t sec_param) {
+bool prove_conv_forward(
+    const CNN::layer_info& layer, 
+    CNN::conv_wit wit, 
+    int padding, size_t rho_inv, size_t sec_param,
+    lazyMapProver *lazy_map_prover, lazyMapVerifier *lazy_map_verifier) {
+
     int bat = int(layer.input.shape(0));
     int img = int(layer.input.shape(1));
     size_t C = layer.input.shape(2);
@@ -349,12 +359,18 @@ bool prove_conv_forward(const CNN::layer_info& layer, CNN::conv_wit wit, int pad
             layer.input[i], layer.weight[i], layer.output[i],
             true,
             rho_inv, sec_param,
-            layer.wit, "forward_" + std::to_string(i))) return false;
+            layer.wit, "forward_" + std::to_string(i),
+            lazy_map_prover, lazy_map_verifier)) return false;
     }
     return true;
 }
 
-bool prove_conv_backward_dW(const CNN::layer_info& layer,  CNN::conv_wit wit, int padding, size_t rho_inv, size_t sec_param) {
+bool prove_conv_backward_dW(
+    const CNN::layer_info& layer, 
+    CNN::conv_wit wit, 
+    int padding, size_t rho_inv, size_t sec_param,
+    lazyMapProver *lazy_map_prover, lazyMapVerifier *lazy_map_verifier) {
+
     int bat = int(layer.input.shape(0));
     int img = int(layer.input.shape(1));
     size_t C = layer.input.shape(2);
@@ -382,12 +398,18 @@ bool prove_conv_backward_dW(const CNN::layer_info& layer,  CNN::conv_wit wit, in
             &pcs_input, &pcs_d_output, &pcs_d_weight,
             X, dY, dW,
             true,
-            rho_inv, sec_param)) return false;
+            rho_inv, sec_param,
+            lazy_map_prover, lazy_map_verifier)) return false;
     }
     return true;
 }
 
-bool prove_conv_backward_dX(const CNN::layer_info& layer, CNN::conv_wit wit, int padding, size_t rho_inv, size_t sec_param) {
+bool prove_conv_backward_dX(
+    const CNN::layer_info& layer, 
+    CNN::conv_wit wit, 
+    int padding, size_t rho_inv, size_t sec_param,
+    lazyMapProver *lazy_map_prover, lazyMapVerifier *lazy_map_verifier) {
+
     int bat = int(layer.input.shape(0));
     int img = int(layer.input.shape(1));
     size_t C = layer.input.shape(2);
@@ -415,7 +437,8 @@ bool prove_conv_backward_dX(const CNN::layer_info& layer, CNN::conv_wit wit, int
             &pcs_d_output, &pcs_weight, &pcs_d_input,
             dY, W, dX,
             false,
-            rho_inv, sec_param)) return false;
+            rho_inv, sec_param,
+            lazy_map_prover, lazy_map_verifier)) return false;
     }
     return true;
 }
@@ -448,7 +471,12 @@ CNN::layer_res pre_prove_conv_layer(const CNN::layer_info& layer, CNN::conv_wit 
     return res;
 }
 
-bool prove_conv_layer(const CNN::layer_info& layer, CNN::conv_wit wit, size_t rho_inv, size_t sec_param) {
+bool prove_conv_layer(
+    const CNN::layer_info& layer, 
+    CNN::conv_wit wit, 
+    size_t rho_inv, size_t sec_param,
+    lazyMapProver *lazy_map_prover, lazyMapVerifier *lazy_map_verifier) {
+
     startCounter counter("conv_proof");
     const int padding = 1;
 
@@ -462,21 +490,21 @@ bool prove_conv_layer(const CNN::layer_info& layer, CNN::conv_wit wit, size_t rh
 
 
     set_timer("prove conv forward");
-    if (!prove_conv_forward(layer, wit, padding, rho_inv, sec_param)) {
+    if (!prove_conv_forward(layer, wit, padding, rho_inv, sec_param, lazy_map_prover, lazy_map_verifier)) {
         std::cout << "❌ Proving forward pass failed." << std::endl;
         return false;
     }
     pause_timer("prove conv forward");
 
     set_timer("prove conv dW");
-    if (!prove_conv_backward_dW(layer, wit, padding, rho_inv, sec_param)) {
+    if (!prove_conv_backward_dW(layer, wit, padding, rho_inv, sec_param, lazy_map_prover, lazy_map_verifier)) {
         std::cout << "❌ Proving backward dW failed." << std::endl;
         return false;
     }
     pause_timer("prove conv dW");
 
     set_timer("prove conv dX");
-    if (!prove_conv_backward_dX(layer, wit, padding, rho_inv, sec_param)) {
+    if (!prove_conv_backward_dX(layer, wit, padding, rho_inv, sec_param, lazy_map_prover, lazy_map_verifier)) {
         std::cout << "❌ Proving backward dX failed." << std::endl;
         return false;
     }

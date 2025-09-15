@@ -90,10 +90,6 @@ signVerifier::resource signVerifier::pre_execute_sign_check(
     ligeropcs_base pcs_bias_x;
     std::map<std::string, lazy_pcs> pcs;
     resource ret;
-    if (prover.strict) {
-        pcs["pcs_bias_x"] = prover.pre_get_pcs_bias_x(pool);
-    }
-
     
     signProver next_prover;
     divProver div_prover;
@@ -129,13 +125,10 @@ bool signVerifier::execute_sign_check(
 
     lazy_pcs pcs_bias_x;
     if (prover.strict) {
-        pcs_bias_x = re.pcs.back().at("pcs_bias_x");
-        auto alpha = random_vec_ext(prover.get_num_vars());
-        if (pcs_bias_x.open(alpha, sec_param) + Goldilocks2::one() != pcs_x->open(alpha, sec_param)) {
-            std::cerr << "❌Sign check failed: pcs_x != pcs_bias_x + 1" << std::endl;
-            return false;
-        }
-        pcs_x = std::make_shared<lazy_pcs>(pcs_bias_x); // Update pcs_x to include bias
+        oracle_sum pcs_bias_x;
+        pcs_bias_x.add(pcs_x);
+        pcs_bias_x.add_const(-Goldilocks2::one());
+        pcs_x = std::make_shared<oracle_sum>(std::move(pcs_bias_x)); // Update pcs_x to include bias
     }
     if (prover.final_round()) {
         if (re.pcs.size() != 1) {

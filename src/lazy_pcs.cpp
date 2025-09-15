@@ -79,6 +79,9 @@ void lazy_pcs_pool::record_open(size_t ind, const std::vector<Goldilocks2::Eleme
     if (!committed) {
         throw std::runtime_error("lazy_pcs_pool::record_open: not committed");
     }
+    if (finalized) {
+        throw std::runtime_error("lazy_pcs_pool::record_open: already finalized");
+    }
     if (z.size() + prefix[ind].size() != num_vars) {
         throw std::runtime_error("lazy_pcs_pool::record_open: number of variables mismatch");
     }
@@ -98,9 +101,17 @@ void lazy_pcs_pool::record_open(size_t ind, const std::vector<Goldilocks2::Eleme
     open_ind.push_back(ind);
 }
 
-bool lazy_pcs_pool::prove_open(std::shared_ptr<oracle> pcs, Goldilocks2::Element lambda) const {
+bool lazy_pcs_pool::prove_open(std::shared_ptr<oracle> pcs, Goldilocks2::Element lambda) {
     // std::cout << "====== warning: lazy_pcs_pool::prove_open skipped." << std::endl;
     // return true;
+
+    if (!committed) {
+        throw std::runtime_error("lazy_pcs_pool::prove_open: not committed");
+    }
+    if (finalized) {
+        throw std::runtime_error("lazy_pcs_pool::prove_open: already finalized");
+    }
+    finalized = true;
 
     std::vector<Goldilocks2::Element> table(1ull << num_vars);
     Goldilocks2::Element claim = Goldilocks2::zero();

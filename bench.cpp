@@ -49,11 +49,29 @@ void bench_VGG11() {
     clear_proof();
 }
 
-int main() {
-    if (!run_test()) return 0;
+void bench_commit() {
+    int tot_n = 27, bat = 3;
+    set_timer("small commit");
+    for (int i = 0; i < (1 << bat); i++) {
+        auto pcs = ligero_commit_base(random_vec_ext(1ull << (tot_n - bat)), 2);
+        auto cha = random_vec_ext(tot_n - bat);
+        pcs.open(cha, 32);
+    }
+    pause_timer("small commit");
+    set_timer("large commit");
+    auto pcs = ligero_commit_base(random_vec_ext(1ull << tot_n), 2);
+    auto cha = random_vec_ext(tot_n);
+    pcs.open(cha, 32);
+    pause_timer("large commit");
+    print_all_timers();
+    clear_all_timers();
+}
 
+int main() {
+    // if (!run_test()) return 0;
     // find_parameter();
     // bench_VGG11();
+    bench_commit();
     // bench_VGG16();
     // std::vector<Goldilocks2::Element> z = random_vec_ext(1 << 24);
     // MLE mle = z;

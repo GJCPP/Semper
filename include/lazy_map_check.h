@@ -35,6 +35,8 @@ public:
         lazy_pcs_pool& pool_left, lazy_pcs_pool& pool_right, 
         std::shared_ptr<oracle>& pcs_left, std::shared_ptr<oracle>& pcs_right,
         uint64_t rho_inv);
+
+    bool using_ext() const { return use_ext; }
     
 protected:
     bool use_ext;

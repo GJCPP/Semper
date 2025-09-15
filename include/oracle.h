@@ -26,12 +26,20 @@ public:
         coeffs.push_back(coeff);
     }
 
+    void add_const(Goldilocks2::Element c) {
+        constant += c;
+    }
+
     Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const override {
         Goldilocks2::Element result = Goldilocks2::zero();
         for (size_t i = 0; i < oracles.size(); ++i) {
             result += coeffs[i] * oracles[i]->open(z, sec_param);
         }
-        return result;
+        ++*open_counter;
+        if (*open_counter >= 2) {
+            std::cout << "Warning: oracle_sum::open called multiple times (" << open_counter << ")." << std::endl;
+        }
+        return result + constant;
     }
 
     int get_num_vars() const override {
@@ -40,9 +48,11 @@ public:
         }
         return oracles[0]->get_num_vars();
     }
-
+protected:
+    std::unique_ptr<int> open_counter = std::make_unique<int>(0);
     std::vector<std::shared_ptr<oracle>> oracles;
     std::vector<Goldilocks2::Element> coeffs; // coefficients for each oracle
+    Goldilocks2::Element constant = Goldilocks2::zero(); // constant term
 };
 
 class challenge_claim {

@@ -51,13 +51,6 @@ public:
         return ligero_commit_base(vec, rho_inv);
     }
 
-    inline lazy_pcs pre_get_pcs_bias_x(lazy_pcs_pool *pool) const {
-        if (!strict) {
-            throw std::runtime_error("signProver: get_pcs_bias_x called when strict is false");
-        }
-        return commit_lazy_pcs(vec, pool);
-    }
-
     inline bool use_lazy_logup() const {
         return lazy_logup_prover != nullptr;
     }

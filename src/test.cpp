@@ -17,6 +17,7 @@
 #include "lazy_pcs.h"
 #include "lazy_logup.h"
 #include "lazy_map_check.h"
+#include "counter.h"
 
 #define CNT_TEST 20
 
@@ -571,6 +572,48 @@ bool test_mat_mult() {
 }
 
 bool test_logup() {
+    clear_proof();
+    start_proof("test logup");
+    {
+        size_t fsize = 16777216, tsize = 16384;
+        std::vector<std::pair<uint64_t, uint64_t>> t(tsize);
+        std::vector<bool> vis(1 << 18);
+        for (size_t i = 0; i < tsize; ++i) {
+            size_t new_t1 = rand() % (1ull << 18);
+            while (vis[new_t1]) {
+                new_t1 = rand() % (1ull << 18);
+            }
+            vis[new_t1] = true;
+            t[i].first = new_t1;
+            t[i].second = rand() % (1ull << 5);
+        }
+        std::sort(t.begin(), t.end());
+        std::vector<uint64_t> t1(tsize), t2(tsize);
+        for (size_t i = 0; i < tsize; ++i) {
+            t1[i] = t[i].first;
+            t2[i] = t[i].second;
+        }
+
+        std::vector<uint64_t> f1(fsize);
+        std::vector<uint64_t> f2(f1.size());
+
+        for (size_t i = 0; i < f1.size(); ++i) {
+            size_t r = rand() % t1.size();
+            f1[i] = t1[r];
+            f2[i] = t2[r];
+        }
+
+        LogupProver lpr(f1, f2, t1, t2);
+        auto pcs_f1 = ligero_commit_base(f1, 2),
+             pcs_f2 = ligero_commit_base(f2, 2),
+             pcs_t1 = ligero_commit_base(t1, 2),
+             pcs_t2 = ligero_commit_base(t2, 2);
+        if (!LogupVerifier::execute_logup(lpr, pcs_f1, pcs_f2, pcs_t1, pcs_t2, 2, 32)) {
+            return false;
+        }
+    }
+    end_proof("test logup");
+    print_all_proof_size(Counter::MB);
     for (int cnt(0); cnt != CNT_TEST; ++cnt) {
         srand(cnt);
         size_t fsize = 4 << (rand() % 10), tsize = 4 << (rand() % 10);

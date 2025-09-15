@@ -157,6 +157,7 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, uint64_t rho_inv, uin
         }
         pcs_f1_all.push_back(pcs_f1);
         pcs_f2_all.push_back(pcs_f2);
+        // std::cout << "logup id = " << id << ": f_size = " << (1ull << pcs_f1.get_num_vars()) << ", table size = " << t1.size() << std::endl;
     }
     auto pcs_pool = pool.commit(rho_inv);
     for (size_t id = 0; id < tables_all.size(); id++) { // table id

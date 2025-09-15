@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <vector>
 
 #include "goldilocks_quadratic_ext.h"
@@ -46,10 +47,10 @@ public:
     const std::vector<size_t>& get_perm() const { return perm; }
     const MLE& get_uni_mle() const { return uni_mle; }
 
-    bool prove_open(std::shared_ptr<oracle> pcs, Goldilocks2::Element lambda) const;
+    bool prove_open(std::shared_ptr<oracle> pcs, Goldilocks2::Element lambda);
 
 protected:
-    bool committed = false;
+    bool committed = false, finalized = false;
     int num_vars = 0;
     size_t sec_param = 32;
     bool use_ext = false;

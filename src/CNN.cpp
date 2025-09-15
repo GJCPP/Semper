@@ -10,7 +10,7 @@
 
 
 CNN::CNN(std::string _model_name, std::string _data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv, uint64_t sec_param)
-    : model_name(_model_name), data_dir(_data_dir), epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * scale), rho_inv(rho_inv), sec_param(sec_param), pcs_pool(sec_param) {
+    : model_name(_model_name), data_dir(_data_dir), epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * scale), rho_inv(rho_inv), sec_param(sec_param), pcs_pool(sec_param), lazy_map_prover(true), lazy_map_verifier(true) {
     ;
 }
 
@@ -372,7 +372,7 @@ bool CNN::prove(size_t sec_param) {
         switch (layer.type) {
             case layer_type::conv:
                 set_timer("prove conv");
-                if (!prove_conv_layer(layer, conv_wit(data_dir, epoch, layer.id), rho_inv, sec_param)) {
+                if (!prove_conv_layer(layer, conv_wit(data_dir, epoch, layer.id), rho_inv, sec_param, &lazy_map_prover, &lazy_map_verifier)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
                     return false;
                 }
@@ -429,6 +429,7 @@ bool CNN::prove(size_t sec_param) {
         }
     }
 
+    std::cout << "Proving final logup..." << std::endl;
     set_timer("final logup");
     start_proof("final logup");
     if (!lazy_logup_verifier.prove_all(lazy_logup_prover, rho_inv, sec_param)) {
@@ -438,7 +439,18 @@ bool CNN::prove(size_t sec_param) {
     pause_timer("final logup");
     end_proof("final logup");
 
+    std::cout << "Proving final map..." << std::endl;
+    set_timer("final map");
+    start_proof("final map");
+    if (!lazy_map_verifier.prove_all(lazy_map_prover, rho_inv, sec_param)) {
+        std::cout << "❌ Final lazy map proof failed." << std::endl;
+        return false;
+    }
+    pause_timer("final map");
+    end_proof("final map");
+
     // std::cout << "===================Warning: skip final opening." << std::endl;
+    std::cout << "Proving final opening..." << std::endl;
     start_proof("final open");
     if (!prove_final_open(random_ext())) {
         std::cout << "❌ Final opening proof failed." << std::endl;
@@ -506,19 +518,12 @@ bool CNN::prove_input(size_t sec_param) {
         }
     }
 
-    start_proof("input_copy");
     // Check that input is subset of dataset_input
-    mapProver prover(from, to, false);
-    prover.add_mle(&mle_input, &mle_dataset_input);
-    mapVerifier verifier;
-    verifier.add_pcs(&pcs_input, &pcs_dataset_input);
-    if (!verifier.execute_check(prover, rho_inv, sec_param)) {
-        std::cout << "❌ Input permutation check failed." << std::endl;
-        return false;
-    }
-    end_proof("input_copy");
+    lazy_map_prover.add(from, to, mle_input, mle_dataset_input);
+    lazy_map_verifier.add(from, to, std::make_shared<lazy_pcs>(pcs_input), std::make_shared<lazy_pcs>(pcs_dataset_input));
 
-    start_proof("label_copy");
+
+    // Check that label is subset of dataset_label
     std::vector<size_t> label_from, label_to;
     label_from.reserve(batch * img * num_class);
     label_to.reserve(batch * img * num_class);
@@ -530,15 +535,9 @@ bool CNN::prove_input(size_t sec_param) {
             }
         }
     }
-    mapProver label_prover(label_from, label_to, false);
-    label_prover.add_mle(&mle_label, &mle_dataset_label);
-    mapVerifier label_verifier;
-    label_verifier.add_pcs(&pcs_label, &pcs_dataset_label);
-    if (!label_verifier.execute_check(label_prover, rho_inv, sec_param)) {
-        std::cout << "❌ Label permutation check failed." << std::endl;
-        return false;
-    }
-    end_proof("label_copy");
+    lazy_map_prover.add(label_from, label_to, mle_label, mle_dataset_label);
+    lazy_map_verifier.add(label_from, label_to, std::make_shared<lazy_pcs>(pcs_label), std::make_shared<lazy_pcs>(pcs_dataset_label));
+
 
     // Check that input is used as the input of a0 layer
     start_proof("check_input_layer");

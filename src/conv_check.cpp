@@ -84,6 +84,13 @@ mapProver convProver::get_map_prover(const std::vector<size_t>& mapfrom, const s
     return prover;
 }
 
+void convProver::get_lazy_map_prover(const std::vector<size_t>& mapfrom, const std::vector<size_t>& mapto, lazyMapProver* lazy_map_prover) {
+    if (lazy_map_prover->using_ext() != true) {
+        throw std::runtime_error("convProver::get_lazy_map_prover: lazy_map_prover must use ext field");
+    }
+    lazy_map_prover->add(mapfrom, mapto, ori_Y, *triple.Y);
+}
+
 convProver make_conv_prover(
     const std::vector<std::vector<Goldilocks2::Element>>& X, // in_channels x N
     const std::vector<std::vector<std::vector<Goldilocks2::Element>>>& W, // in_channels x out_channels x kernel_size
@@ -435,14 +442,16 @@ bool convVerifier::execute_convcheck_2d(
     const std::vector<size_t>& mapto,
     size_t rho_inv,
     size_t sec_param,
-    bool ext) {
+    bool ext,
+    lazyMapProver *lazy_map_prover,
+    lazyMapVerifier *lazy_map_verifier) {
     set_timer("conv2d_prove_perm");
     startCounter counter("conv2d_proof");
     
     // copy constraint between Y and Y_flatten
     
     // std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
-    {
+    if (lazy_map_prover == nullptr) {
         startCounter perm_counter("conv2d_perm");
         mapProver perm_prover = prover.get_map_prover(mapfrom, mapto);
         mapVerifier perm_verifier;
@@ -451,6 +460,9 @@ bool convVerifier::execute_convcheck_2d(
             std::cerr << "convVerifier::execute_convcheck_2d : perm check fail" << std::endl;
             return false;
         }
+    } else {
+        prover.get_lazy_map_prover(mapfrom, mapto, lazy_map_prover);
+        lazy_map_verifier->add(mapfrom, mapto, std::make_shared<open_param>(Y), std::make_shared<open_param>(flat_Y));
     }
     pause_timer("conv2d_prove_perm");
     // std::chrono::duration<double> duration = std::chrono::high_resolution_clock::now() - start;

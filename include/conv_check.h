@@ -10,6 +10,7 @@
 #include "array_view.h"
 #include "mle_open.h"
 #include "perm_check.h"
+#include "lazy_map_check.h" 
 
 class convProver;
 class convVerifier;
@@ -77,6 +78,8 @@ public:
 
     mapProver get_map_prover(const std::vector<size_t>& mapfrom, const std::vector<size_t>& mapto);
 
+    void get_lazy_map_prover(const std::vector<size_t>& mapfrom, const std::vector<size_t>& mapto, lazyMapProver *lazy_map_prover);
+
     convTriple triple;
 protected:
     // std::unique_ptr<MultilinearPolynomial> X_prime, W_prime;
@@ -96,7 +99,9 @@ public:
         const std::vector<size_t>& mapto,
         size_t rho_inv,
         size_t sec_param,
-        bool ext = false);
+        bool ext = false,
+        lazyMapProver *lazy_map_prover = nullptr,
+        lazyMapVerifier *lazy_map_verifier = nullptr);
 protected:
     static std::optional<std::array<challenge_claim, 2>> execute_convcheck(
                                                             convProver& prover,
