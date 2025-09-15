@@ -229,7 +229,7 @@ protected:
 
     std::vector<layer_info> layers;
     lazy_pcs_pool pcs_pool;
-    ligeropcs_base pcs_all;
+    std::shared_ptr<oracle> pcs_all;
 
     lazyLogupProver lazy_logup_prover;
     lazyLogupVerifier lazy_logup_verifier;

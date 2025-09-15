@@ -364,6 +364,7 @@ bool mapVerifier::execute_check(mapProver& prover, uint64_t rho_inv, uint64_t se
     std::vector<Goldilocks2::Element> small_cha(cha.begin() + pad_num_vars, cha.end());
     for (int i = 0; i != pad_num_vars; ++i) cha[i] = Goldilocks2::zero();
 
+    start_proof("map_proof_check_pad");
     for (size_t i = 0; i != len; ++i) {
         startCounter c("map_proof_check_pad");
         if (pcs_right[i]->open(small_cha, sec_param) != pcs_pad_right[i]->open(cha, sec_param)) {
@@ -371,6 +372,7 @@ bool mapVerifier::execute_check(mapProver& prover, uint64_t rho_inv, uint64_t se
             return false;
         }
     }
+    end_proof("map_proof_check_pad");
     // 2. Perform perm check.
     permProver perm_prover = prover.get_perm_prover();
     permVerifier perm_verifier;

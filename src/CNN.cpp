@@ -346,11 +346,11 @@ void CNN::pre_prove(size_t sec_param) {
 }
 
 bool CNN::prove(size_t sec_param) {
-    set_timer(std::format("prove {} total", model_name));
     set_timer("pre_prove");
     pre_prove(sec_param);
     pause_timer("pre_prove");
 
+    set_timer(std::format("prove {} total", model_name));
 
     std::cout << "model_name = " << model_name << std::endl;
     std::cout << "Checking input..." << std::endl;
@@ -429,11 +429,13 @@ bool CNN::prove(size_t sec_param) {
         }
     }
 
+    set_timer("final logup");
     start_proof("final logup");
     if (!lazy_logup_verifier.prove_all(lazy_logup_prover, rho_inv, sec_param)) {
         std::cout << "❌ Final lazy logup proof failed." << std::endl;
         return false;
     }
+    pause_timer("final logup");
     end_proof("final logup");
 
     // std::cout << "===================Warning: skip final opening." << std::endl;

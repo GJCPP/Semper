@@ -16,6 +16,7 @@
 #include "perm_check.h"
 #include "lazy_pcs.h"
 #include "lazy_logup.h"
+#include "lazy_map_check.h"
 
 #define CNT_TEST 20
 
@@ -1089,6 +1090,68 @@ bool test_map_check() {
     return true;
 }
 
+bool test_lazy_map_check() {
+    for (int cnt = 0; cnt < CNT_TEST; ++cnt) {
+        srand(cnt);
+        int batch_size = rand() % 10 + 1;
+        lazyMapProver lazy_prover(true);
+        lazyMapVerifier lazy_verifier(true);
+        for (int bat = 0; bat != batch_size; ++bat) {
+            int len = rand() % 10 + 1;
+            int logn1(rand() % 10 + 1), logn2(rand() % 10 + 2);
+            if (logn1 > logn2) std::swap(logn1, logn2);
+            int n1 = (1 << logn1), n2 = (1 << logn2);
+            int perm_sz = (rand() % n1 + 1);
+            std::vector<std::vector<Goldilocks2::Element>> f1(len), f2(len);
+            std::vector<bool> vis_from(1 << logn1), vis_to(1 << logn2);
+            std::vector<size_t> perm_from(perm_sz);
+            std::vector<size_t> perm_to(perm_sz);
+            std::map<size_t, size_t> map;
+            for (int i = 0; i < len; ++i) {
+                f1[i].resize(n1, Goldilocks2::fromU64(rand() % (1 << 20)));
+                f2[i].resize(n2, Goldilocks2::fromU64(rand() % (1 << 20)));
+            }
+            for (size_t i = 0; i < perm_sz; ++i) {
+                size_t v;
+                do {
+                    v = rand() % n1;
+                } while (vis_from[v]);
+                vis_from[v] = true;
+                perm_from[i] = v;
+            }
+            std::sort(perm_from.begin(), perm_from.end());
+            for (size_t i = 0; i < perm_sz; ++i) {
+                size_t v;
+                do { v = rand() % n2; } while (vis_to[v]);
+                vis_to[v] = true;
+                perm_to[i] = v;
+                map[perm_from[i]] = perm_to[i];
+            }
+            for (size_t i = 0; i != len; ++i) {
+                for (const auto& m : map) {
+                    f2[i][m.second] = f1[i][m.first];
+                }
+            }
+
+            std::vector<MLE> mle_f1, mle_f2;
+            std::vector<std::shared_ptr<oracle>> pcs_f1, pcs_f2;
+            for (int i = 0; i != len; ++i) {
+                mle_f1.emplace_back(f1[i]);
+                mle_f2.emplace_back(f2[i]);
+                pcs_f1.push_back(std::make_shared<ligeropcs_base>(ligero_commit_base(mle_f1.back(), 2)));
+                pcs_f2.push_back(std::make_shared<ligeropcs_base>(ligero_commit_base(mle_f2.back(), 2)));
+            }
+            Goldilocks2::Element alpha = random_ext();
+            lazy_prover.add(perm_from, perm_to, mle_f1, mle_f2, alpha);
+            lazy_verifier.add(perm_from, perm_to, pcs_f1, pcs_f2, alpha);
+        }
+        if (!lazy_verifier.prove_all(lazy_prover, 2, 32)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool test_lazy_pcs() {
     // Test 4 4 4 4
     {
@@ -1212,6 +1275,10 @@ bool run_test() {
     }
     if (!test_map_check()) {
         std::cout << "test_map_check failed" << std::endl;
+        return false;
+    }
+    if (!test_lazy_map_check()) {
+        std::cout << "test_lazy_map_check failed" << std::endl;
         return false;
     }
     if (!test_conv_check()) {

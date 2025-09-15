@@ -5,7 +5,7 @@
 #include "util.h"
 #include "ligero.h"
 #include "counter.h"
-ligeropcs_base lazy_pcs_pool::commit(uint64_t rho_inv) {
+std::shared_ptr<oracle> lazy_pcs_pool::commit(uint64_t rho_inv) {
     // std::cout << "====== warning: lazy_pcs_pool::commit skipped." << std::endl;
     // committed = true;
     // return {};
@@ -15,9 +15,26 @@ ligeropcs_base lazy_pcs_pool::commit(uint64_t rho_inv) {
     }
     committed = true;
 
-    std::sort(mles.begin(), mles.end(), [](const auto& a, const auto& b) {
-        return a.first.get_num_vars() > b.first.get_num_vars(); // big mle first
-    });
+    struct sortIns {
+        size_t ind;
+        int num_vars;
+    };
+    std::vector<sortIns> elements;
+    for (size_t i = 0; i < mles.size(); i++) {
+        elements.push_back({i, mles[i].first.get_num_vars()});
+    }
+    std::sort(elements.begin(), elements.end(), [](const auto& a, const auto& b) {
+        return a.num_vars > b.num_vars;
+    }); // sort in descending order
+    std::vector<std::pair<MLE, size_t>> sorted_mles;
+    order.resize(mles.size());
+    perm.resize(mles.size());
+    for (size_t i = 0; i != elements.size(); ++i) {
+        sorted_mles.push_back(mles[elements[i].ind]);
+        order[elements[i].ind] = i;
+        perm[i] = elements[i].ind;
+    }
+    mles = std::move(sorted_mles);
 
     size_t ind = 0;
     size_t total = 0;
@@ -49,7 +66,11 @@ ligeropcs_base lazy_pcs_pool::commit(uint64_t rho_inv) {
     }
     all_vals.resize(total);
     uni_mle = all_vals;
-    return ligero_commit_base(uni_mle, rho_inv);
+    if (use_ext) {
+        return std::make_shared<ligeropcs_ext>(ligero_commit_ext(uni_mle, rho_inv));
+    } else {
+        return std::make_shared<ligeropcs_base>(ligero_commit_base(uni_mle, rho_inv));
+    }
 }
 
 void lazy_pcs_pool::record_open(size_t ind, const std::vector<Goldilocks2::Element>& z, Goldilocks2::Element val, size_t sec) {
@@ -77,7 +98,7 @@ void lazy_pcs_pool::record_open(size_t ind, const std::vector<Goldilocks2::Eleme
     open_ind.push_back(ind);
 }
 
-bool lazy_pcs_pool::prove_open(ligeropcs_base pcs, Goldilocks2::Element lambda) const {
+bool lazy_pcs_pool::prove_open(std::shared_ptr<oracle> pcs, Goldilocks2::Element lambda) const {
     // std::cout << "====== warning: lazy_pcs_pool::prove_open skipped." << std::endl;
     // return true;
 
@@ -103,7 +124,7 @@ bool lazy_pcs_pool::prove_open(ligeropcs_base pcs, Goldilocks2::Element lambda) 
     }
     MLE mle_sum(std::move(table));
     p2Prover prover(mle_sum.clone(), uni_mle.clone());
-    if (!p2Verifier::execute_sumcheck(prover, {&eq_sum_oracle, &pcs}, claim, sec_param)) {
+    if (!p2Verifier::execute_sumcheck(prover, {&eq_sum_oracle, pcs.get()}, claim, sec_param)) {
         std::cerr << __LINE__ << ": lazy_pcs_pool::prove_open: sumcheck failed" << std::endl;
         return false;
     }
