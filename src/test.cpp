@@ -997,7 +997,7 @@ bool test_set_check() {
         std::vector<MLE> mle_set1, mle_set2;
         std::vector<const MLE*> ptr_set1, ptr_set2;
         std::vector<ligeropcs_ext> pcs_set1, pcs_set2;
-        std::vector<const oracle*> ptr_pcs1, ptr_pcs2;
+        std::vector<std::shared_ptr<oracle>> ptr_pcs1, ptr_pcs2;
         mle_set1.reserve(n);
         mle_set2.reserve(n);
         for (int i = 0; i < n; ++i) {
@@ -1009,8 +1009,8 @@ bool test_set_check() {
         for (int i = 0; i < n; ++i) {
             ptr_set1.push_back(&mle_set1[i]);
             ptr_set2.push_back(&mle_set2[i]);
-            ptr_pcs1.push_back(&pcs_set1[i]);
-            ptr_pcs2.push_back(&pcs_set2[i]);
+            ptr_pcs1.push_back(std::make_shared<ligeropcs_ext>(pcs_set1[i]));
+            ptr_pcs2.push_back(std::make_shared<ligeropcs_ext>(pcs_set2[i]));
         }
         setProver prover(ptr_set1, ptr_set2);
         if (!setVerifier::execute_check(prover, ptr_pcs1, ptr_pcs2, 2, 32)) {
@@ -1064,7 +1064,7 @@ bool test_perm_check() {
         }
         for (int i = 0; i != n; ++i) {
             prover.add_mle(&mle_f1[i], &mle_f2[i]);
-            verifier.add_pcs(&pcs_f1[i], &pcs_f2[i]);
+            verifier.add_pcs(std::make_shared<ligeropcs_base>(pcs_f1[i]), std::make_shared<ligeropcs_base>(pcs_f2[i]));
         }
         if (!verifier.execute_check(prover, 2, 32)) {
             return false;
@@ -1090,7 +1090,7 @@ bool test_map_check() {
             f1[i].resize(n1, Goldilocks2::fromU64(rand() % (1 << 20)));
             f2[i].resize(n2, Goldilocks2::fromU64(rand() % (1 << 20)));
         }
-        for (size_t i = 0; i < perm_sz; ++i) {
+        for (int i = 0; i < perm_sz; ++i) {
             size_t v;
             do {
                 v = rand() % n1;
@@ -1099,32 +1099,32 @@ bool test_map_check() {
             perm_from[i] = v;
         }
         std::sort(perm_from.begin(), perm_from.end());
-        for (size_t i = 0; i < perm_sz; ++i) {
+        for (int i = 0; i < perm_sz; ++i) {
             size_t v;
             do { v = rand() % n2; } while (vis_to[v]);
             vis_to[v] = true;
             perm_to[i] = v;
             map[perm_from[i]] = perm_to[i];
         }
-        for (size_t i = 0; i != len; ++i) {
+        for (int i = 0; i != len; ++i) {
             for (const auto& m : map) {
                 f2[i][m.second] = f1[i][m.first];
             }
         }
 
         std::vector<MLE> mle_f1, mle_f2;
-        std::vector<ligeropcs_base> pcs_f1, pcs_f2;
+        std::vector<std::shared_ptr<ligeropcs_base>> pcs_f1, pcs_f2;
         mapProver prover(perm_from, perm_to, false);
         mapVerifier verifier;
         for (int i = 0; i != len; ++i) {
             mle_f1.emplace_back(f1[i]);
             mle_f2.emplace_back(f2[i]);
-            pcs_f1.push_back(ligero_commit_base(mle_f1.back(), 2));
-            pcs_f2.push_back(ligero_commit_base(mle_f2.back(), 2));
+            pcs_f1.push_back(std::make_shared<ligeropcs_base>(ligero_commit_base(mle_f1.back(), 2)));
+            pcs_f2.push_back(std::make_shared<ligeropcs_base>(ligero_commit_base(mle_f2.back(), 2)));
         }
         for (int i = 0; i != len; ++i) {
             prover.add_mle(&mle_f1[i], &mle_f2[i]);
-            verifier.add_pcs(&pcs_f1[i], &pcs_f2[i]);
+            verifier.add_pcs(pcs_f1[i], pcs_f2[i]);
         }
         if (!verifier.execute_check(prover, 2, 32)) {
             return false;
@@ -1154,7 +1154,7 @@ bool test_lazy_map_check() {
                 f1[i].resize(n1, Goldilocks2::fromU64(rand() % (1 << 20)));
                 f2[i].resize(n2, Goldilocks2::fromU64(rand() % (1 << 20)));
             }
-            for (size_t i = 0; i < perm_sz; ++i) {
+            for (int i = 0; i < perm_sz; ++i) {
                 size_t v;
                 do {
                     v = rand() % n1;
@@ -1163,14 +1163,14 @@ bool test_lazy_map_check() {
                 perm_from[i] = v;
             }
             std::sort(perm_from.begin(), perm_from.end());
-            for (size_t i = 0; i < perm_sz; ++i) {
+            for (int i = 0; i < perm_sz; ++i) {
                 size_t v;
                 do { v = rand() % n2; } while (vis_to[v]);
                 vis_to[v] = true;
                 perm_to[i] = v;
                 map[perm_from[i]] = perm_to[i];
             }
-            for (size_t i = 0; i != len; ++i) {
+            for (int i = 0; i != len; ++i) {
                 for (const auto& m : map) {
                     f2[i][m.second] = f1[i][m.first];
                 }

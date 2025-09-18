@@ -479,8 +479,7 @@ bool CNN::prove_input(size_t sec_param) {
         log_wide = find_ceiling_log2(wide),
         log_height = find_ceiling_log2(height),
         log_num_class = find_ceiling_log2(num_class);
-    size_t up_batch = (1ull << log_batch),
-            up_img = (1ull << log_img),
+    size_t up_img = (1ull << log_img),
             up_channel = (1ull << log_channel),
             up_wide = (1ull << log_wide),
             up_height = (1ull << log_height),

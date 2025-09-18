@@ -1,7 +1,7 @@
 #include "util.h"
 #include "logup.h"
 #include "lazy_logup.h"
-
+#include "counter.h"
 
 
 
@@ -242,13 +242,17 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, uint64_t rho_inv, uin
         //         throw std::runtime_error("lazyLogupVerifier: t2 does not match prover.t2");
         //     }
         // }
+        start_proof("lazylogup_logup_proof");
         if (!LogupVerifier::execute_logup(logup_prover, pcs_f1, pcs_f2, mle_t1, mle_t2, rho_inv, sec_param)) {
             std::cout << "lazyLogupVerifier: logup proof failed." << std::endl;
             return false;
         }
+        end_proof("lazylogup_logup_proof");
     }
     // 4. Prove lazy_pcs
+    start_proof("lazylogup_lazy_pcs_proof");
     pool.prove_open(pcs_pool, random_ext());
+    end_proof("lazylogup_lazy_pcs_proof");
     return true;
 }
 

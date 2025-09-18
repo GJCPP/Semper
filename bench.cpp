@@ -70,8 +70,8 @@ void bench_commit() {
 int main() {
     // if (!run_test()) return 0;
     // find_parameter();
-    // bench_VGG11();
-    bench_commit();
+    bench_VGG11();
+    // bench_commit();
     // bench_VGG16();
     // std::vector<Goldilocks2::Element> z = random_vec_ext(1 << 24);
     // MLE mle = z;

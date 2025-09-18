@@ -61,8 +61,8 @@ setProver::setProver(const std::vector<const MLE*>& set1, const std::vector<cons
     }
 }
 
-std::array<ligeropcs_ext, 2> setProver::combine(const std::vector<Goldilocks2::Element>& cha, uint64_t rho_inv) {
-    if (cha.size() != n) {
+void setProver::combine(const std::vector<Goldilocks2::Element>& cha, uint64_t rho_inv) {
+    if (cha.size() != static_cast<size_t>(n)) {
         throw std::invalid_argument("setProver::combine: challenge must have same length as f1 and f2");
     }
     std::vector<Goldilocks2::Element> eval1 = f1[0]->get_eval_table(), eval2 = f2[0]->get_eval_table();
@@ -80,7 +80,7 @@ std::array<ligeropcs_ext, 2> setProver::combine(const std::vector<Goldilocks2::E
     }
     set1 = eval1;
     set2 = eval2;
-    return { ligero_commit_ext(set1, rho_inv), ligero_commit_ext(set2, rho_inv) };
+    // return { ligero_commit_ext(set1, rho_inv), ligero_commit_ext(set2, rho_inv) };
 }
 
 std::array<pdProver, 2> setProver::get_pd_prover() {
@@ -89,31 +89,41 @@ std::array<pdProver, 2> setProver::get_pd_prover() {
 
 bool setVerifier::execute_check(
     setProver& prover,
-    const std::vector<const oracle*>& pcs_f1,
-    const std::vector<const oracle*>& pcs_f2,
+    const std::vector<std::shared_ptr<oracle>>& pcs_f1,
+    const std::vector<std::shared_ptr<oracle>>& pcs_f2,
     uint64_t rho_inv, uint64_t sec_param) {
 
     startCounter counter("set_proof");
     
-    const int n = prover.get_n(), num_vars = prover.get_num_vars();
+    const int n = prover.get_n();
+    const int num_vars = prover.get_num_vars();
     auto alpha = random_vec_ext(n);
-    auto [pcs_set1, pcs_set2] = prover.combine(alpha, rho_inv);
+    prover.combine(alpha, rho_inv);
+    oracle_sum pcs_set1, pcs_set2;
+    pcs_set1.add_const(alpha[0]);
+    pcs_set2.add_const(alpha[0]);
+    pcs_set1.add(pcs_f1[0], Goldilocks2::one());
+    pcs_set2.add(pcs_f2[0], Goldilocks2::one());
+    for (int i = 1; i < n; ++i) {
+        pcs_set1.add(pcs_f1[i], alpha[i]);
+        pcs_set2.add(pcs_f2[i], alpha[i]);
+    }
 
     // Check set[b] = alpha[0] + fb[0] \sum_i alpha[i] x fb[i]
-    {
-        startCounter counter("set_relation_proof");
-        auto cha = random_vec_ext(num_vars);
-        auto expect1 = alpha[0] + pcs_f1[0]->open(cha, sec_param);
-        auto expect2 = alpha[0] + pcs_f2[0]->open(cha, sec_param);
-        for (int i = 1; i < n; ++i) {
-            expect1 += alpha[i] * pcs_f1[i]->open(cha, sec_param);
-            expect2 += alpha[i] * pcs_f2[i]->open(cha, sec_param);
-        }
-        if (pcs_set1.open(cha, sec_param) != expect1 || pcs_set2.open(cha, sec_param) != expect2) {
-            std::cerr << "setVerifier::execute_check : combination check fails" << std::endl;
-            return false;
-        }
-    }
+    // {
+    //     startCounter counter("set_relation_proof");
+    //     auto cha = random_vec_ext(num_vars);
+    //     auto expect1 = alpha[0] + pcs_f1[0]->open(cha, sec_param);
+    //     auto expect2 = alpha[0] + pcs_f2[0]->open(cha, sec_param);
+    //     for (int i = 1; i < n; ++i) {
+    //         expect1 += alpha[i] * pcs_f1[i]->open(cha, sec_param);
+    //         expect2 += alpha[i] * pcs_f2[i]->open(cha, sec_param);
+    //     }
+    //     if (pcs_set1.open(cha, sec_param) != expect1 || pcs_set2.open(cha, sec_param) != expect2) {
+    //         std::cerr << "setVerifier::execute_check : combination check fails" << std::endl;
+    //         return false;
+    //     }
+    // }
 
     // Check \prod pcs_set1/pcs_set2 = 1
     auto pd_prover = prover.get_pd_prover();
@@ -133,7 +143,7 @@ bool setVerifier::execute_check(
 
 // prove f2(pi(x)) = f1(x)
 permProver::permProver(const std::vector<size_t>& _perm, bool _ext)
-    : perm(_perm), ext(_ext) {
+    : ext(_ext), perm(_perm) {
 }
 
 void permProver::add_mle(const MLE *new_f1, const MLE *new_f2) {
@@ -163,7 +173,7 @@ void permProver::add_mle(const MLE *new_f1, const MLE *new_f2) {
 #endif
 }
 
-std::vector<std::unique_ptr<oracle>> permProver::commit_pad_f1(uint64_t rho_inv) {
+std::vector<std::shared_ptr<oracle>> permProver::commit_pad_f1(uint64_t rho_inv) {
     const size_t n1 = (1 << f1[0]->get_num_vars()), n2 = (1 << f2[0]->get_num_vars());
     const size_t len = f1.size();
     if (n1 == n2) {
@@ -198,7 +208,7 @@ std::vector<std::unique_ptr<oracle>> permProver::commit_pad_f1(uint64_t rho_inv)
         perm[i] = next;
         ++next;
     }
-    std::vector<std::unique_ptr<oracle>> ret;
+    std::vector<std::shared_ptr<oracle>> ret;
     pad_f1.reserve(len);
     ret.reserve(len);
     for (size_t i = 0; i < len; ++i) {
@@ -235,13 +245,13 @@ bool permVerifier::execute_check(
     startCounter counter("perm_proof");
 
     auto _pcs_pad_f1 = prover.commit_pad_f1(rho_inv);
-    std::vector<const oracle *> pcs_pad_f1;
+    std::vector<std::shared_ptr<oracle>> pcs_pad_f1;
     if (_pcs_pad_f1.empty()) {
         pcs_pad_f1 = pcs_f1;
     } else {
         pcs_pad_f1.reserve(pcs_f1.size());
         for (auto& p : _pcs_pad_f1) {
-            pcs_pad_f1.push_back(p.get());
+            pcs_pad_f1.push_back(p);
         }
     }
     
@@ -253,11 +263,11 @@ bool permVerifier::execute_check(
     MLE mle_perm(prover.get_perm());
 
     setProver set_prover = prover.get_set_prover(mle_id_perm, mle_perm);
-    std::vector<const oracle*> pcs_vec1, pcs_vec2;
+    std::vector<std::shared_ptr<oracle>> pcs_vec1, pcs_vec2;
     pcs_vec1.reserve(pcs_f1.size() + 1);
     pcs_vec2.reserve(pcs_f2.size() + 1);
-    pcs_vec1.push_back(&mle_perm);
-    pcs_vec2.push_back(&mle_id_perm);
+    pcs_vec1.push_back(std::make_shared<MLE>(mle_perm));
+    pcs_vec2.push_back(std::make_shared<MLE>(mle_id_perm));
     pcs_vec1.insert(pcs_vec1.end(), pcs_pad_f1.begin(), pcs_pad_f1.end());
     pcs_vec2.insert(pcs_vec2.end(), pcs_f2.begin(), pcs_f2.end());
     if (!setVerifier::execute_check(set_prover, pcs_vec1, pcs_vec2, rho_inv, sec_param)) {
@@ -267,13 +277,13 @@ bool permVerifier::execute_check(
     return true;
 }
 
-void permVerifier::add_pcs(const oracle* new_pcs_f1, const oracle* new_pcs_f2) {
+void permVerifier::add_pcs(std::shared_ptr<oracle> new_pcs_f1, std::shared_ptr<oracle> new_pcs_f2) {
     pcs_f1.push_back(new_pcs_f1);
     pcs_f2.push_back(new_pcs_f2);
 }
 
 mapProver::mapProver(const std::vector<size_t>& _map_from, const std::vector<size_t>& _map_to, bool _ext) 
-    : map_from(_map_from), map_to(_map_to), ext(_ext) {
+    : ext(_ext), map_from(_map_from), map_to(_map_to) {
     if (!std::is_sorted(map_from.begin(), map_from.end())) {
         throw std::invalid_argument("mapProver::mapProver : map_from must be sorted");
     }
@@ -302,8 +312,8 @@ void mapProver::add_mle(const MLE* mle_from, const MLE* mle_to) {
     right.emplace_back(evs_right);
 }
 
-std::vector<std::unique_ptr<oracle>> mapProver::commit_right(uint64_t rho_inv) const {
-    std::vector<std::unique_ptr<oracle>> right_pcs;
+std::vector<std::shared_ptr<oracle>> mapProver::commit_right(uint64_t rho_inv) const {
+    std::vector<std::shared_ptr<oracle>> right_pcs;
     right_pcs.reserve(right.size());
     for (const auto& mle : right) {
         if (ext) {
@@ -347,7 +357,7 @@ void mapProver::init_map(const MLE* mle_from, const MLE* mle_to) {
 }
 
 
-void mapVerifier::add_pcs(const oracle* left, const oracle* right) {
+void mapVerifier::add_pcs(std::shared_ptr<oracle> left, std::shared_ptr<oracle> right) {
     pcs_left.push_back(left);
     pcs_right.push_back(right);
 }
@@ -377,7 +387,7 @@ bool mapVerifier::execute_check(mapProver& prover, uint64_t rho_inv, uint64_t se
     permProver perm_prover = prover.get_perm_prover();
     permVerifier perm_verifier;
     for (size_t i = 0; i != len; ++i) {
-        perm_verifier.add_pcs(pcs_left[i], pcs_pad_right[i].get());
+        perm_verifier.add_pcs(pcs_left[i], pcs_pad_right[i]);
     }
     if (!perm_verifier.execute_check(perm_prover, rho_inv, sec_param)) {
         std::cerr << "mapVerifier::execute_check : perm check fails" << std::endl;

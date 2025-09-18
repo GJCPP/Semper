@@ -155,7 +155,7 @@ bool lazyMapVerifier::prove_all(lazyMapProver& prover, uint64_t rho_inv, uint64_
     std::shared_ptr<oracle> pcs_left, pcs_right;
     mapProver map_prover = prover.commit_left_right(pool_left, pool_right, pcs_left, pcs_right, rho_inv);
     mapVerifier map_verifier;
-    map_verifier.add_pcs(pcs_left.get(), pcs_right.get());
+    map_verifier.add_pcs(pcs_left, pcs_right);
     if (!map_verifier.execute_check(map_prover, rho_inv, sec_param)) {
         std::cerr << "lazyMapVerifier::prove_all: map check failed." << std::endl;
         return false;

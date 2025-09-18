@@ -204,7 +204,7 @@ bool LogupVerifier::execute_logup(LogupProver& lpr,
     for (auto pc : gh) {
         if (!ligeroVerifier::check_commit(pc, sec_param)) return false;
     }
-    // end_timer("check commitment of g, h");
+    // pause_timer("check commitment of g, h");
     // alert("g,h commited");
 
     auto pcsg = gh[0], pcsh = gh[1];
@@ -213,18 +213,22 @@ bool LogupVerifier::execute_logup(LogupProver& lpr,
     Goldilocks2::Element sum = firstProvers[0].get_sum();
     assert(sum == firstProvers[1].get_sum());
     // set_timer("sumcheck 1 / 4");
+    start_proof("logup_sumcheck_1_4");
     if (!sVerifier::execute_sumcheck(firstProvers[0], pcsg, sec_param)) {
         std::cout << "logup failed 0 \n";
         return false;
     }
+    end_proof("logup_sumcheck_1_4");
     // end_timer("sumcheck 1 / 4");
     // alert("sumcheck 1 / 4 finished");
 
     // set_timer("sumcheck 2 / 4");
+    start_proof("logup_sumcheck_2_4");
     if (!sVerifier::execute_sumcheck(firstProvers[1], pcsh, sec_param)) {
         std::cout << "logup failed 1 \n";
         return false;
     }
+    end_proof("logup_sumcheck_2_4");
     // end_timer("sumcheck 2 / 4");
     // alert("sumcheck 2 / 4 finished");
 
@@ -246,18 +250,22 @@ bool LogupVerifier::execute_logup(LogupProver& lpr,
     auto pcsf1 = ft[0], pcsf2 = ft[1], pcst1 = ft[2], pcst2 = ft[3];
 
     // set_timer("sumcheck 3 / 4");
+    start_proof("logup_sumcheck_3_4");
     if (!p3Verifier::execute_logup_sumcheck(secondProvers[0], eqg, pcsg, *pcsf1, *pcsf2, gamma, lambda, sec_param)) {
         std::cout << "logup failed 2 \n";
         return false;
     }
+    end_proof("logup_sumcheck_3_4");
     // end_timer("sumcheck 3 / 4");
     // alert("sumcheck 3 / 4 finished");
 
     // set_timer("sumcheck 4 / 4");
+    start_proof("logup_sumcheck_4_4");
     if (!p3Verifier::execute_logup_sumcheck(secondProvers[1], eqh, pcsh, *pcst1, *pcst2, gamma, lambda, sec_param)) {
         std::cout << "logup failed 3 \n";
         return false;
     }
+    end_proof("logup_sumcheck_4_4");
     // end_timer("sumcheck 4 / 4");
     // alert("sumcheck 4 / 4 finished");
     // alert("logup finished");

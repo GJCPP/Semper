@@ -86,11 +86,11 @@ public:
             auto& X = res["X"], &W = res["W"], &Y = res["Y"], raw_Y = res["Y"];
             int C = X.view.shape(1), in = X.view.shape(2),
                 D = Y.view.shape(1), on = Y.view.shape(2);
-            auto batch_sz = X.view.shape(0);
-            if (Y.view.shape(0) != batch_sz) {
+            int batch_sz = X.view.shape(0);
+            if (Y.view.shape(0) != static_cast<size_t>(batch_sz)) {
                 throw std::runtime_error("conv_wit::get_conv_wit: Batch size mismatch");
             }
-            if (alpha.size() != batch_sz) {
+            if (alpha.size() != static_cast<size_t>(batch_sz)) {
                 throw std::runtime_error("conv_wit::get_conv_wit: Alpha size mismatch");
             }
 
@@ -136,8 +136,6 @@ public:
             }
             
             auto& X = res["X"], &W = res["W"], &Y = res["Y"];
-            int C = X.view.shape(1), in = X.view.shape(2),
-                D = Y.view.shape(1), on = Y.view.shape(2);
             auto batch_sz = X.view.shape(0);
             if (Y.view.shape(0) != batch_sz) {
                 throw std::runtime_error("conv_wit::get_conv_wit: Batch size mismatch");

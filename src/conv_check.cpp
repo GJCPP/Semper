@@ -330,7 +330,7 @@ void pad_weights(
         for (size_t i = 0; i < y_sz; ++i) {
             auto Y_view_i = Y_view_d[i];
             auto Y_pad_view_i = pad_right_bottom ? Y_pad_view_d[i + pad_m] : Y_pad_view_d[i];
-            size_t ind = pad_right_bottom ? i + pad_m : i;
+            // size_t ind = pad_right_bottom ? i + pad_m : i;
             for (size_t j = 0; j < y_sz; ++j) {
                 if (pad_right_bottom) {
                     Y_pad_view_i(j + pad_m) = Y_view_i(j);
@@ -455,7 +455,7 @@ bool convVerifier::execute_convcheck_2d(
         startCounter perm_counter("conv2d_perm");
         mapProver perm_prover = prover.get_map_prover(mapfrom, mapto);
         mapVerifier perm_verifier;
-        perm_verifier.add_pcs(&Y, &flat_Y);
+        perm_verifier.add_pcs(std::make_shared<open_param>(Y), std::make_shared<open_param>(flat_Y));
         if (!perm_verifier.execute_check(perm_prover, rho_inv, sec_param)) {
             std::cerr << "convVerifier::execute_convcheck_2d : perm check fail" << std::endl;
             return false;

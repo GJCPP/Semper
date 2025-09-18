@@ -58,10 +58,6 @@ void pre_prove_conv(
     bool pad_right_bottom,
     CNN::layer_res& res, lazy_pcs_pool *pool, const std::string& prename) {
 
-    const int N = X.shape(0), IC = X.shape(1), in = X.shape(2), OC = Y.shape(1), on = Y.shape(2);
-    const int m = W.shape(2);
-    const int logN = find_ceiling_log2(N);
-
     std::map<std::string, array<Goldilocks2::Element>> witness;
     if (wit.empty()) {
         std::cerr << "Error: No witness provided for convolution proof." << std::endl;
@@ -138,7 +134,6 @@ bool prove_conv(
 
     // Step 2. Padding
     auto& iW = W;
-    double pad_time = 0, prove_time = 0;
 
     auto iX = cX.view; // [C, n, n]
     auto iY = cY.view; // [OC, on, on]
@@ -259,8 +254,6 @@ bool prove_conv(
     }
 
     // Step 2. Padding
-    auto& iW = W;
-    double pad_time = 0, prove_time = 0;
 
     auto iX = cX.view; // [C, n, n]
     auto iY = cY.view; // [OC, on, on]
@@ -312,11 +305,6 @@ bool prove_conv(
 
 bool pre_prove_conv_forward(const CNN::layer_info& layer, CNN::conv_wit wit, int padding, CNN::layer_res& res, lazy_pcs_pool* pool) {
     int bat = int(layer.input.shape(0));
-    int img = int(layer.input.shape(1));
-    size_t C = layer.input.shape(2);
-    size_t D = layer.output.shape(2);
-    size_t n = layer.input.shape(3);
-    size_t m = layer.weight.shape(3);
 
     wit.set_forward();
 
@@ -339,11 +327,6 @@ bool prove_conv_forward(
     lazyMapProver *lazy_map_prover, lazyMapVerifier *lazy_map_verifier) {
 
     int bat = int(layer.input.shape(0));
-    int img = int(layer.input.shape(1));
-    size_t C = layer.input.shape(2);
-    size_t D = layer.output.shape(2);
-    size_t n = layer.input.shape(3);
-    size_t m = layer.weight.shape(3);
 
     wit.set_forward();
 
@@ -372,11 +355,6 @@ bool prove_conv_backward_dW(
     lazyMapProver *lazy_map_prover, lazyMapVerifier *lazy_map_verifier) {
 
     int bat = int(layer.input.shape(0));
-    int img = int(layer.input.shape(1));
-    size_t C = layer.input.shape(2);
-    size_t D = layer.output.shape(2);
-    size_t n = layer.input.shape(3);
-    size_t m = layer.weight.shape(3);
 
     wit.set_dW();
 
@@ -411,11 +389,6 @@ bool prove_conv_backward_dX(
     lazyMapProver *lazy_map_prover, lazyMapVerifier *lazy_map_verifier) {
 
     int bat = int(layer.input.shape(0));
-    int img = int(layer.input.shape(1));
-    size_t C = layer.input.shape(2);
-    size_t D = layer.output.shape(2);
-    size_t n = layer.input.shape(3);
-    size_t m = layer.weight.shape(3);
 
     wit.set_dX();
 
@@ -623,7 +596,6 @@ CNN::layer_res pre_prove_relu_layer(
         auto Y = layer.output[i];
 
         size_t n = X.size();
-        int logn = find_ceiling_log2(n);
 
         std::vector<Goldilocks2::Element> X_copy(n), Y_copy(n);
 
@@ -852,9 +824,6 @@ CNN::layer_res pre_prove_pool_layer(const CNN::layer_info& layer,
     // stride = kernel size = 2
     // layer.input : [batch, img, C, N, N]
     // layer.output: [batch, img, C, N/2, N/2]
-    int logimg = find_ceiling_log2(img);
-    int logC = find_ceiling_log2(C);
-    int logN = find_ceiling_log2(N);
 
     for (int i = 0; i < batch; ++i) {
         std::string _i = "_" + std::to_string(i);
@@ -863,11 +832,6 @@ CNN::layer_res pre_prove_pool_layer(const CNN::layer_info& layer,
         auto d_input = layer.d_input[i]; // [img, C, N, N]
         auto d_output = layer.d_output[i]; // [img, C, N/2, N/2]
         auto aux = layer.aux[i];
-
-        const auto& mle_input = *layer.mle_input[i];
-        const auto& mle_output = *layer.mle_output[i];
-        const auto& mle_d_input = *layer.mle_d_input[i];
-        const auto& mle_d_output = *layer.mle_d_output[i];
 
         // I. Prepare one-hot selector
         // I.1 Commit selector and reversed selector
@@ -1001,10 +965,10 @@ bool prove_pool_layer(const CNN::layer_info& layer,
         auto d_output = layer.d_output[i]; // [img, C, N/2, N/2]
         auto aux = layer.aux[i];
 
-        const auto& mle_input = *layer.mle_input[i];
-        const auto& mle_output = *layer.mle_output[i];
+        // const auto& mle_input = *layer.mle_input[i];
+        // const auto& mle_output = *layer.mle_output[i];
         const auto& mle_d_input = *layer.mle_d_input[i];
-        const auto& mle_d_output = *layer.mle_d_output[i];
+        // const auto& mle_d_output = *layer.mle_d_output[i];
 
         // I. Prepare one-hot selector
         // I.1 Commit selector and reversed selector
@@ -1078,7 +1042,7 @@ bool prove_pool_layer(const CNN::layer_info& layer,
             output_cha[p1] = Goldilocks2::zero();
         } else {
             output_cha.reserve(input_cha.size() - 2);
-            for (size_t j = 0; j < input_cha.size(); ++j) {
+            for (int j = 0; j < static_cast<int>(input_cha.size()); ++j) {
                 if (j != p0 && j != p1) {
                     output_cha.push_back(input_cha[j]);
                 }
@@ -1378,8 +1342,8 @@ bool prove_softmax(const CNN::layer_info& layer,
         }
         // 8. Commit/Prove sum
         std::vector<Goldilocks2::Element> sum(img);
-        for (size_t j = 0; j != img; ++j) {
-            for (size_t k = 0; k != (1 << logn); ++k) {
+        for (int j = 0; j != img; ++j) {
+            for (int k = 0; k != (1 << logn); ++k) {
                 sum[j] += exp_diff_masked(j, k);
             }
         }
@@ -1396,8 +1360,8 @@ bool prove_softmax(const CNN::layer_info& layer,
             return false;
         }
         array<Goldilocks2::Element> expand_sum(new_shape);
-        for (size_t j = 0; j != img; ++j) {
-            for (size_t k = 0; k != (1 << logn); ++k) {
+        for (int j = 0; j != img; ++j) {
+            for (int k = 0; k != (1 << logn); ++k) {
                 expand_sum(j, k) = sum[j];
             }
         }

@@ -477,7 +477,7 @@ bool check_flat(
     size_t C = input.shape(1);
     size_t H = input.shape(2);
     size_t W = input.shape(3);
-    size_t OH = C * H * W;
+    // size_t OH = C * H * W;
     assert(input.get_dims() == 4);
     assert(output.get_dims() == 2);
     assert(input.shape(0) == N);
@@ -492,7 +492,7 @@ bool check_flat(
     }
 
     bool ret = true;
-    size_t sz = input.size();
+    // size_t sz = input.size();
     #pragma omp parallel for
     for (size_t n = 0; n < N; ++n) {
 
@@ -534,7 +534,7 @@ bool random_check_flat(
     size_t C = input.shape(1);
     size_t H = input.shape(2);
     size_t W = input.shape(3);
-    size_t OH = C * H * W;
+    // size_t OH = C * H * W;
     bool ret = true;
     static thread_local std::mt19937 rng(std::random_device{}());
 
@@ -620,7 +620,7 @@ bool random_check_full(
     // #pragma omp parallel for
     for (size_t cnt = 0; cnt < n_samples; ++cnt) {
         size_t n = std::uniform_int_distribution<size_t>(0, N - 1)(rng);
-        size_t c = std::uniform_int_distribution<size_t>(0, C - 1)(rng);
+        // size_t c = std::uniform_int_distribution<size_t>(0, C - 1)(rng);
         size_t oc = std::uniform_int_distribution<size_t>(0, OC - 1)(rng);
         Goldilocks2::Element actual = Goldilocks2::zero();
         for (size_t c = 0; c < C; ++c) {

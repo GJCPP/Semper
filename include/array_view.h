@@ -266,7 +266,7 @@ public:
                 ns[other.order[i]] = other.data_shape[i];
             }
         } else {
-            if (new_shape.size() != other.dims) {
+            if (new_shape.size() != static_cast<size_t>(other.dims)) {
                 throw std::runtime_error("array_view::copy_to: New shape size does not match");
             }
             for (int i = 0; i < other.dims; ++i) {

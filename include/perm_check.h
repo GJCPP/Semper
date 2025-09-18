@@ -81,7 +81,7 @@ public:
     inline int get_n() const { return n; }
     inline int get_num_vars() const { return num_vars; }
     
-    std::array<ligeropcs_ext, 2> combine(const std::vector<Goldilocks2::Element>& cha, uint64_t rho_inv);
+    void combine(const std::vector<Goldilocks2::Element>& cha, uint64_t rho_inv);
 
     std::array<pdProver, 2> get_pd_prover();
 
@@ -93,7 +93,11 @@ protected:
 
 class setVerifier {
 public:
-    static bool execute_check(setProver& prover, const std::vector<const oracle *>& pcs_f1, const std::vector<const oracle *>& pcs_f2, uint64_t rho_inv, uint64_t sec_param);
+    static bool execute_check(
+        setProver& prover,
+        const std::vector<std::shared_ptr<oracle>>& pcs_f1,
+        const std::vector<std::shared_ptr<oracle>>& pcs_f2,
+        uint64_t rho_inv, uint64_t sec_param);
 };
 
 class permProver {
@@ -108,7 +112,7 @@ public:
     void add_mle(const MLE *f1, const MLE *f2);
 
     // return null pcs if padding is not needed
-    std::vector<std::unique_ptr<oracle>> commit_pad_f1(uint64_t rho_inv);
+    std::vector<std::shared_ptr<oracle>> commit_pad_f1(uint64_t rho_inv);
 
     setProver get_set_prover(const MLE& id_perm, const MLE& perm);
 
@@ -124,12 +128,12 @@ protected:
 
 class permVerifier {
 public:
-    void add_pcs(const oracle *pcs_f1, const oracle *pcs_f2);
+    void add_pcs(std::shared_ptr<oracle> pcs_f1, std::shared_ptr<oracle> pcs_f2);
 
     bool execute_check(permProver& prover, uint64_t rho_inv, uint64_t sec_param);
 
 protected:
-    std::vector<const oracle*> pcs_f1, pcs_f2;
+    std::vector<std::shared_ptr<oracle>> pcs_f1, pcs_f2;
 };
 
 class mapProver {
@@ -141,7 +145,9 @@ public:
     int get_right_num_vars() const { return right_num_vars; }
     int get_pad_num_vars() const { return pad_num_vars; }
     
-    std::vector<std::unique_ptr<oracle>> commit_right(uint64_t rho_inv) const;
+    std::vector<std::shared_ptr<oracle>> commit_right(uint64_t rho_inv) const;
+
+    // get_pad_right;
     
     permProver get_perm_prover();
     
@@ -158,9 +164,11 @@ protected:
 
 class mapVerifier {
 public:
-    void add_pcs(const oracle *left, const oracle *right);
+    void add_pcs(std::shared_ptr<oracle> left, std::shared_ptr<oracle> right);
 
+    
+    
     bool execute_check(mapProver& prover, uint64_t rho_inv, uint64_t sec_param);
 protected:
-    std::vector<const oracle*> pcs_left, pcs_right;
+    std::vector<std::shared_ptr<oracle>> pcs_left, pcs_right;
 };

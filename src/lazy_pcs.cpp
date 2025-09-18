@@ -82,11 +82,11 @@ void lazy_pcs_pool::record_open(size_t ind, const std::vector<Goldilocks2::Eleme
     if (finalized) {
         throw std::runtime_error("lazy_pcs_pool::record_open: already finalized");
     }
-    if (z.size() + prefix[ind].size() != num_vars) {
+    if (z.size() + prefix[ind].size() != static_cast<size_t>(num_vars)) {
         throw std::runtime_error("lazy_pcs_pool::record_open: number of variables mismatch");
     }
-    std::chrono::high_resolution_clock clock;
-    auto start = clock.now();
+    // std::chrono::high_resolution_clock clock;
+    // auto start = clock.now();
     if (sec_param < sec) sec_param = sec;
     std::vector<Goldilocks2::Element> zpad(num_vars);
     size_t pre_sz = prefix[ind].size();
