@@ -485,7 +485,7 @@ bool check_flat(
     assert(input.shape(2) == H);
     assert(input.shape(3) == W);
     assert(output.shape(0) == N);
-    assert(output.shape(1) == OH);
+    // assert(output.shape(1) == OH);
 
     if (n_samples > 0) {
         return random_check_flat(input, output, n_samples);

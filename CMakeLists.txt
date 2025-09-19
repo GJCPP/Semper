@@ -10,10 +10,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include_directories(include)
 include_directories(goldilocks/src)
+include_directories(Orion)
+include_directories(Orion/include)
 
 # Use cnpy directory under source tree
 set(CNPY_SOURCE_DIR ${CMAKE_SOURCE_DIR}/cnpy)
 set(CNPY_BINARY_DIR ${CMAKE_BINARY_DIR}/cnpy-build)
+
+set(ORION_SOURCE_DIR ${CMAKE_SOURCE_DIR}/Orion)
+set(ORION_BINARY_DIR ${CMAKE_BINARY_DIR}/Orion-build)
 
 # Only clone if not already present
 if(NOT EXISTS ${CNPY_SOURCE_DIR}/CMakeLists.txt)
@@ -31,13 +36,34 @@ endif()
 add_subdirectory(${CNPY_SOURCE_DIR} ${CNPY_BINARY_DIR})
 include_directories(${CNPY_SOURCE_DIR})
 
+add_subdirectory(${ORION_SOURCE_DIR} ${ORION_BINARY_DIR})
+include_directories(${ORION_SOURCE_DIR})
+
+
+
+file(GLOB_RECURSE ORION_SOURCES
+    ${ORION_SOURCE_DIR}/src/*.cpp
+)
+
+# exclude Orion's main() if present
+list(FILTER ORION_SOURCES EXCLUDE REGEX ".*fft_circuit_GKR\\.cpp")
+
+add_library(orion_core STATIC ${ORION_SOURCES})
+target_include_directories(orion_core PUBLIC ${ORION_SOURCE_DIR}/include)
+target_link_libraries(orion_core PUBLIC ${FLO_SHANI_LIB} ${XKCP_LIB} gmp)
+target_compile_options(orion_core PRIVATE -march=native)
+
+
 # build goldilocks.a
 file(GLOB DEP_SOURCES
     goldilocks/src/*.cpp
+
 )
 add_library(goldilocks STATIC ${DEP_SOURCES})
-link_directories(${CMAKE_SOURCE_DIR}/cnpy/build)
-target_compile_options(goldilocks PRIVATE -O3 -mavx2 -MMD -MP -pthread)
+# link_directories(${CMAKE_SOURCE_DIR}/cnpy/build)
+# link_directories(${CMAKE_SOURCE_DIR}/Orion/build)
+target_compile_options(goldilocks PRIVATE -O3 -march=native -MMD -MP -pthread)
+
 # target_compile_options(goldilocks PRIVATE -O2 -mavx2 -MMD -MP -pthread)
 find_package(OpenMP REQUIRED)
 target_link_libraries(goldilocks PRIVATE
@@ -67,13 +93,15 @@ target_sources(bench PRIVATE ${SOURCES})
 # set(CMAKE_CXX_FLAGS_DEBUG "-g -DDEBUG")
 
 target_compile_options(bench PRIVATE
-    $<$<CONFIG:Release>:-Wall -O3 -mavx2> 
-    $<$<CONFIG:Debug>:-Wall -g -DDEBUG -mavx2 -fopenmp>)
+    $<$<CONFIG:Release>:-Wall -O3  -march=native>
+    $<$<CONFIG:Debug>:-Wall -g -DDEBUG  -march=native -fopenmp>)
 
 # Use "cmake -DCMAKE_CXX_COMPILER=g++-13 -DCMAKE_BUILD_TYPE=Debug .." to build in debug mode
 # Use "cmake -DCMAKE_CXX_COMPILER=g++-13 -DCMAKE_BUILD_TYPE=Release .." to build in release mode
 
-target_link_libraries(bench PRIVATE cnpy pthread gmp ssl crypto goldilocks)
+# find_library(XKCP_LIB XKCP PATHS ${CMAKE_SOURCE_DIR}/lib REQUIRED)
+
+target_link_libraries(bench PRIVATE cnpy orion_core pthread gmp ssl crypto goldilocks)
 
 
 add_custom_target(run
