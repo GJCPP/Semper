@@ -10,7 +10,7 @@
 
 // The MLE that encapsulates the 2D conv kernel
 template <typename field>
-class MLE_Convker : public MultilinearPolynomial<field> {
+class MLE_Convker : public MLE<field> {
 public:
     // Input: n x n, Kernel: m x m
     // MLE_Convker(const std::vector<std::vector<std::vector<std::vector<Goldilocks2::Element>>>>& kernel, size_t C, size_t D, size_t n, size_t m);

@@ -1,9 +1,7 @@
 #include "mle_convker.h"
-#include "ligero.h"
-#include "pad_check.h"
 
 template <typename field>
-MLE_Convker<field>::MLE_Convker<field>(const array_view<field>& kernel, size_t C, size_t D, size_t n, size_t m)
+MLE_Convker<field>::MLE_Convker(const array_view<field>& kernel, size_t C, size_t D, size_t n, size_t m)
     : C(C), D(D), n(n), m(m), expanded(false) {
 
     assert(kernel.shape(0) == C && kernel.shape(1) == D && kernel.shape(2) == m && kernel.shape(3) == m);
@@ -36,7 +34,7 @@ MLE_Convker<field>::MLE_Convker<field>(const array_view<field>& kernel, size_t C
 }
 
 template <typename field>
-field MLE_Convker::eval_hypercube(size_t mask) const {
+field MLE_Convker<field>::eval_hypercube(size_t mask) const {
     if (expanded) {
         return evaluations[mask];
     }

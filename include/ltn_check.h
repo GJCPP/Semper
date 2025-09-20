@@ -8,22 +8,23 @@
 #include "sign_check.h"
 #include "lazy_logup.h"
 
+template <typename field>
 class ltnProver {
 public:
     ltnProver() = default;
 
-    ltnProver(const std::vector<Goldilocks2::Element>& vec,
-              Goldilocks2::Element bar,
+    ltnProver(const std::vector<field>& vec,
+              field bar,
               uint64_t scale, uint64_t max_val, bool strict, 
               uint64_t rho_inv,
               lazyLogupProver* lazy_logup_prover);
 
     ltnProver(const std::vector<uint64_t>& vec,
-              Goldilocks2::Element bar,
+              field bar,
               uint64_t scale, uint64_t max_val, bool strict, uint64_t rho_inv,
               lazyLogupProver* lazy_logup_prover);
 
-    inline const std::vector<Goldilocks2::Element>& get_ltn() const { return ltn; }
+    inline const std::vector<field>& get_ltn() const { return ltn; }
 
     inline ligeropcs_base get_pcs_ltn() const { return pcs_ltn; }
 
@@ -45,8 +46,8 @@ public:
     signProver prove_rev_ltn(bool strict);
 
 protected:
-    std::vector<Goldilocks2::Element> vec, ltn, rev_ltn, sub; // The vector to check
-    Goldilocks2::Element bar; // The bar value for the check
+    std::vector<field> vec, ltn, rev_ltn, sub; // The vector to check
+    field bar; // The bar value for the check
     uint64_t scale, max_val;
     bool strict;
     uint64_t rho_inv, num;
@@ -58,13 +59,14 @@ protected:
     void init_ltn();
 };
 
+template <typename field>
 class ltnVerifier {
 public:
     static bool execute_ltn_check(
-        ltnProver& prover,
-        ligeropcs_base pcs_vec,
-        ligeropcs_base pcs_ltn,
-        Goldilocks2::Element bar,
+        ltnProver<field>& prover,
+        std::shared_ptr<oracle<field>> pcs_vec,
+        std::shared_ptr<oracle<field>> pcs_ltn,
+        field bar,
         uint64_t max_val,
         bool strict,
         size_t sec_param,

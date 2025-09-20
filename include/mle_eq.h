@@ -7,49 +7,52 @@
 /*
  * eq_r(x) = \prod_{i=0}^{num_var-1} ( r_i*x_i + (1-r_i)*(1-x_i) )
 */
-class MLE_Eq : public MultilinearPolynomial {
+template <typename field>
+class MLE_Eq : public MultilinearPolynomial<field> {
 public:
-    MLE_Eq(const std::vector<Goldilocks2::Element>& r);
-    MLE_Eq(const std::vector<Goldilocks2::Element>::const_iterator begin, const std::vector<Goldilocks2::Element>::const_iterator end);
+    MLE_Eq(const std::vector<field>& r);
+    MLE_Eq(const std::vector<field>::const_iterator begin, const std::vector<field>::const_iterator end);
 
-    std::unique_ptr<MultilinearPolynomial> clone() const override {
-        return std::make_unique<MLE_Eq>(*this);
+    std::unique_ptr<MultilinearPolynomial<field>> clone() const override {
+        return std::make_unique<MLE_Eq<field>>(*this);
     }
 
-    Goldilocks2::Element evaluate(const std::vector<Goldilocks2::Element>& point) const override;
+    field evaluate(const std::vector<field>& point) const override;
 
-    Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const override;
+    field open(const std::vector<field>& z, const size_t& sec_param) const override;
 
     inline int get_num_vars() const override { return static_cast<int>(r.size()); }
 private:
-    std::vector<Goldilocks2::Element> r, one_minus_r;
+    std::vector<field> r, one_minus_r;
 };
 
 // one-time computation of eq_r(x)
-inline Goldilocks2::Element compute_eq(const std::vector<Goldilocks2::Element>& r, const std::vector<Goldilocks2::Element>& x) {
+template <typename field>
+inline field compute_eq(const std::vector<field>& r, const std::vector<field>& x) {
     if (r.size() != x.size()) {
         throw std::runtime_error("compute_eq: r and x size do not match.");
     }
-    Goldilocks2::Element result = Goldilocks2::one();
-    Goldilocks2::Element one = Goldilocks2::one();
+    field result = field::one();
+    field one = field::one();
     for (size_t i = 0; i < r.size(); ++i) {
         result = result * (r[i] * x[i] + (one - r[i]) * (one - x[i]));
     }
     return result;
 }
 
-class MLE_Eq_Oracle : public oracle {
+template <typename field>
+class MLE_Eq_Oracle : public oracle<field> {
 public:
-    MLE_Eq_Oracle(const std::vector<Goldilocks2::Element>& r) : r(r) {}
-    MLE_Eq_Oracle(const std::vector<Goldilocks2::Element>::const_iterator begin, const std::vector<Goldilocks2::Element>::const_iterator end)
+    MLE_Eq_Oracle(const std::vector<field>& r) : r(r) {}
+    MLE_Eq_Oracle(const std::vector<field>::const_iterator begin, const std::vector<field>::const_iterator end)
         : r(begin, end) {}
 
-    Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const override {
+    field open(const std::vector<field>& z, const size_t& sec_param) const override {
         return compute_eq(r, z);
     }
 
     inline int get_num_vars() const override { return static_cast<int>(r.size()); }
 protected:
-    std::vector<Goldilocks2::Element> r;
+    std::vector<field> r;
 };
 
