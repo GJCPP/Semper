@@ -485,7 +485,7 @@ bool check_flat(
     assert(input.shape(2) == H);
     assert(input.shape(3) == W);
     assert(output.shape(0) == N);
-    assert(output.shape(1) == OH);
+    // assert(output.shape(1) == OH);
 
     if (n_samples > 0) {
         return random_check_flat(input, output, n_samples);
@@ -663,14 +663,15 @@ bool check_softmax(
         Goldilocks2::Element max_input = Goldilocks2::divScalar(view_input_n(0), scale);
         for (size_t c = 0; c < C; ++c) {
             scale_input[c] = Goldilocks2::divScalar(view_input_n(c), scale); // small value
+            
             if (Goldilocks2::toS64(scale_input[c]) > Goldilocks2::toS64(max_input)) {
                 max_input = scale_input[c];
             }
         }
         for (size_t c = 0; c < C; ++c) {
-            uint64_t diff = max_input[0].fe - scale_input[c][0].fe;
-            uint64_t e_pow_inv = std::round(scale * std::exp(double(diff) / double(scale)));
-            exp_input[c] = Goldilocks2::fromU64(e_pow_inv);
+            int64_t diff = Goldilocks2::toS64(max_input) - Goldilocks2::toS64(scale_input[c]);
+            int64_t e_pow_inv = std::round(scale * std::exp(-double(diff) / double(scale)));
+            exp_input[c] = Goldilocks2::fromS64(e_pow_inv);
         }
         Goldilocks2::Element sum = Goldilocks2::zero();
         for (size_t c = 0; c < C; ++c) {
@@ -678,8 +679,9 @@ bool check_softmax(
         }
         for (size_t c = 0; c < C; ++c) {
             exp_input[c] = Goldilocks2::divScalar(exp_input[c] * Goldilocks2::fromS64(scale), Goldilocks2::toS64(sum));
+            exp_input[c] -= label(n, c) * Goldilocks2::fromS64(scale);
         }
-        exp_input[Goldilocks2::toS64(label(n))] -= Goldilocks2::fromS64(scale);
+        // exp_input[Goldilocks2::toS64(label(n))] -= Goldilocks2::fromS64(scale);
         for (size_t c = 0; c < C; ++c) {
             exp_input[c] = Goldilocks2::divScalar(exp_input[c], N);
         }

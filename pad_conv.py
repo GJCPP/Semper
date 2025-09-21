@@ -3,7 +3,7 @@ import torch.nn.functional as F
 import math
 import numpy as np
 import os
-import tqdm
+# import tqdm
 
 def is_power_of_2(x):
     return (x & (x - 1) == 0) and x > 0
@@ -134,7 +134,7 @@ def conv2_to_1d(X, W, Y, padding):
 def generate_conv_wit(save_path, save_name, epoch, padding, name_X, name_W, name_Y, X, W, Y, pad_right_bottom):
     B = X.shape[0]
     N = X.shape[1]
-    for b in tqdm.tqdm(range(B)):
+    for b in range(B):
         res = {}
         iX = X[b] # [N, C, in, in]
         iW = W[b] # [D, C, k, k]

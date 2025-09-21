@@ -346,16 +346,20 @@ void CNN::pre_prove(size_t sec_param) {
 }
 
 bool CNN::prove(size_t sec_param) {
+
+    std::cout << "model_name = " << model_name << std::endl;
+    std::cout << "batch_sz = " << img_per_batch << std::endl;
+    std::cout << "batch_num = " << minibatch << std::endl;
+
+    std::cout << "Pre-proving..." << std::endl;
     set_timer("pre_prove");
     pre_prove(sec_param);
     pause_timer("pre_prove");
 
     set_timer(std::format("prove {} total", model_name));
-
-    std::cout << "model_name = " << model_name << std::endl;
-    std::cout << "Checking input..." << std::endl;
     
     // std::cout << "===================Warning: skip proving input." << std::endl;
+    std::cout << "Checking input..." << std::endl;
     set_timer("check input");
     if (!prove_input(sec_param)) {
         std::cout << "❌ Input layer failed." << std::endl;

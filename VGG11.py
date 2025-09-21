@@ -300,6 +300,7 @@ def quantized_softmax(logits_q: torch.Tensor, scale: int) -> torch.Tensor:
 
     # Convert to float for exponentiation
     x = logits_q
+    print(x)
 
     # For numerical stability: subtract max per row
     x_max = x.max(dim=1, keepdim=True).values
@@ -331,7 +332,7 @@ def train_manual():
         ])
     dataset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
     loader = DataLoader(dataset , batch_size=16, shuffle=True)
-    subset = Subset(dataset, indices=range(1024))
+    subset = Subset(dataset, indices=range(256))
     indexed_subset = IndexedDataset(subset)  # Wrap to include indices
     loader = DataLoader(indexed_subset, batch_size=16, shuffle=True)
     model = ManualVGG11()

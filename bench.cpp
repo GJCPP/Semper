@@ -31,13 +31,15 @@ void bench_VGG16() {
 
 void bench_VGG11() {
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-    VGG11 VGG11("/home/gaojc/Desktop/zkCNN/training_trace/", 0, 1 << 14, 1 << 24, 2, 32);
+    // VGG11 VGG11("/home/gaojc/Desktop/zkCNN/training_trace", 0, 1 << 14, 1 << 24, 2, 32);
+    VGG11 VGG11("/home/guest/data/gjc/zkCNN/training_trace", 0, 1 << 14, 1 << 27, 2, 32);
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
     std::cout << "Loading VGG11 took " << duration.count() / 1000000.0 << " s" << std::endl;
-
+    
+    VGG11.check(100);
+    return;
     print_all_proof_size(Counter::MB);
-    // VGG16.check();
     start_proof("VGG11");
     VGG11.prove(32);
     end_proof("VGG11");
@@ -70,6 +72,7 @@ void bench_commit() {
 int main() {
     // if (!run_test()) return 0;
     // find_parameter();
+    
     bench_VGG11();
     // bench_commit();
     // bench_VGG16();
