@@ -282,7 +282,14 @@ void CNN::pre_prove(size_t sec_param) {
         //     std::cout << "Skipping layer " << layer.name << " (not conv)" << std::endl;
         //     continue;
         // }
+        
+        // if (layer.type != layer_type::softmax) {
+        //     std::cout << "=================Skipping layer " << layer.name << " (not softmax)" << std::endl;
+        //     continue;
+        // }
+
         std::cout << "Pre-proving layer " << layer.name << "..." << std::endl;
+         
         switch (layer.type) {
             case layer_type::conv:
                 set_timer("preprove conv");
@@ -342,6 +349,7 @@ void CNN::pre_prove(size_t sec_param) {
     // print_all_timers();
     // clear_all_timers();
     // return false;
+    std::cout << "Finishing preprove..." << std::endl;
     finish_pre_prove();
 }
 
@@ -368,8 +376,8 @@ bool CNN::prove(size_t sec_param) {
     pause_timer("check input");
     for (auto& layer : layers) {
         // print_all_proof_size(Counter::MB);
-        // if (layer.type != layer_type::relu) {
-        //     std::cout << "=================Skipping layer " << layer.name << " (not relu)" << std::endl;
+        // if (layer.type != layer_type::conv) {
+        //     std::cout << "=================Skipping layer " << layer.name << " (not conv)" << std::endl;
         //     continue;
         // }
         std::cout << "Proving layer " << layer.name << "..." << std::endl;

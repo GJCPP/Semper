@@ -37,9 +37,10 @@ void bench_VGG11() {
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
     std::cout << "Loading VGG11 took " << duration.count() / 1000000.0 << " s" << std::endl;
     
-    VGG11.check(100);
-    return;
-    print_all_proof_size(Counter::MB);
+    // VGG11.check(100);
+    // return;
+    // print_all_proof_size(Counter::MB);
+    clear_proof();
     start_proof("VGG11");
     VGG11.prove(32);
     end_proof("VGG11");
@@ -48,6 +49,7 @@ void bench_VGG11() {
     std::cout << "-----------------------------" << std::endl;
     print_all_proof_size(Counter::MB);
     std::cout << "-----------------------------" << std::endl;
+    print_all_open_cnt();
     clear_proof();
 }
 

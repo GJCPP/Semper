@@ -43,7 +43,7 @@ bool prove_conv(
     
     set_timer("execute convcheck");
     if (!convVerifier::execute_convcheck_2d(prover, oX, oW, oY, oflat_Y, mapfrom, mapto, rho_inv, sec_param, true, lazy_map_prover, lazy_map_verifier)) {
-        return false;
+        throw;
     }
     pause_timer("execute convcheck");
     return true;
@@ -66,8 +66,13 @@ void pre_prove_conv(
     witness = wit.get_conv_wit();
 
     res.pcs[prename + "Y_flat"] = commit_lazy_pcs(MLE(witness["Y"]), pool);
+    std::cout << "Y_flat shape = ";
+    for (size_t s : witness["Y"].view.get_shape()) {
+        std::cout << s << " ";
+    }
+    std::cout << std::endl;
 }
-
+/*
 bool prove_conv(
     CNN::conv_wit wit,
     int padding,
@@ -182,11 +187,11 @@ bool prove_conv(
         iY,
         mapfrom, mapto,
         rho_inv, sec_param,
-        lazy_map_prover, lazy_map_verifier)) return false;
+        lazy_map_prover, lazy_map_verifier)) throw;
 
     return true;
 }
-
+*/
 
 bool prove_conv(
     CNN::conv_wit wit,
@@ -298,7 +303,7 @@ bool prove_conv(
         iY,
         mapfrom, mapto,
         rho_inv, sec_param,
-        lazy_map_prover, lazy_map_verifier)) return false;
+        lazy_map_prover, lazy_map_verifier)) throw;
 
     return true;
 }
@@ -306,13 +311,13 @@ bool prove_conv(
 bool pre_prove_conv_forward(const CNN::layer_info& layer, CNN::conv_wit wit, int padding, CNN::layer_res& res, lazy_pcs_pool* pool) {
     int bat = int(layer.input.shape(0));
 
-    wit.set_forward();
-
+    // #pragma omp parallel for
     for (int i = 0; i < bat; ++i) {
+        auto wit_copy = wit;
+        wit_copy.set_forward();
+        wit_copy.set_batch(i);
 
-        wit.set_batch(i);
-
-        pre_prove_conv(wit, padding,
+        pre_prove_conv(wit_copy, padding,
             layer.input[i], layer.weight[i], layer.output[i],
             true,
             res, pool, "forward_" + std::to_string(i));
@@ -328,36 +333,54 @@ bool prove_conv_forward(
 
     int bat = int(layer.input.shape(0));
 
-    wit.set_forward();
-
+    #pragma omp parallel for
     for (int i = 0; i < bat; ++i) {
+        auto wit_copy = wit;
+        wit_copy.set_forward();
         auto pcs_input = layer.get_pcs_input(i);
         auto pcs_weight = layer.get_pcs_weight(i);
         auto pcs_output = layer.get_pcs_output(i);
 
-        wit.set_batch(i);
+        wit_copy.set_batch(i);
 
-        if (!prove_conv(wit, padding,
+        if (!prove_conv(wit_copy, padding,
             &pcs_input, &pcs_weight, &pcs_output,
             layer.input[i], layer.weight[i], layer.output[i],
             true,
             rho_inv, sec_param,
             layer.wit, "forward_" + std::to_string(i),
-            lazy_map_prover, lazy_map_verifier)) return false;
+            lazy_map_prover, lazy_map_verifier)) throw;
+    }
+    return true;
+}
+
+
+bool pre_prove_conv_backward_dW(const CNN::layer_info& layer, CNN::conv_wit _wit, int padding, CNN::layer_res& res, lazy_pcs_pool* pool) {
+    int bat = int(layer.input.shape(0));
+
+    // #pragma omp parallel for
+    for (int i = 0; i < bat; ++i) {
+        auto wit = _wit;
+        wit.set_dW();
+        wit.set_batch(i);
+
+        pre_prove_conv(wit, padding,
+            layer.input[i], layer.d_output[i], layer.d_weight[i],
+            true,
+            res, pool, "dW_" + std::to_string(i));
     }
     return true;
 }
 
 bool prove_conv_backward_dW(
     const CNN::layer_info& layer, 
-    CNN::conv_wit wit, 
+    CNN::conv_wit _wit, 
     int padding, size_t rho_inv, size_t sec_param,
     lazyMapProver *lazy_map_prover, lazyMapVerifier *lazy_map_verifier) {
 
     int bat = int(layer.input.shape(0));
 
-    wit.set_dW();
-
+    #pragma omp parallel for
     for (int i = 0; i < bat; ++i) {
         auto pcs_input = layer.get_pcs_input(i);
         auto pcs_d_output = layer.get_pcs_d_output(i);
@@ -365,7 +388,9 @@ bool prove_conv_backward_dW(
         auto X = layer.input[i]; // [N, C, n, n]
         auto dY = layer.d_output[i]; // [N, D, on, on]
         auto dW = layer.d_weight[i]; // [D, C, m, m]
-
+        
+        auto wit = _wit;
+        wit.set_dW();
         wit.set_batch(i);
 
         X.swap_dim(0, 1); // [C, N, n, n]
@@ -377,21 +402,38 @@ bool prove_conv_backward_dW(
             X, dY, dW,
             true,
             rho_inv, sec_param,
-            lazy_map_prover, lazy_map_verifier)) return false;
+            layer.wit, "dW_" + std::to_string(i),
+            lazy_map_prover, lazy_map_verifier)) throw;
+    }
+    return true;
+}
+
+bool pre_prove_conv_backward_dX(const CNN::layer_info& layer, CNN::conv_wit _wit, int padding, CNN::layer_res& res, lazy_pcs_pool* pool) {
+    int bat = int(layer.input.shape(0));
+
+    // #pragma omp parallel for
+    for (int i = 0; i < bat; ++i) {
+        auto wit = _wit;
+        wit.set_dX();
+        wit.set_batch(i);
+
+        pre_prove_conv(wit, padding,
+            layer.d_output[i], layer.weight[i], layer.d_input[i],
+            false,
+            res, pool, "dX_" + std::to_string(i));
     }
     return true;
 }
 
 bool prove_conv_backward_dX(
     const CNN::layer_info& layer, 
-    CNN::conv_wit wit, 
+    CNN::conv_wit _wit, 
     int padding, size_t rho_inv, size_t sec_param,
     lazyMapProver *lazy_map_prover, lazyMapVerifier *lazy_map_verifier) {
 
     int bat = int(layer.input.shape(0));
 
-    wit.set_dX();
-
+    #pragma omp parallel for
     for (int i = 0; i < bat; ++i) {
         auto pcs_d_output = layer.get_pcs_d_output(i);
         auto pcs_weight = layer.get_pcs_weight(i);
@@ -399,7 +441,9 @@ bool prove_conv_backward_dX(
         auto dY = layer.d_output[i]; // [N, D, on, on]
         auto W = layer.weight[i]; // [D, C, m, m]
         auto dX = layer.d_input[i]; // [N, C, n, n]
-
+        
+        auto wit = _wit;
+        wit.set_dX();
         wit.set_batch(i);
 
         W.swap_dim(0, 1); // [C, D, m, m]
@@ -411,7 +455,8 @@ bool prove_conv_backward_dX(
             dY, W, dX,
             false,
             rho_inv, sec_param,
-            lazy_map_prover, lazy_map_verifier)) return false;
+            layer.wit, "dX_" + std::to_string(i),
+            lazy_map_prover, lazy_map_verifier)) throw;
     }
     return true;
 }
@@ -432,13 +477,13 @@ CNN::layer_res pre_prove_conv_layer(const CNN::layer_info& layer, CNN::conv_wit 
     pre_prove_conv_forward(layer, wit, padding, res, pool);
     pause_timer("preprove conv forward");
 
-    // set_timer("prove conv dW");
-    // pre_prove_conv_backward_dW(layer, wit, padding, res, pool);
-    // pause_timer("prove conv dW");
+    set_timer("prove conv dW");
+    pre_prove_conv_backward_dW(layer, wit, padding, res, pool);
+    pause_timer("prove conv dW");
 
-    // set_timer("prove conv dX");
-    // pre_prove_conv_backward_dX(layer, wit, padding, res, pool);
-    // pause_timer("prove conv dX");
+    set_timer("prove conv dX");
+    pre_prove_conv_backward_dX(layer, wit, padding, res, pool);
+    pause_timer("prove conv dX");
 
 
     return res;
@@ -465,21 +510,21 @@ bool prove_conv_layer(
     set_timer("prove conv forward");
     if (!prove_conv_forward(layer, wit, padding, rho_inv, sec_param, lazy_map_prover, lazy_map_verifier)) {
         std::cout << "❌ Proving forward pass failed." << std::endl;
-        return false;
+        throw;
     }
     pause_timer("prove conv forward");
 
     set_timer("prove conv dW");
     if (!prove_conv_backward_dW(layer, wit, padding, rho_inv, sec_param, lazy_map_prover, lazy_map_verifier)) {
         std::cout << "❌ Proving backward dW failed." << std::endl;
-        return false;
+        throw;
     }
     pause_timer("prove conv dW");
 
     set_timer("prove conv dX");
     if (!prove_conv_backward_dX(layer, wit, padding, rho_inv, sec_param, lazy_map_prover, lazy_map_verifier)) {
         std::cout << "❌ Proving backward dX failed." << std::endl;
-        return false;
+        throw;
     }
     pause_timer("prove conv dX");
 
@@ -509,6 +554,7 @@ bool prove_full_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_p
     startCounter counter("full_proof");
     const int batch = int(layer.input.shape(0));
     // Prove forward
+    #pragma omp parallel for
     for (int i = 0; i < batch; ++i) {
         auto pcs_input = layer.get_pcs_input(i);
         auto pcs_weight = layer.get_pcs_weight(i);
@@ -522,11 +568,12 @@ bool prove_full_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_p
             layer.input[i], layer.weight[i], layer.output[i],
             sec_param)) {
             std::cout << "❌ Proving full forward failed." << std::endl;
-            return false;
+            throw;
         }
     }
 
     // Prove backward dW = X^T * dY
+    #pragma omp parallel for
     for (int i = 0; i < batch; ++i) {
         auto pcs_input = layer.get_pcs_input(i);
         auto pcs_d_weight = layer.get_pcs_d_weight(i);
@@ -545,11 +592,12 @@ bool prove_full_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_p
             X, dY, dW,
             sec_param)) {
             std::cout << "❌ Proving full backward dW failed." << std::endl;
-            return false;
+            throw;
         }
     }
 
     // Prove backward dX = dY * W^T
+    #pragma omp parallel for
     for (int i = 0; i < batch; ++i) {
         auto pcs_d_output = layer.get_pcs_d_output(i);
         auto pcs_weight = layer.get_pcs_weight(i);
@@ -568,7 +616,7 @@ bool prove_full_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_p
             dY, W, dX,
             sec_param)) {
             std::cout << "❌ Proving full backward dX failed." << std::endl;
-            return false;
+            throw;
         }
     }
     return true;
@@ -585,8 +633,10 @@ CNN::layer_res pre_prove_relu_layer(
 
     CNN::layer_res ret;
 
+
     const int batch = int(layer.input.shape(0));
 
+    // #pragma omp parallel for
     for (int i = 0; i != batch; ++i) {
         std::string _i = "_" + std::to_string(i);
         // Prove forward
@@ -664,6 +714,7 @@ bool prove_relu_layer(const CNN::layer_info& layer,
 
     const int batch = int(layer.input.shape(0));
 
+    #pragma omp parallel for
     for (int i = 0; i != batch; ++i) {
         std::string _i = "_" + std::to_string(i);
         // Prove forward
@@ -701,7 +752,7 @@ bool prove_relu_layer(const CNN::layer_info& layer,
             std::make_shared<lazy_pcs>(pcs_X_rem),
             sec_param, lazy_logup_verifier)) {
             std::cout << "❌ Proving relu forward scale_X failed." << std::endl;
-            return false;
+            throw;
         }
         end_proof("relu_div_proof");
 
@@ -720,7 +771,7 @@ bool prove_relu_layer(const CNN::layer_info& layer,
             *sign_res)) {
 
             std::cout << "❌ Proving relu forward X_scale_sign failed." << std::endl;
-            return false;
+            throw;
         }
         end_proof("relu_sign_proof");
 
@@ -731,7 +782,7 @@ bool prove_relu_layer(const CNN::layer_info& layer,
         p3Prover p3_prover_Y(X_scale_sign, X_quo, mle_challenge);
         if (!p3Verifier::execute_sumcheck(p3_prover_Y, claim_Y_cha, { &pcs_X_scale_sign, &pcs_X_quo, &mle_challenge }, sec_param)) {
             std::cout << "❌ Proving relu forward Y failed." << std::endl;
-            return false;
+            throw;
         }
 
         // Prove backward
@@ -758,7 +809,7 @@ bool prove_relu_layer(const CNN::layer_info& layer,
         auto claim_dY_filtered = pcs_dY_filtered.open(dY_challenge, sec_param);
         if (!p3Verifier::execute_sumcheck(p3_prover_dY_filtered, claim_dY_filtered, { &pcs_X_scale_sign, &pcs_dY, &mle_challenge_dY_filtered }, sec_param)) {
             std::cout << "❌ Proving relu backward dY_filtered failed." << std::endl;
-            return false;
+            throw;
         }
         // 2. Prove dX = dY_filtered / scale
         auto dX_rem = get_rem(dY_filtered, scale, dX_copy, true);
@@ -772,7 +823,7 @@ bool prove_relu_layer(const CNN::layer_info& layer,
             sec_param, 
             lazy_logup_verifier)) {
             std::cout << "❌ Proving relu backward dX failed." << std::endl;
-            return false;
+            throw;
         }
         end_proof("relu_div_proof");
     }
@@ -825,6 +876,7 @@ CNN::layer_res pre_prove_pool_layer(const CNN::layer_info& layer,
     // layer.input : [batch, img, C, N, N]
     // layer.output: [batch, img, C, N/2, N/2]
 
+    // #pragma omp parallel for
     for (int i = 0; i < batch; ++i) {
         std::string _i = "_" + std::to_string(i);
         auto input = layer.input[i]; // [img, C, N, N]
@@ -951,6 +1003,7 @@ bool prove_pool_layer(const CNN::layer_info& layer,
     int logC = find_ceiling_log2(C);
     int logN = find_ceiling_log2(N);
 
+    #pragma omp parallel for
     for (int i = 0; i < batch; ++i) {
         std::string _i = "_" + std::to_string(i);
 
@@ -999,7 +1052,7 @@ bool prove_pool_layer(const CNN::layer_info& layer,
         MultilinearPolynomial mle_input_zeros(input_zeros);
         if (!prove_mle_product(mle_input_zeros, mle_sel, mle_rev_sel, mle_input_zeros, pcs_sel, pcs_rev_sel, sec_param)) {
             std::cout << "❌ I.2 Proving selector is boolean failed." << std::endl;
-            return false;
+            throw;
         }
 
         // I.3 Prove sel is one-hot
@@ -1015,7 +1068,7 @@ bool prove_pool_layer(const CNN::layer_info& layer,
         }
         if (sum != Goldilocks2::one()) {
             std::cout << "❌ I.3 Proving selector is one-hot failed." << std::endl;
-            return false;
+            throw;
         }
 
         // II. Forward.
@@ -1057,7 +1110,7 @@ bool prove_pool_layer(const CNN::layer_info& layer,
                                         sec_param);
         if (pcs_diff.open(input_cha, sec_param) != factor * pcs_output.open(output_cha, sec_param) - pcs_input.open(input_cha, sec_param)) {
             std::cout << "❌ II.2 Proving diff = expand(output) - input failed." << std::endl;
-            return false;
+            throw;
         }
         // II.3 Prover proves diff is non-negative
         std::vector<Goldilocks2::Element> input_ones(input.size(), Goldilocks2::one());
@@ -1073,7 +1126,7 @@ bool prove_pool_layer(const CNN::layer_info& layer,
             lazy_logup_verifier,
             sign_res_diff)) {
             std::cout << "❌ II.3 Proving diff is non-negative failed: sign proof fails." << std::endl;
-            return false;
+            throw;
         }
         // II.4 Prover commits and proves sel_input = input * sel
         array<Goldilocks2::Element> sel_input(input.get_shape());
@@ -1090,12 +1143,12 @@ bool prove_pool_layer(const CNN::layer_info& layer,
         auto pcs_sel_input = wit.pcs.at("pcs_sel_input" + _i);
         if (!prove_mle_product(mle_sel_input, mle_sel, input, pcs_sel_input, pcs_sel, pcs_input, sec_param)) {
             std::cout << "❌ II.4 Proving sel_input = input * sel failed." << std::endl;
-            return false;
+            throw;
         }
         // II.5 Prover proves output = shrink(sel_input)
         if (!prove_pool_shrink(logimg, logC, logN, pcs_sel_input, pcs_output, sec_param)) {
             std::cout << "❌ II.5 Proving output = shrink(sel_input) failed." << std::endl;
-            return false;
+            throw;
         }
 
         // III. Backward.
@@ -1117,25 +1170,25 @@ bool prove_pool_layer(const CNN::layer_info& layer,
         if (!prove_mle_product(mle_sel_d_input, mle_sel, d_input,
             pcs_sel_d_input, pcs_sel, pcs_d_input, sec_param)) {
             std::cout << "❌ III.1 Proving sel_d_input = d_input * sel failed." << std::endl;
-            return false;
+            throw;
         }
         // III.2 Prover proves d_ouput = shrink(sel_d_input)
         if (!prove_pool_shrink(logimg, logC, logN, pcs_sel_d_input, pcs_d_output, sec_param)) {
             std::cout << "❌ III.2 Proving d_output = shrink(sel_d_input) failed." << std::endl;
-            return false;
+            throw;
         }
         // III.3 Prover proves 0 = d_input * rev_sel
         if (!prove_mle_product(mle_input_zeros, mle_d_input, mle_rev_sel,
             mle_input_zeros, pcs_d_input, pcs_rev_sel, sec_param)) {
             std::cout << "❌ III.3 Proving 0 = d_input * rev_sel failed." << std::endl;
-            return false;
+            throw;
         }
 
         // IV. Check all TODO
         input_cha = random_vec_ext(logimg + logC + 2 * logN);
         if (pcs_sel.open(input_cha, sec_param) != Goldilocks2::one() - pcs_rev_sel.open(input_cha, sec_param)) {
             std::cout << "❌ IV.1 Proving pcs_sel + pcs_rev_sel = 1 failed." << std::endl;
-            return false;
+            throw;
         }
     }
     return true;
@@ -1187,7 +1240,7 @@ bool prove_softmax(const CNN::layer_info& layer,
             sec_param,
             lazy_logup_verifier)) {
             std::cout << "❌ Proving softmax scale input failed." << std::endl;
-            return false;
+            throw;
         }
         // 2. Commit/Prove mask
         array<Goldilocks2::Element> mask(new_shape);
@@ -1206,7 +1259,7 @@ bool prove_softmax(const CNN::layer_info& layer,
         factor = mle_eq.get_sum();
         if (pcs_mask.open(mask_cha, sec_param) != factor * MLE_Pow(Goldilocks2::one(), logn, n - 1).evaluate(second_cha)) {
             std::cout << "❌ Proving softmax mask failed." << std::endl;
-            return false;
+            throw;
         }
         // 3. Commit onehot selector
         array_view<Goldilocks2::Element> view_quo(quo.data(), new_shape);
@@ -1236,22 +1289,22 @@ bool prove_softmax(const CNN::layer_info& layer,
         auto pcs_prod_sel = ligero_commit_base(mle_prod_sel, rho_inv);
         if (pcs_sel.open(sel_cha, sec_param) != Goldilocks2::one() - pcs_rev_sel.open(sel_cha, sec_param)) {
             std::cout << "❌ Proving softmax sel + rev_sel = 1 failed." << std::endl;
-            return false;
+            throw;
         }
         if (!prove_mle_product(mle_prod_sel, mle_sel, mle_rev_sel, pcs_prod_sel, pcs_sel, pcs_rev_sel, sec_param)) {
             std::cout << "❌ Proving softmax sel * rev_sel = sel * rev_sel failed." << std::endl;
-            return false;
+            throw;
         }
         if (pcs_prod_sel.open(sel_cha, sec_param) != Goldilocks2::zero()) {
             std::cout << "❌ Proving softmax sel boolean failed." << std::endl;
-            return false;
+            throw;
         }
         // 3.2 Prove max = shrink(sel * quo)
         MultilinearPolynomial mle_sel_quo = mle_sel * mle_quo;
         auto pcs_sel_quo = ligero_commit_base(mle_sel_quo, rho_inv);
         if (!prove_mle_product(mle_sel_quo, mle_sel, mle_quo, pcs_sel_quo, pcs_sel, pcs_quo, sec_param)) {
             std::cout << "❌ Proving softmax sel_quo = sel * quo failed." << std::endl;
-            return false;
+            throw;
         }
         auto max_cha = random_vec_ext(logimg);
         auto mle_fix_sel_quo = mle_sel_quo;
@@ -1261,7 +1314,7 @@ bool prove_softmax(const CNN::layer_info& layer,
         if (!sVerifier::partial_sumcheck(spr, max_cha, max_cha_val, sec_param) ||
             pcs_sel_quo.open(max_cha, sec_param) != max_cha_val) {
             std::cout << "❌ Proving softmax max = shrink(sel * quo) failed." << std::endl;
-            return false;
+            throw;
         }
         // 4. Commit/Prove diff_masked = mask * (max - quo)
         array<Goldilocks2::Element> diff(new_shape), diff_masked(new_shape);
@@ -1281,11 +1334,11 @@ bool prove_softmax(const CNN::layer_info& layer,
         if (pcs_diff.open(diff_cha, sec_param) != pcs_max.open(diff_first_cha, sec_param) * MLE_Eq(diff_second_cha).get_sum()
                  - pcs_quo.open(diff_cha, sec_param)) {
             std::cout << "❌ Proving softmax diff = max - quo failed." << std::endl;
-            return false;
+            throw;
         }
         if (!prove_mle_product(mle_diff_masked, mle_mask, mle_diff, pcs_diff_masked, pcs_mask, pcs_diff, sec_param)) {
             std::cout << "❌ Proving softmax diff_masked = mask * diff failed." << std::endl;
-            return false;
+            throw;
         }
         // 5. Prove diff_masked >= 0
         std::vector<Goldilocks2::Element> ones(diff_masked.data.size(), Goldilocks2::one());
@@ -1301,7 +1354,7 @@ bool prove_softmax(const CNN::layer_info& layer,
             lazy_logup_verifier)) {
 
             std::cout << "❌ Proving softmax diff_masked >= 0 failed: sign proof fails." << std::endl;
-            return false;
+            throw;
         }
         // 6. Prove diff_masked contains zero
         std::vector<Goldilocks2::Element> zeros(img, Goldilocks2::zero());
@@ -1311,7 +1364,7 @@ bool prove_softmax(const CNN::layer_info& layer,
         prodProver prod_prover(mle_diff_masked, *mle_zeros, logn, rho_inv);
         if (!prodVerifier::execute_prod_check(prod_prover, {logimg + logn, &pcs_diff_masked}, {logimg, mle_zeros.get()}, sec_param)) {
             std::cout << "❌ Proving softmax diff_masked contains zero failed." << std::endl;
-            return false;
+            throw;
         }
         // 7. Prove exp_diff = exp(diff_masked)
         std::vector<size_t> exp_diff(img * (1 << logn)), diff_masked_vec(img * (1 << logn));
@@ -1324,7 +1377,7 @@ bool prove_softmax(const CNN::layer_info& layer,
         eProver e_prover(diff_masked_vec, exp_diff, scale, max_val, rho_inv, lazy_logup_prover);
         if (!eVerifier::execute_check(e_prover, pcs_diff_masked, pcs_exp_diff, sec_param, lazy_logup_verifier)) {
             std::cout << "❌ Proving softmax exp(diff_masked) * scale failed." << std::endl;
-            return false;
+            throw;
         }
         // 8. Prove exp_diff_masked = mask * exp_diff
         array<Goldilocks2::Element> exp_diff_masked(new_shape);
@@ -1338,7 +1391,7 @@ bool prove_softmax(const CNN::layer_info& layer,
         if (!prove_mle_product(mle_exp_diff_masked, mle_mask, mle_exp_diff,
             pcs_exp_diff_masked, pcs_mask, pcs_exp_diff, sec_param)) {
             std::cout << "❌ Proving softmax exp_diff_masked = mask * exp_diff failed." << std::endl;
-            return false;
+            throw;
         }
         // 8. Commit/Prove sum
         std::vector<Goldilocks2::Element> sum(img);
@@ -1357,7 +1410,7 @@ bool prove_softmax(const CNN::layer_info& layer,
         if (!sVerifier::partial_sumcheck(sum_prover, sum_cha, sum_cha_val, sec_param)
             || pcs_exp_diff_masked.open(sum_cha, sec_param) != sum_cha_val) {
             std::cout << "❌ Proving softmax sum failed." << std::endl;
-            return false;
+            throw;
         }
         array<Goldilocks2::Element> expand_sum(new_shape);
         for (int j = 0; j != img; ++j) {
@@ -1372,7 +1425,7 @@ bool prove_softmax(const CNN::layer_info& layer,
         if (pcs_expand_sum.open(combine_challenges(sum_cha, extra_cha), sec_param) != pcs_sum.open(sum_cha, sec_param)
                 * MLE_Eq(extra_cha).get_sum()) {
             std::cout << "❌ Proving softmax expand_sum = expand(sum) failed." << std::endl;
-            return false;
+            throw;
         }
         // 9. Prove d_quo = exp_diff_masked * scale / expand_sum
         array<Goldilocks2::Element> d_quo(new_shape), d_rem(new_shape);
@@ -1391,13 +1444,13 @@ bool prove_softmax(const CNN::layer_info& layer,
         if (!prove_mle_product(mle_prod, mle_d_quo, mle_expand_sum,
             pcs_prod, pcs_d_quo, pcs_expand_sum, sec_param)) {
             std::cout << "❌ Proving softmax mle_prod = mle_d_quo * mle_expand_sum failed." << std::endl;
-            return false;
+            throw;
         }
         auto d_div_cha = random_vec_ext(logimg + logn);
         if (pcs_exp_diff_masked.open(d_div_cha, sec_param) * Goldilocks2::fromU64(scale) != pcs_prod.open(d_div_cha, sec_param)
             + pcs_d_rem.open(d_div_cha, sec_param)) {
             std::cout << "❌ Proving softmax d_div = d_quo / expand_sum failed." << std::endl;
-            return false;
+            throw;
         }
         // 9.2 d_rem - sum < 0
         MultilinearPolynomial mle_d_rem_sum = mle_d_rem - mle_expand_sum;
@@ -1405,7 +1458,7 @@ bool prove_softmax(const CNN::layer_info& layer,
         auto d_rem_sum_cha = random_vec_ext(logimg + logn);
         if (pcs_d_rem_sum.open(d_rem_sum_cha, sec_param) != pcs_d_rem.open(d_rem_sum_cha, sec_param) - pcs_expand_sum.open(d_rem_sum_cha, sec_param)) {
             std::cout << "❌ Proving softmax d_rem_sum_cha = d_rem - sum failed." << std::endl;
-            return false;
+            throw;
         }
         std::vector<Goldilocks2::Element> input_zeros(img * (1 << logn));
         std::shared_ptr<MultilinearPolynomial> mle_input_zeros = std::make_shared<MLE>(input_zeros);
@@ -1417,7 +1470,7 @@ bool prove_softmax(const CNN::layer_info& layer,
             sec_param,
             lazy_logup_verifier)) {
             std::cout << "❌ Proving softmax d_rem - sum < 0 failed: sign proof fails." << std::endl;
-            return false;
+            throw;
         }
         // 10. Prove d_input = (d_quo - label * scale) / img
         MultilinearPolynomial mle_d_delta = mle_d_quo - mle_label * scale;
@@ -1425,7 +1478,7 @@ bool prove_softmax(const CNN::layer_info& layer,
         auto delta_cha = random_vec_ext(logimg + logn);
         if (pcs_d_delta.open(delta_cha, sec_param) != pcs_d_quo.open(delta_cha, sec_param) - Goldilocks2::fromU64(scale) * pcs_label.open(delta_cha, sec_param)) {
             std::cout << "❌ Proving softmax d_delta = (d_quo - label * scale) failed." << std::endl;
-            return false;
+            throw;
         }
         auto d_input_rem = get_rem(mle_d_delta.get_eval_table(), img, mle_d_input.get_eval_table(), true);
         auto pcs_d_input_rem = ligero_commit_base(d_input_rem, rho_inv);
@@ -1437,7 +1490,7 @@ bool prove_softmax(const CNN::layer_info& layer,
             sec_param,
             lazy_logup_verifier)) {
             std::cout << "❌ Proving softmax d_input = (d_quo - sel * scale) / n failed." << std::endl;
-            return false;
+            throw;
         }
     }
     return true;
@@ -1455,6 +1508,8 @@ bool prove_flat_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_p
     if (layer.input.shape(3) != 1 || layer.input.shape(4) != 1) {
         throw std::invalid_argument("prove_flat_layer: Input shape must be [batch, img, C, 1, 1]");
     }
+    bool ret = true;
+    #pragma omp parallel for
     for (int i = 0; i != batch; ++i) {
         auto pcs_input = layer.get_pcs_input(i);
         auto pcs_output = layer.get_pcs_output(i);
@@ -1468,11 +1523,11 @@ bool prove_flat_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_p
         // Check value
         if (pcs_input.open(input_cha, sec_param) != pcs_output.open(output_cha, sec_param)) {
             std::cout << "❌ Proving input = output failed." << std::endl;
-            return false;
+            ret = false;
         }
         if (pcs_d_input.open(input_cha, sec_param) != pcs_d_output.open(output_cha, sec_param)) {
             std::cout << "❌ Proving d_input = d_output failed." << std::endl;
-            return false;
+            ret = false;
         }
         // Check zero
         for (int j = 1; j != 4; ++j) {
@@ -1480,13 +1535,13 @@ bool prove_flat_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_p
             input_cha[logimg + logC + 1] = (j >> 1) ? Goldilocks2::one() : Goldilocks2::zero();
             if (pcs_input.open(input_cha, sec_param) != Goldilocks2::zero()) {
                 std::cout << "❌ Proving output is zero failed." << std::endl;
-                return false;
+                ret = false;
             }
             if (pcs_d_input.open(input_cha, sec_param) != Goldilocks2::zero()) {
                 std::cout << "❌ Proving d_output is zero failed." << std::endl;
-                return false;
+                ret = false;
             }
         }
     }
-    return true;
+    return ret;
 }

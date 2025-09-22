@@ -300,7 +300,7 @@ def quantized_softmax(logits_q: torch.Tensor, scale: int) -> torch.Tensor:
 
     # Convert to float for exponentiation
     x = logits_q
-    print(x)
+    # print(x)
 
     # For numerical stability: subtract max per row
     x_max = x.max(dim=1, keepdim=True).values
@@ -311,7 +311,7 @@ def quantized_softmax(logits_q: torch.Tensor, scale: int) -> torch.Tensor:
     exp_x = torch.round(exp_x*scale).to(torch.int64)
     sum_exp = exp_x.sum(dim=1, keepdim=True)
 
-    softmax = (exp_x * scale) // sum_exp
+    softmax = torch.round((exp_x * scale) / sum_exp).to(torch.int64)
     # print(softmax)
 
     return softmax
@@ -363,20 +363,18 @@ def train_manual():
 
         for x, y, idxs in loader:
             cnt+=1
-            if cnt == 2:
-                break
             # Save input data and labels
             model.save_to_cache('input', (x * model.scale).to(torch.int64))
             model.save_to_cache('label', F.one_hot(y.to(torch.int64), num_classes=10).to(torch.int64))
             model.save_to_cache('index', idxs.to(torch.int64))
 
             with torch.no_grad():
-                z3_q = model.forward(x, y) // model.scale
+                z3_q = torch.round(model.forward(x, y) / model.scale).to(torch.int64)
             
             with torch.no_grad():
                 probs_q = quantized_softmax(z3_q, model.scale)
                 probs_q[range(x.size(0)), y] -= 1 * model.scale   # compute logits, grad
-                probs_q = (probs_q / x.size(0)).to(torch.int64)
+                probs_q = torch.round(probs_q / x.size(0)).to(torch.int64)
                 model.save_to_cache('probs_q', probs_q)
             
             with torch.no_grad():
