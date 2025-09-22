@@ -14,6 +14,8 @@
 // opt_loga for sec_param=32
 int opt_loga[] = {-1, 1, 1, 2, 3, 4, 5, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13};
 
+std::map<int, int> ligero_open_cnt;
+
 // reed solomon encode data on base field
 std::vector<Goldilocks::Element> rsencode(const std::vector<Goldilocks::Element>& data, const uint64_t& rho_inv) {
     // return eval_with_ntt_ext(data, data.size() * rho_inv);
@@ -381,6 +383,13 @@ void find_parameter() {
     clear_proof();
 }
 
+void print_all_open_cnt() {
+    std::cout << "ligero open counts:\n";
+    for (const auto& [key, value] : ligero_open_cnt) {
+        std::cout << "  size " << key << ": " << value << '\n';
+    }
+}
+
 Goldilocks2::Element ligeroVerifier::open(const ligeropcs_base& pcs, const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) {
     startCounter counter("ligero_open");
     std::array<std::vector<Goldilocks2::Element>, 2> lr = calculate_lr(z.size(), z, pcs.num_rows);
@@ -471,6 +480,10 @@ bool ligeropcs_ext::empty() const {
 }
 
 Goldilocks2::Element ligeropcs_base::open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const {
+    if (ligero_open_cnt.count(z.size()) == 0) {
+        ligero_open_cnt[z.size()] = 0;
+    }
+    ++ligero_open_cnt[z.size()];
     return ligeroVerifier::open(*this, z, sec_param);
 }
 
@@ -483,6 +496,10 @@ ligeropcs_ext::ligeropcs_ext(const MerkleDef::Digest& mthash, const std::shared_
 }
 
 Goldilocks2::Element ligeropcs_ext::open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const {
+    if (ligero_open_cnt.count(z.size()) == 0) {
+        ligero_open_cnt[z.size()] = 0;
+    }
+    ++ligero_open_cnt[z.size()];
     return ligeroVerifier::open(*this, z, sec_param);
 }
 

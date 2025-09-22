@@ -15,6 +15,7 @@ std::shared_ptr<oracle> lazy_pcs_pool::commit(uint64_t rho_inv) {
     }
     committed = true;
 
+
     struct sortIns {
         size_t ind;
         int num_vars;
@@ -66,6 +67,10 @@ std::shared_ptr<oracle> lazy_pcs_pool::commit(uint64_t rho_inv) {
     }
     all_vals.resize(total);
     uni_mle = all_vals;
+    
+    // std::cout << "================Warning: skip lazy_pcs commit" << std::endl;
+    // return std::make_shared<MLE>(uni_mle);
+    std::cout << "Committing lazy pcs with num_vars = " << num_vars << "...\n";
     if (use_ext) {
         return std::make_shared<ligeropcs_ext>(ligero_commit_ext(uni_mle, rho_inv));
     } else {
@@ -76,6 +81,7 @@ std::shared_ptr<oracle> lazy_pcs_pool::commit(uint64_t rho_inv) {
 void lazy_pcs_pool::record_open(size_t ind, const std::vector<Goldilocks2::Element>& z, Goldilocks2::Element val, size_t sec) {
     // std::cout << "====== warning: lazy_pcs_pool::record_open skipped." << std::endl;
     // return ;
+    
     if (!committed) {
         throw std::runtime_error("lazy_pcs_pool::record_open: not committed");
     }

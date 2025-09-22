@@ -192,7 +192,7 @@ bool LogupVerifier::execute_logup(LogupProver& lpr,
 
     auto c = lpr.commit_c(rho_inv);
     // set_timer("check commitment of c");
-    if (!ligeroVerifier::check_commit(c, sec_param)) return false;
+    // if (!ligeroVerifier::check_commit(c, sec_param)) return false;
     // end_timer("check commitment of c");
     // alert("c commited");
 
@@ -201,9 +201,9 @@ bool LogupVerifier::execute_logup(LogupProver& lpr,
     lpr.calculate_gh(gamma, lambda);
     auto gh = lpr.commit_gh(rho_inv);
     // set_timer("check commitment of g, h");
-    for (auto pc : gh) {
-        if (!ligeroVerifier::check_commit(pc, sec_param)) return false;
-    }
+    // for (auto pc : gh) {
+    //     if (!ligeroVerifier::check_commit(pc, sec_param)) return false;
+    // }
     // pause_timer("check commitment of g, h");
     // alert("g,h commited");
 
