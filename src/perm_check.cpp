@@ -96,7 +96,7 @@ bool setVerifier::execute_check(
     startCounter counter("set_proof");
     
     const int n = prover.get_n();
-    const int num_vars = prover.get_num_vars();
+    // const int num_vars = prover.get_num_vars();
     auto alpha = random_vec_ext(n);
     prover.combine(alpha, rho_inv);
     oracle_sum pcs_set1, pcs_set2;

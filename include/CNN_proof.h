@@ -35,9 +35,17 @@ bool prove_pool_layer(const CNN::layer_info& layer,
     lazyLogupVerifier* lazy_logup_verifier,
     const CNN::layer_res& wit);
 
+CNN::layer_res pre_prove_softmax(
+    const CNN::layer_info& layer, 
+    size_t scale, size_t max_val, size_t rho_inv, 
+    lazyLogupProver* lazy_logup_prover, 
+    lazyLogupVerifier* lazy_logup_verifier, 
+    lazy_pcs_pool* pool);
+
 bool prove_softmax(const CNN::layer_info& layer,
     size_t scale, size_t max_val,
     size_t rho_inv, size_t sec_param,
+    CNN::layer_res& wit,
     lazyLogupProver *logup_prover, 
     lazyLogupVerifier *logup_verifier);
 

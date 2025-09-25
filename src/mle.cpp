@@ -77,7 +77,7 @@ MultilinearPolynomial::MultilinearPolynomial(const array_view<Goldilocks2::Eleme
 
     evaluations.resize(total_output_size);
 
-    const Goldilocks2::Element* input_data = val_table.get_data();
+    // const Goldilocks2::Element* input_data = val_table.get_data();
     Goldilocks2::Element* output_data = evaluations.data();
 
     // Index vector for iteration
@@ -85,7 +85,7 @@ MultilinearPolynomial::MultilinearPolynomial(const array_view<Goldilocks2::Eleme
 
     for (size_t i = 0; i < total_output_size; ++i) {
         bool in_bounds = true;
-        size_t input_offset = 0;
+        // size_t input_offset = 0;
 
         // Map flat index to multi-dimensional index (ind)
         size_t tmp = i;

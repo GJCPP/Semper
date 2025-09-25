@@ -3,7 +3,7 @@
 #include "util.h"
 
 open_param::open_param(const array_view<Goldilocks2::Element>& mle, const oracle *pcs)
-    : next(0), pcs(pcs)
+    : pcs(pcs), next(0)
 {
     int n = int(mle.get_shape().size()), sz = 0;
     shape.resize(n);
@@ -26,7 +26,7 @@ open_param::open_param(const array_view<Goldilocks2::Element>& mle, const oracle
 }
 
 open_param::open_param(const std::vector<int>& log_shape, const oracle* pcs)
-    : next(0), pcs(pcs), shape(log_shape) {
+    : pcs(pcs), shape(log_shape), next(0) {
     int n = int(shape.size());
     ord.resize(n);
     rev.resize(n);
@@ -36,7 +36,7 @@ open_param::open_param(const std::vector<int>& log_shape, const oracle* pcs)
     }
     int sz = 0;
     std::vector<int> start(n + 1);
-    for (size_t i = 0; i < n; ++i) {
+    for (int i = 0; i < n; ++i) {
         sz += shape[i];
         start[ord[i] + 1] = shape[i];
     }
@@ -45,7 +45,7 @@ open_param::open_param(const std::vector<int>& log_shape, const oracle* pcs)
     }
     cha.resize(sz);
     ele.resize(n);
-    for (size_t i = 0; i < n; ++i) {
+    for (int i = 0; i < n; ++i) {
         ele[i] = start[ord[i]];
     }
 }

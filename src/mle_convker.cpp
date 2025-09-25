@@ -86,8 +86,8 @@ std::optional<size_t> MLE_Convker::to_real_index(size_t mask) const {
         return mask;
     }
     size_t c, d, ij, i, j;
-    const size_t off_c = (1 << logD + logm + logm), off_d = (1 << logm + logm);
-    ij = mask & ((1 << logn + logm) - 1);
+    const size_t off_c = (1 << (logD + logm + logm)), off_d = (1 << (logm + logm));
+    ij = mask & ((1 << (logn + logm)) - 1);
     i = (ij >> logn);
     j = (ij & ((1 << logn) - 1));
 
@@ -102,8 +102,8 @@ std::optional<size_t> MLE_Convker::to_real_index(size_t mask) const {
 size_t MLE_Convker::to_virtual_index(size_t mask) const {
     size_t c, d, ij, i, j;
     c = (mask >> (logD + logm + logm)) & ((1 << logC) - 1);
-    d = (mask >> logm + logm) & ((1 << logD) - 1);
-    ij = mask & ((1 << logm + logm) - 1);
+    d = (mask >> (logm + logm)) & ((1 << logD) - 1);
+    ij = mask & ((1 << (logm + logm)) - 1);
     i = (ij >> logm);
     j = (ij & ((1 << logm) - 1));
 

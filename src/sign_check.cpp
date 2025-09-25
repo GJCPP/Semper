@@ -79,7 +79,7 @@ std::vector<Goldilocks2::Element> get_sign(const std::vector<Goldilocks2::Elemen
             }
         }
     }
-    return std::move(sign);
+    return sign;
 }
 
 signVerifier::resource signVerifier::pre_execute_sign_check(

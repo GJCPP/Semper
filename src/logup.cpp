@@ -210,8 +210,8 @@ bool LogupVerifier::execute_logup(LogupProver& lpr,
     auto pcsg = gh[0], pcsh = gh[1];
 
     std::array<sProver, 2> firstProvers = lpr.firstProvers();
-    Goldilocks2::Element sum = firstProvers[0].get_sum();
-    assert(sum == firstProvers[1].get_sum());
+    // Goldilocks2::Element sum = firstProvers[0].get_sum();
+    // assert(sum == firstProvers[1].get_sum());
     // set_timer("sumcheck 1 / 4");
     start_proof("logup_sumcheck_1_4");
     if (!sVerifier::execute_sumcheck(firstProvers[0], pcsg, sec_param)) {

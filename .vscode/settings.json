@@ -83,7 +83,8 @@
         "charconv": "cpp",
         "format": "cpp",
         "regex": "cpp",
-        "hash_map": "cpp"
+        "hash_map": "cpp",
+        "stop_token": "cpp"
     },
     "C_Cpp.default.compilerPath": "/usr/bin/clang++-14"
 }
