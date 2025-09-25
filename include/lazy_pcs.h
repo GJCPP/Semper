@@ -49,6 +49,8 @@ public:
 
     bool prove_open(std::shared_ptr<oracle> pcs, Goldilocks2::Element lambda);
 
+    bool is_ext() const { return use_ext; }
+
 protected:
     bool committed = false, finalized = false;
     int num_vars = 0;

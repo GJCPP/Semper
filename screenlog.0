@@ -533,4 +533,696 @@ ligero open counts:
   size 30: 1
   size 32: 1
 [100%] Built target run
+[?2004h[01;32mguest@h100-server[00m:[01;34m~/data/gjc/zkCNN/build[00m$ [K[01;32mguest@h100-server[00m:[01;34m~/data/gjc/zkCNN/build[00m$ make run -j
+[?2004l[ 16%] Built target cnpy
+[ 16%] Built target goldilocks
+[ 97%] Built target bench
+[100%] [34m[1mRunning ben[0m
+^C^Cmake[3]: *** [CMakeFiles/run.dir/build.make:71: CMakeFiles/run] Interrupt
+make[2]: *** [CMakeFiles/Makefile2:184: CMakeFiles/run.dir/all] Interrupt
+make[1]: *** [CMakeFiles/Makefile2:191: CMakeFiles/run.dir/rule] Interrupt
+make: *** [Makefile:195: run] Interrupt
+
+[?2004h[01;32mguest@h100-server[00m:[01;34m~/data/gjc/zkCNN/build[00m$ make run -j
+[?2004l[ 11%] Built target goldilocks
+[ 16%] Built target cnpy
+[ 97%] Built target bench
+[100%] [34m[1mRunning ben[0m
+Loading VGG11 took 34.9026 s
+model_name = VGG11
+batch_sz = 16
+batch_num = 16
+Pre-proving...
+Pre-proving layer conv_1...
+Pre-proving layer relu_1...
+Pre-proving layer pool_1...
+Pre-proving layer conv_2...
+Pre-proving layer relu_2...
+Pre-proving layer pool_2...
+Pre-proving layer conv_3...
+Pre-proving layer relu_3...
+Pre-proving layer conv_4...
+Pre-proving layer relu_4...
+Pre-proving layer pool_3...
+Pre-proving layer conv_5...
+Pre-proving layer relu_5...
+Pre-proving layer conv_6...
+Pre-proving layer relu_6...
+Pre-proving layer pool_4...
+Pre-proving layer conv_7...
+Pre-proving layer relu_7...
+Pre-proving layer conv_8...
+Pre-proving layer relu_8...
+Pre-proving layer pool_5...
+Pre-proving layer flat...
+Pre-proving layer full_1...
+Pre-proving layer fc_relu_1...
+Pre-proving layer full_2...
+Pre-proving layer fc_relu_2...
+Pre-proving layer full_3...
+Pre-proving layer softmax...
+Finishing preprove...
+Checking input...
+Proving layer conv_1...
+Proving layer relu_1...
+Proving layer pool_1...
+Proving layer conv_2...
+Proving layer relu_2...
+Proving layer pool_2...
+Proving layer conv_3...
+Proving layer relu_3...
+Proving layer conv_4...
+Proving layer relu_4...
+Proving layer pool_3...
+Proving layer conv_5...
+Proving layer relu_5...
+Proving layer conv_6...
+Proving layer relu_6...
+Proving layer pool_4...
+Proving layer conv_7...
+Proving layer relu_7...
+Proving layer conv_8...
+Proving layer relu_8...
+Proving layer pool_5...
+Proving layer flat...
+Proving layer full_1...
+Proving layer fc_relu_1...
+Proving layer full_2...
+Proving layer fc_relu_2...
+Proving layer full_3...
+Proving layer softmax...
+Proving final logup...
+Proving final map...
+Proving final opening...
+Final open: num_vars = 32
+[VGG11 load & commit] cost: 34.902 s.
+[pre_prove] cost: 1184.73 s.
+[preprove conv] cost: 109.264 s.
+[preprove conv forward] cost: 14.387 s.
+[prove conv dW] cost: 187.032 s.
+[prove conv dX] cost: 40.884 s.
+[preprove relu] cost: 27.959 s.
+[preprove pool] cost: 25.237 s.
+[preprove softmax] cost: 0.02 s.
+[commit all] cost: 1022.23 s.
+[prove VGG11 total] cost: 1859.21 s.
+[check input] cost: 0.198 s.
+[prove conv] cost: 167.029 s.
+[prove conv forward] cost: 33.975 s.
+[load conv wit] cost: 101.866 s.
+[execute convcheck] cost: 41.37 s.
+[conv2d_prove_perm] cost: 0.039 s.
+[conv2d_prove_conv] cost: 33.864 s.
+[conv2d_openW] cost: 4.56 s.
+[conv2d_openX] cost: 2.382 s.
+[prove relu] cost: 41.101 s.
+[prove pool] cost: 49.392 s.
+[prove flat] cost: 0.034 s.
+[prove full] cost: 0.824 s.
+[prove softmax] cost: 0.113 s.
+[final logup] cost: 654.095 s.
+[final map] cost: 169.329 s.
+[final open] cost: 777.083 s.
+-----------------------------
+VGG11: 55.8181MB
+epow_proof: 0.0078125MB
+final logup: 25.035MB
+final map: 12.0428MB
+final open: 18.0015MB
+lazylogup_lazy_pcs_proof: 9.00137MB
+lazylogup_logup_proof: 16.0336MB
+ligero_open: 55.0255MB
+logup: 16.0336MB
+logup_sumcheck: 8.02072MB
+logup_sumcheck_1_4: 7.78516MB
+logup_sumcheck_2_4: 0.22757MB
+logup_sumcheck_3_4: 7.78998MB
+logup_sumcheck_4_4: 0.230743MB
+map_proof: 12.0428MB
+map_proof_check_pad: 5.5MB
+p2 final open2: 27MB
+p2sumcheck: 27.0028MB
+p3execute_sumcheck: 0.322266MB
+p3partial_sumcheck: 0.781128MB
+pd_execute_proof: 6.54285MB
+perm_proof: 6.54285MB
+pool_proof: 0.347656MB
+prod_proof: 0.0214844MB
+relu_proof: 0.322266MB
+set_proof: 6.54285MB
+softmax_proof: 0.0683594MB
+-----------------------------
+ligero open counts:
+5: 2
+12: 4
+14: 2
+15: 2
+18: 2
+26: 1
+27: 5
+28: 2
+30: 1
+32: 1
+[100%] Built target run
+[?2004h[01;32mguest@h100-server[00m:[01;34m~/data/gjc/zkCNN/build[00m$ [K[01;32mguest@h100-server[00m:[01;34m~/data/gjc/zkCNN/build[00m$ [K[01;32mguest@h100-server[00m:[01;34m~/data/gjc/zkCNN/build[00m$ make run -j
+[?2004l[ 11%] Built target goldilocks
+[ 16%] Built target cnpy
+[ 18%] [32mBuilding CXX object CMakeFiles/bench.dir/bench.cpp.o[0m
+[ 20%] [32mBuilding CXX object CMakeFiles/bench.dir/src/CNN.cpp.o[0m
+[ 23%] [32mBuilding CXX object CMakeFiles/bench.dir/src/CNN_check.cpp.o[0m
+[ 25%] [32mBuilding CXX object CMakeFiles/bench.dir/src/CNN_proof.cpp.o[0m
+[ 30%] [32mBuilding CXX object CMakeFiles/bench.dir/src/VGG16.cpp.o[0m
+[ 30%] [32mBuilding CXX object CMakeFiles/bench.dir/src/VGG11.cpp.o[0m
+[ 32%] [32mBuilding CXX object CMakeFiles/bench.dir/src/conv_check.cpp.o[0m
+[ 34%] [32mBuilding CXX object CMakeFiles/bench.dir/src/div_check.cpp.o[0m
+[ 37%] [32mBuilding CXX object CMakeFiles/bench.dir/src/e_pow_check.cpp.o[0m
+[ 39%] [32mBuilding CXX object CMakeFiles/bench.dir/src/lazy_logup.cpp.o[0m
+[ 41%] [32mBuilding CXX object CMakeFiles/bench.dir/src/lazy_pcs.cpp.o[0m
+[ 44%] [32mBuilding CXX object CMakeFiles/bench.dir/src/lazy_map_check.cpp.o[0m
+[ 46%] [32mBuilding CXX object CMakeFiles/bench.dir/src/ltn_check.cpp.o[0m
+[ 48%] [32mBuilding CXX object CMakeFiles/bench.dir/src/logup.cpp.o[0m
+[ 51%] [32mBuilding CXX object CMakeFiles/bench.dir/src/mat_check.cpp.o[0m
+[ 53%] [32mBuilding CXX object CMakeFiles/bench.dir/src/perm_check.cpp.o[0m
+[ 55%] [32mBuilding CXX object CMakeFiles/bench.dir/src/mle_open.cpp.o[0m
+[ 58%] [32mBuilding CXX object CMakeFiles/bench.dir/src/prod_check.cpp.o[0m
+[ 62%] [32mBuilding CXX object CMakeFiles/bench.dir/src/sign_check.cpp.o[0m
+[ 62%] [32mBuilding CXX object CMakeFiles/bench.dir/src/product3_sumcheck.cpp.o[0m
+[ 65%] [32mBuilding CXX object CMakeFiles/bench.dir/src/test.cpp.o[0m
+[01m[K/home/guest/data/gjc/zkCNN/src/test.cpp:285:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  285 |     #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:11:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+   11 |     #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:16:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp critical[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+   16 |             #pragma omp critical
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:61:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+   61 | #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:137:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  137 | #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:192:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  192 | #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:267:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  267 |     #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:278:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp critical[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  278 |             #pragma omp critical
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:353:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  353 |     #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:377:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp critical[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  377 |                                     #pragma omp critical
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:386:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp critical[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  386 |                                     #pragma omp critical
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:397:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp critical[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  397 |                         #pragma omp critical
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:426:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  426 |     #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:436:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp critical[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  436 |             #pragma omp critical
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:449:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp critical[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  449 |                         #pragma omp critical
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:458:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp critical[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  458 |                         #pragma omp critical
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:496:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  496 |     #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:516:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp critical[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  516 |                         #pragma omp critical
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN.cpp:500:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  500 |     #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:541:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  541 |     #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN.cpp:555:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  555 |     #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:553:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp critical[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  553 |             #pragma omp critical
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN.cpp:604:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  604 |         #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:585:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  585 |     #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:598:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp critical[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  598 |                 #pragma omp critical
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:632:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp critical[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  632 |             #pragma omp critical
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_check.cpp:691:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp critical[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  691 |                 #pragma omp critical
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/VGG16.cpp:36:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+   36 |     #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/VGG11.cpp:36:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+   36 |     #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/conv_check.cpp:25:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+   25 | #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/conv_check.cpp:141:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  141 | #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/conv_check.cpp:147:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  147 | #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/conv_check.cpp:156:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  156 | #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/conv_check.cpp:232:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  232 | #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_proof.cpp:336:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  336 |     #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_proof.cpp:383:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  383 |     #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_proof.cpp:436:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  436 |     #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_proof.cpp:557:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  557 |     #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_proof.cpp:576:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  576 |     #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_proof.cpp:600:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  600 |     #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_proof.cpp:717:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+  717 |     #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_proof.cpp:1006:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+ 1006 |     #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/CNN_proof.cpp:1775:[m[K [01;35m[Kwarning: [m[Kignoring ‘[01m[K#pragma omp parallel[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunknown-pragmas-Wunknown-pragmas]8;;[m[K]
+ 1775 |     #pragma omp parallel for
+      | 
+[01m[K/home/guest/data/gjc/zkCNN/src/e_pow_check.cpp:[m[K In static member function ‘[01m[Kstatic eVerifier::resource eVerifier::[01;32m[Kpre_execute_check[m[K(eProver&, lazyLogupVerifier*, lazy_pcs_pool*)[m[K’:
+[01m[K/home/guest/data/gjc/zkCNN/src/e_pow_check.cpp:262:18:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Krho_inv[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  262 |     const size_t [01;35m[Krho_inv[m[K = prover.get_rho_inv();
+      |                  [01;35m[K^~~~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/e_pow_check.cpp:270:17:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Ke_pow_to[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  270 |     const auto& [01;35m[Ke_pow_to[m[K = eVerifier::e_pow_to[scale];
+      |                 [01;35m[K^~~~~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/e_pow_check.cpp:271:17:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kmle_e_pow_from[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  271 |     const auto& [01;35m[Kmle_e_pow_from[m[K = eVerifier::mle_e_pow_from[scale];
+      |                 [01;35m[K^~~~~~~~~~~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/e_pow_check.cpp:272:17:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kmle_e_pow_to[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  272 |     const auto& [01;35m[Kmle_e_pow_to[m[K = eVerifier::mle_e_pow_to[scale];
+      |                 [01;35m[K^~~~~~~~~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/e_pow_check.cpp:275:15:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Klognum[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  275 |     const int [01;35m[Klognum[m[K = find_ceiling_log2(num);
+      |               [01;35m[K^~~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/mle_open.cpp:[m[K In constructor ‘[01m[Kopen_param::[01;32m[Kopen_param[m[K(const array_view<std::array<Goldilocks::Element, 2> >&, const oracle*)[m[K’:
+[01m[K/home/guest/data/gjc/zkCNN/src/mle_open.cpp:13:26:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Ksize_t[m[K’ {aka ‘[01m[Klong unsigned int[m[K’} and ‘[01m[Kint[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+   13 |     for (size_t i = 0; [01;35m[Ki < n[m[K; ++i) {
+      |                        [01;35m[K~~^~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/mle_open.cpp:23:26:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Ksize_t[m[K’ {aka ‘[01m[Klong unsigned int[m[K’} and ‘[01m[Kint[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+   23 |     for (size_t i = 0; [01;35m[Ki < n[m[K; ++i) {
+      |                        [01;35m[K~~^~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/ltn_check.cpp:[m[K In static member function ‘[01m[Kstatic ltnVerifier::resource ltnVerifier::[01;32m[Kpre_execute_ltn_check[m[K(ltnProver&, Goldilocks2::Element, uint64_t, bool, lazyLogupVerifier*, lazy_pcs_pool*)[m[K’:
+[01m[K/home/guest/data/gjc/zkCNN/src/ltn_check.cpp:126:9:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Klognum[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  126 |     int [01;35m[Klognum[m[K = find_ceiling_log2(num);
+      |         [01;35m[K^~~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/prod_check.cpp:[m[K In static member function ‘[01m[Kstatic prodVerifier::resource prodVerifier::[01;32m[Kpre_execute_prod_check[m[K(prodProver&, lazy_pcs_pool*)[m[K’:
+[01m[K/home/guest/data/gjc/zkCNN/src/prod_check.cpp:90:10:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kfirst[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+   90 |     bool [01;35m[Kfirst[m[K = true;
+      |          [01;35m[K^~~~~[m[K
+In file included from [01m[K/home/guest/data/gjc/zkCNN/src/div_check.cpp:1[m[K:
+[01m[K/home/guest/data/gjc/zkCNN/include/div_check.h:[m[K In constructor ‘[01m[KdivProver::[01;32m[KdivProver[m[K(const std::vector<std::array<Goldilocks::Element, 2> >&, const std::vector<std::array<Goldilocks::Element, 2> >&, const std::vector<std::array<Goldilocks::Element, 2> >&, uint64_t, bool, uint64_t, lazyLogupProver*)[m[K’:
+[01m[K/home/guest/data/gjc/zkCNN/include/div_check.h:84:14:[m[K [01;35m[Kwarning: [m[K‘[01m[KdivProver::denom[m[K’ will be initialized after [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+   84 |     uint64_t [01;35m[Kdenom[m[K;
+      |              [01;35m[K^~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/include/div_check.h:83:10:[m[K [01;35m[Kwarning: [m[K  ‘[01m[Kbool divProver::allow_neg_rem[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+   83 |     bool [01;35m[Kallow_neg_rem[m[K;
+      |          [01;35m[K^~~~~~~~~~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/div_check.cpp:16:1:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+   16 | [01;35m[KdivProver[m[K::divProver(
+      | [01;35m[K^~~~~~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/include/div_check.h:[m[K In constructor ‘[01m[KdivProver::[01;32m[KdivProver[m[K(const std::vector<long unsigned int>&, const std::vector<long unsigned int>&, const std::vector<long unsigned int>&, uint64_t, bool, uint64_t, lazyLogupProver*)[m[K’:
+[01m[K/home/guest/data/gjc/zkCNN/include/div_check.h:84:14:[m[K [01;35m[Kwarning: [m[K‘[01m[KdivProver::denom[m[K’ will be initialized after [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+   84 |     uint64_t [01;35m[Kdenom[m[K;
+      |              [01;35m[K^~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/include/div_check.h:83:10:[m[K [01;35m[Kwarning: [m[K  ‘[01m[Kbool divProver::allow_neg_rem[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+   83 |     bool [01;35m[Kallow_neg_rem[m[K;
+      |          [01;35m[K^~~~~~~~~~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/div_check.cpp:51:1:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+   51 | [01;35m[KdivProver[m[K::divProver(
+      | [01;35m[K^~~~~~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/div_check.cpp:[m[K In member function ‘[01m[Kvoid divProver::[01;32m[Kinit_range[m[K(uint64_t, bool, uint64_t)[m[K’:
+[01m[K/home/guest/data/gjc/zkCNN/src/div_check.cpp:94:35:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint64_t[m[K’ {aka ‘[01m[Klong int[m[K’} and ‘[01m[Kuint64_t[m[K’ {aka ‘[01m[Klong unsigned int[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+   94 |             for (int64_t i = 1; [01;35m[Ki < denom[m[K; ++i) {
+      |                                 [01;35m[K~~^~~~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:[m[K In member function ‘[01m[Kbool lazyLogupVerifier::[01;32m[Kprove_all[m[K(lazyLogupProver&, uint64_t, uint64_t)[m[K’:
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:152:15:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt1[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  152 |         auto &[01;35m[Kt1[m[K = tables_all[id].t1, &t2 = tables_all[id].t2;
+      |               [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:152:40:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt2[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  152 |         auto &t1 = tables_all[id].t1, &[01;35m[Kt2[m[K = tables_all[id].t2;
+      |                                        [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:165:29:[m[K [01;31m[Kerror: [m[K‘[01m[Ktable_all[m[K’ was not declared in this scope; did you mean ‘[01m[Ktables_all[m[K’?
+  165 |     std::vector<MLE> mle_t1([01;31m[Ktable_all[m[K.size()), mle_t2(table_all.size());
+      |                             [01;31m[K^~~~~~~~~[m[K
+      |                             [32m[Ktables_all[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:208:31:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Ksize_t[m[K’ {aka ‘[01m[Klong unsigned int[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+  208 |             for (int i = 0; [01;35m[Ki < pre_len[m[K; ++i) {
+      |                             [01;35m[K~~^~~~~~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:242:15:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt1[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  242 |         auto &[01;35m[Kt1[m[K = tables_all[id].t1, &t2 = tables_all[id].t2;
+      |               [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:242:40:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt2[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  242 |         auto &t1 = tables_all[id].t1, &[01;35m[Kt2[m[K = tables_all[id].t2;
+      |                                        [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:258:15:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt1[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  258 |         auto &[01;35m[Kt1[m[K = tables_all[id].t1, &t2 = tables_all[id].t2;
+      |               [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:258:40:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt2[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  258 |         auto &t1 = tables_all[id].t1, &[01;35m[Kt2[m[K = tables_all[id].t2;
+      |                                        [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/test.cpp:[m[K In function ‘[01m[Kbool[01;32m[K test_conv2_check[m[K()[m[K’:
+[01m[K/home/guest/data/gjc/zkCNN/src/test.cpp:322:16:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kup_D[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  322 |         size_t [01;35m[Kup_D[m[K = (1ull << find_ceiling_log2(D)), up_on = (1ull << find_ceiling_log2(on));
+      |                [01;35m[K^~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:269:37:[m[K [01;31m[Kerror: [m[K‘[01m[Krand_ext[m[K’ was not declared in this scope; did you mean ‘[01m[Krandom_ext[m[K’?
+  269 |     pool_gh.prove_open(pcs_pool_gh, [01;31m[Krand_ext[m[K());
+      |                                     [01;31m[K^~~~~~~~[m[K
+      |                                     [32m[Krandom_ext[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/test.cpp:[m[K In function ‘[01m[Kbool[01;32m[K test_lazy_logup[m[K()[m[K’:
+[01m[K/home/guest/data/gjc/zkCNN/src/test.cpp:687:31:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Ksize_t[m[K’ {aka ‘[01m[Klong unsigned int[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+  687 |             for (int j = 0; [01;35m[Kj < fsize[m[K; ++j) {
+      |                             [01;35m[K~~^~~~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/test.cpp:[m[K In function ‘[01m[Kbool[01;32m[K test_pre_sign_check[m[K()[m[K’:
+[01m[K/home/guest/data/gjc/zkCNN/src/test.cpp:788:30:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Ksize_t[m[K’ {aka ‘[01m[Klong unsigned int[m[K’} and ‘[01m[Kint64_t[m[K’ {aka ‘[01m[Klong int[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+  788 |         for (size_t i = 0; [01;35m[Ki < n[m[K; ++i) {
+      |                            [01;35m[K~~^~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/test.cpp:794:30:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Ksize_t[m[K’ {aka ‘[01m[Klong unsigned int[m[K’} and ‘[01m[Kint64_t[m[K’ {aka ‘[01m[Klong int[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+  794 |         for (size_t i = 0; [01;35m[Ki < n[m[K; ++i) {
+      |                            [01;35m[K~~^~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/logup.cpp:[m[K In member function ‘[01m[Kbool LogupVerifier::[01;32m[Kexecute_logup_first_part[m[K(LogupProver&, const oracle&, const oracle&, const oracle&, const oracle&, const uint64_t&, const size_t&, lazy_pcs_pool*)[m[K’:
+[01m[K/home/guest/data/gjc/zkCNN/src/logup.cpp:296:34:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kft[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  296 |     std::array<const oracle*, 4> [01;35m[Kft[m[K = { &f1, &f2, &t1, &t2 };
+      |                                  [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/logup.cpp:[m[K In member function ‘[01m[Kbool LogupVerifier::[01;32m[Kexecute_logup_second_part[m[K(LogupProver&, const oracle&, const oracle&, const oracle&, const oracle&, const uint64_t&, const size_t&, lazy_pcs_pool*)[m[K’:
+[01m[K/home/guest/data/gjc/zkCNN/src/logup.cpp:321:34:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kft[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  321 |     std::array<const oracle*, 4> [01;35m[Kft[m[K = { &f1, &f2, &t1, &t2 };
+      |                                  [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/logup.cpp:[m[K In member function ‘[01m[Kbool LogupVerifier::[01;32m[Kexecute_logup_third_part[m[K(LogupProver&, const oracle&, const oracle&, const oracle&, const oracle&, const uint64_t&, const size_t&)[m[K’:
+[01m[K/home/guest/data/gjc/zkCNN/src/logup.cpp:381:18:[m[K [01;31m[Kerror: [m[K‘[01m[Kft[m[K’ was not declared in this scope; did you mean ‘[01m[Kf1[m[K’?
+  381 |     auto pcsf1 = [01;31m[Kft[m[K[0], pcsf2 = ft[1], pcst1 = ft[2], pcst2 = ft[3];
+      |                  [01;31m[K^~[m[K
+      |                  [32m[Kf1[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/logup.cpp:385:83:[m[K [01;31m[Kerror: [m[K‘[01m[Kpcsf2[m[K’ was not declared in this scope
+  385 |     if (!p3Verifier::execute_logup_sumcheck(secondProvers[0], eqg, pcsg, *pcsf1, *[01;31m[Kpcsf2[m[K, gamma, lambda, sec_param)) {
+      |                                                                                   [01;31m[K^~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/logup.cpp:395:75:[m[K [01;31m[Kerror: [m[K‘[01m[Kpcst1[m[K’ was not declared in this scope
+  395 |     if (!p3Verifier::execute_logup_sumcheck(secondProvers[1], eqh, pcsh, *[01;31m[Kpcst1[m[K, *pcst2, gamma, lambda, sec_param)) {
+      |                                                                           [01;31m[K^~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/logup.cpp:395:83:[m[K [01;31m[Kerror: [m[K‘[01m[Kpcst2[m[K’ was not declared in this scope
+  395 |     if (!p3Verifier::execute_logup_sumcheck(secondProvers[1], eqh, pcsh, *pcst1, *[01;31m[Kpcst2[m[K, gamma, lambda, sec_param)) {
+      |                                                                                   [01;31m[K^~~~~[m[K
+make[3]: *** [CMakeFiles/bench.dir/build.make:247: CMakeFiles/bench.dir/src/lazy_logup.cpp.o] Error 1
+make[3]: *** Waiting for unfinished jobs....
+make[3]: *** [CMakeFiles/bench.dir/build.make:303: CMakeFiles/bench.dir/src/logup.cpp.o] Error 1
+In file included from [01m[K/home/guest/data/gjc/zkCNN/include/mle.h:10[m[K,
+                 from [01m[K/home/guest/data/gjc/zkCNN/include/header:8[m[K,
+                 from [01m[K/home/guest/data/gjc/zkCNN/include/CNN.h:7[m[K,
+                 from [01m[K/home/guest/data/gjc/zkCNN/src/CNN_proof.cpp:5[m[K:
+In member function ‘[01m[Kvoid array_view<T>::[01;32m[Kmimic[m[K(const array_view<T>&, const std::vector<long unsigned int>&) [35m[K[with T = std::array<Goldilocks::Element, 2>][m[K[m[K’,
+    inlined from ‘[01m[Kvoid array_view<T>::[01;32m[Kcopy_to[m[K(T*, const std::vector<long unsigned int>&) const [35m[K[with T = std::array<Goldilocks::Element, 2>][m[K[m[K’ at [01m[K/home/guest/data/gjc/zkCNN/include/array_view.h:301:22[m[K:
+[01m[K/home/guest/data/gjc/zkCNN/include/array_view.h:277:17:[m[K [01;35m[Kwarning: [m[K‘[01m[Knew_arr.array_view<std::array<Goldilocks::Element, 2> >::data[m[K’ may be used uninitialized [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wmaybe-uninitialized-Wmaybe-uninitialized]8;;[m[K]
+  277 |         *this = [01;35m[Karray_view<T>(data, ns)[m[K;
+      |                 [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/include/array_view.h:[m[K In member function ‘[01m[Kvoid array_view<T>::[01;32m[Kcopy_to[m[K(T*, const std::vector<long unsigned int>&) const [35m[K[with T = std::array<Goldilocks::Element, 2>][m[K[m[K’:
+[01m[K/home/guest/data/gjc/zkCNN/include/array_view.h:300:23:[m[K [01;36m[Knote: [m[K‘[01m[Knew_arr[m[K’ declared here
+  300 |         array_view<T> [01;36m[Knew_arr[m[K;
+      |                       [01;36m[K^~~~~~~[m[K
+make[2]: *** [CMakeFiles/Makefile2:152: CMakeFiles/bench.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:191: CMakeFiles/run.dir/rule] Error 2
+make: *** [Makefile:195: run] Error 2
+[?2004h[01;32mguest@h100-server[00m:[01;34m~/data/gjc/zkCNN/build[00m$ make run -j
+[?2004l[ 11%] Built target goldilocks
+[ 16%] Built target cnpy
+[ 18%] [32mBuilding CXX object CMakeFiles/bench.dir/src/logup.cpp.o[0m
+[ 20%] [32mBuilding CXX object CMakeFiles/bench.dir/src/lazy_logup.cpp.o[0m
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:[m[K In member function ‘[01m[Kbool lazyLogupVerifier::[01;32m[Kprove_all[m[K(lazyLogupProver&, uint64_t, uint64_t)[m[K’:
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:152:15:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt1[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  152 |         auto &[01;35m[Kt1[m[K = tables_all[id].t1, &t2 = tables_all[id].t2;
+      |               [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:152:40:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt2[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  152 |         auto &t1 = tables_all[id].t1, &[01;35m[Kt2[m[K = tables_all[id].t2;
+      |                                        [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:165:29:[m[K [01;31m[Kerror: [m[K‘[01m[Ktable_all[m[K’ was not declared in this scope; did you mean ‘[01m[Ktables_all[m[K’?
+  165 |     std::vector<MLE> mle_t1([01;31m[Ktable_all[m[K.size()), mle_t2(table_all.size());
+      |                             [01;31m[K^~~~~~~~~[m[K
+      |                             [32m[Ktables_all[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:208:31:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Ksize_t[m[K’ {aka ‘[01m[Klong unsigned int[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+  208 |             for (int i = 0; [01;35m[Ki < pre_len[m[K; ++i) {
+      |                             [01;35m[K~~^~~~~~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:242:15:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt1[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  242 |         auto &[01;35m[Kt1[m[K = tables_all[id].t1, &t2 = tables_all[id].t2;
+      |               [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:242:40:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt2[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  242 |         auto &t1 = tables_all[id].t1, &[01;35m[Kt2[m[K = tables_all[id].t2;
+      |                                        [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:258:15:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt1[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  258 |         auto &[01;35m[Kt1[m[K = tables_all[id].t1, &t2 = tables_all[id].t2;
+      |               [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:258:40:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt2[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  258 |         auto &t1 = tables_all[id].t1, &[01;35m[Kt2[m[K = tables_all[id].t2;
+      |                                        [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:269:37:[m[K [01;31m[Kerror: [m[K‘[01m[Krand_ext[m[K’ was not declared in this scope; did you mean ‘[01m[Krandom_ext[m[K’?
+  269 |     pool_gh.prove_open(pcs_pool_gh, [01;31m[Krand_ext[m[K());
+      |                                     [01;31m[K^~~~~~~~[m[K
+      |                                     [32m[Krandom_ext[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/logup.cpp:[m[K In member function ‘[01m[Kbool LogupVerifier::[01;32m[Kexecute_logup_first_part[m[K(LogupProver&, const oracle&, const oracle&, const oracle&, const oracle&, const uint64_t&, const size_t&, lazy_pcs_pool*)[m[K’:
+[01m[K/home/guest/data/gjc/zkCNN/src/logup.cpp:296:34:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kft[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  296 |     std::array<const oracle*, 4> [01;35m[Kft[m[K = { &f1, &f2, &t1, &t2 };
+      |                                  [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/logup.cpp:[m[K In member function ‘[01m[Kbool LogupVerifier::[01;32m[Kexecute_logup_second_part[m[K(LogupProver&, const oracle&, const oracle&, const oracle&, const oracle&, const uint64_t&, const size_t&, lazy_pcs_pool*)[m[K’:
+[01m[K/home/guest/data/gjc/zkCNN/src/logup.cpp:321:34:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kft[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  321 |     std::array<const oracle*, 4> [01;35m[Kft[m[K = { &f1, &f2, &t1, &t2 };
+      |                                  [01;35m[K^~[m[K
+make[3]: *** [CMakeFiles/bench.dir/build.make:247: CMakeFiles/bench.dir/src/lazy_logup.cpp.o] Error 1
+make[3]: *** Waiting for unfinished jobs....
+make[2]: *** [CMakeFiles/Makefile2:152: CMakeFiles/bench.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:191: CMakeFiles/run.dir/rule] Error 2
+make: *** [Makefile:195: run] Error 2
+[?2004h[01;32mguest@h100-server[00m:[01;34m~/data/gjc/zkCNN/build[00m$ make run -j
+[?2004l[ 11%] Built target goldilocks
+[ 16%] Built target cnpy
+[ 18%] [32mBuilding CXX object CMakeFiles/bench.dir/src/lazy_logup.cpp.o[0m
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:[m[K In member function ‘[01m[Kbool lazyLogupVerifier::[01;32m[Kprove_all[m[K(lazyLogupProver&, uint64_t, uint64_t)[m[K’:
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:152:15:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt1[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  152 |         auto &[01;35m[Kt1[m[K = tables_all[id].t1, &t2 = tables_all[id].t2;
+      |               [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:152:40:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt2[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  152 |         auto &t1 = tables_all[id].t1, &[01;35m[Kt2[m[K = tables_all[id].t2;
+      |                                        [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:165:29:[m[K [01;31m[Kerror: [m[K‘[01m[Ktable_all[m[K’ was not declared in this scope; did you mean ‘[01m[Ktables_all[m[K’?
+  165 |     std::vector<MLE> mle_t1([01;31m[Ktable_all[m[K.size()), mle_t2(table_all.size());
+      |                             [01;31m[K^~~~~~~~~[m[K
+      |                             [32m[Ktables_all[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:208:31:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Ksize_t[m[K’ {aka ‘[01m[Klong unsigned int[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+  208 |             for (int i = 0; [01;35m[Ki < pre_len[m[K; ++i) {
+      |                             [01;35m[K~~^~~~~~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:242:15:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt1[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  242 |         auto &[01;35m[Kt1[m[K = tables_all[id].t1, &t2 = tables_all[id].t2;
+      |               [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:242:40:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt2[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  242 |         auto &t1 = tables_all[id].t1, &[01;35m[Kt2[m[K = tables_all[id].t2;
+      |                                        [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:258:15:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt1[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  258 |         auto &[01;35m[Kt1[m[K = tables_all[id].t1, &t2 = tables_all[id].t2;
+      |               [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:258:40:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt2[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  258 |         auto &t1 = tables_all[id].t1, &[01;35m[Kt2[m[K = tables_all[id].t2;
+      |                                        [01;35m[K^~[m[K
+make[3]: *** [CMakeFiles/bench.dir/build.make:247: CMakeFiles/bench.dir/src/lazy_logup.cpp.o] Error 1
+make[2]: *** [CMakeFiles/Makefile2:152: CMakeFiles/bench.dir/all] Error 2
+make[1]: *** [CMakeFiles/Makefile2:191: CMakeFiles/run.dir/rule] Error 2
+make: *** [Makefile:195: run] Error 2
+[?2004h[01;32mguest@h100-server[00m:[01;34m~/data/gjc/zkCNN/build[00m$ make run -j
+[?2004l[ 11%] Built target goldilocks
+[ 16%] Built target cnpy
+[ 18%] [32mBuilding CXX object CMakeFiles/bench.dir/src/lazy_logup.cpp.o[0m
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:[m[K In member function ‘[01m[Kbool lazyLogupVerifier::[01;32m[Kprove_all[m[K(lazyLogupProver&, uint64_t, uint64_t)[m[K’:
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:152:15:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt1[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  152 |         auto &[01;35m[Kt1[m[K = tables_all[id].t1, &t2 = tables_all[id].t2;
+      |               [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:152:40:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt2[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  152 |         auto &t1 = tables_all[id].t1, &[01;35m[Kt2[m[K = tables_all[id].t2;
+      |                                        [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:208:31:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Ksize_t[m[K’ {aka ‘[01m[Klong unsigned int[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+  208 |             for (int i = 0; [01;35m[Ki < pre_len[m[K; ++i) {
+      |                             [01;35m[K~~^~~~~~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:236:13:[m[K [01;35m[Kwarning: [m[Kvariable ‘[01m[Knum_vars[m[K’ set but not used [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-but-set-variable-Wunused-but-set-variable]8;;[m[K]
+  236 |         int [01;35m[Knum_vars[m[K;
+      |             [01;35m[K^~~~~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:242:15:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt1[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  242 |         auto &[01;35m[Kt1[m[K = tables_all[id].t1, &t2 = tables_all[id].t2;
+      |               [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:242:40:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt2[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  242 |         auto &t1 = tables_all[id].t1, &[01;35m[Kt2[m[K = tables_all[id].t2;
+      |                                        [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:252:13:[m[K [01;35m[Kwarning: [m[Kvariable ‘[01m[Knum_vars[m[K’ set but not used [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-but-set-variable-Wunused-but-set-variable]8;;[m[K]
+  252 |         int [01;35m[Knum_vars[m[K;
+      |             [01;35m[K^~~~~~~~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:258:15:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt1[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  258 |         auto &[01;35m[Kt1[m[K = tables_all[id].t1, &t2 = tables_all[id].t2;
+      |               [01;35m[K^~[m[K
+[01m[K/home/guest/data/gjc/zkCNN/src/lazy_logup.cpp:258:40:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kt2[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  258 |         auto &t1 = tables_all[id].t1, &[01;35m[Kt2[m[K = tables_all[id].t2;
+      |                                        [01;35m[K^~[m[K
+[ 20%] [32m[1mLinking CXX executable bench[0m
+[ 97%] Built target bench
+[100%] [34m[1mRunning ben[0m
+Loading VGG11 took 2.42454 s
+model_name = VGG11
+batch_sz = 16
+batch_num = 1
+Pre-proving...
+Pre-proving layer conv_1...
+Pre-proving layer relu_1...
+Pre-proving layer pool_1...
+Pre-proving layer conv_2...
+Pre-proving layer relu_2...
+Pre-proving layer pool_2...
+Pre-proving layer conv_3...
+Pre-proving layer relu_3...
+Pre-proving layer conv_4...
+Pre-proving layer relu_4...
+Pre-proving layer pool_3...
+Pre-proving layer conv_5...
+Pre-proving layer relu_5...
+Pre-proving layer conv_6...
+Pre-proving layer relu_6...
+Pre-proving layer pool_4...
+Pre-proving layer conv_7...
+Pre-proving layer relu_7...
+Pre-proving layer conv_8...
+Pre-proving layer relu_8...
+Pre-proving layer pool_5...
+Pre-proving layer flat...
+Pre-proving layer full_1...
+Pre-proving layer fc_relu_1...
+Pre-proving layer full_2...
+Pre-proving layer fc_relu_2...
+Pre-proving layer full_3...
+Pre-proving layer softmax...
+Finishing preprove...
+Checking input...
+Proving layer conv_1...
+Proving layer relu_1...
+Proving layer pool_1...
+Proving layer conv_2...
+Proving layer relu_2...
+Proving layer pool_2...
+Proving layer conv_3...
+Proving layer relu_3...
+Proving layer conv_4...
+Proving layer relu_4...
+Proving layer pool_3...
+Proving layer conv_5...
+Proving layer relu_5...
+Proving layer conv_6...
+Proving layer relu_6...
+Proving layer pool_4...
+Proving layer conv_7...
+Proving layer relu_7...
+Proving layer conv_8...
+Proving layer relu_8...
+Proving layer pool_5...
+Proving layer flat...
+Proving layer full_1...
+Proving layer fc_relu_1...
+Proving layer full_2...
+Proving layer fc_relu_2...
+Proving layer full_3...
+Proving layer softmax...
+Proving final logup...
+Proving final map...
+Proving final opening...
+Final open: num_vars = 28
+[VGG11 load & commit] cost: 2.424 s.
+[pre_prove] cost: 61.79 s.
+[preprove conv] cost: 7.141 s.
+[preprove conv forward] cost: 0.918 s.
+[prove conv dW] cost: 12.311 s.
+[prove conv dX] cost: 2.446 s.
+[preprove relu] cost: 1.772 s.
+[preprove pool] cost: 1.655 s.
+[preprove softmax] cost: 0.005 s.
+[commit all] cost: 51.205 s.
+[prove VGG11 total] cost: 123.307 s.
+[check input] cost: 0.007 s.
+[prove conv] cost: 10.649 s.
+[prove conv forward] cost: 2.096 s.
+[load conv wit] cost: 6.493 s.
+[execute convcheck] cost: 2.567 s.
+[conv2d_prove_perm] cost: 0 s.
+[conv2d_prove_conv] cost: 2.061 s.
+[conv2d_openW] cost: 0.348 s.
+[conv2d_openX] cost: 0.129 s.
+[prove relu] cost: 2.315 s.
+[prove pool] cost: 2.926 s.
+[prove flat] cost: 0.002 s.
+[prove full] cost: 0.069 s.
+[prove softmax] cost: 0.006 s.
+[final logup] cost: 49.841 s.
+[final map] cost: 10.128 s.
+[final open] cost: 47.349 s.
+-----------------------------
+VGG11: 11.6668MB
+epow_proof: 0.000488281MB
+final logup: 4.08841MB
+final map: 3.03088MB
+final open: 4.50128MB
+lazylogup_lazy_pcs_proof: 4.08133MB
+lazylogup_logup_proof: 0.00701904MB
+ligero_open: 11.5781MB
+logup_sumcheck: 0.00701904MB
+logup_sumcheck_3_4: 0.00384521MB
+logup_sumcheck_4_4: 0.00317383MB
+map_proof: 3.03088MB
+map_proof_check_pad: 1.375MB
+p2 final open2: 8.57812MB
+p2sumcheck: 8.58261MB
+p3execute_sumcheck: 0.0201416MB
+p3partial_sumcheck: 0.0770264MB
+pd_execute_proof: 1.65588MB
+perm_proof: 1.65588MB
+pool_proof: 0.0217285MB
+prod_proof: 0.00134277MB
+relu_proof: 0.0201416MB
+set_proof: 1.65588MB
+softmax_proof: 0.00427246MB
+-----------------------------
+ligero open counts:
+19: 1
+22: 1
+23: 3
+25: 1
+26: 1
+28: 1
+[100%] Built target run
 [?2004h[01;32mguest@h100-server[00m:[01;34m~/data/gjc/zkCNN/build[00m$ 

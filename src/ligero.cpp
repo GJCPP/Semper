@@ -386,7 +386,7 @@ void find_parameter() {
 void print_all_open_cnt() {
     std::cout << "ligero open counts:\n";
     for (const auto& [key, value] : ligero_open_cnt) {
-        std::cout << "  size " << key << ": " << value << '\n';
+        std::cout << key << ": " << value << '\n';
     }
 }
 

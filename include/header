@@ -1,6 +1,7 @@
 #pragma once
 
 // #define DEBUG
+#define PCS_ONLY_RECORD true
 
 #include "goldilocks_base_field.hpp"
 #include "goldilocks_quadratic_ext.h"

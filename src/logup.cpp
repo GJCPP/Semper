@@ -11,6 +11,7 @@
 #include "util.h"
 #include "timer.h"
 #include "counter.h"
+#include "lazy_pcs.h"
 
 LogupProver::LogupProver(const table_base& f_1, const table_base& f_2, const table_base& t_1, const table_base& t_2)
     : f1(f_1), f2(f_2), t1(t_1), t2(t_2), polyg(find_ceiling_log2(f1.size())), polyh(find_ceiling_log2(f2.size())) {
@@ -135,11 +136,19 @@ LogupDef::pcs_base LogupProver::commit_c(const uint64_t& rho_inv) {
     return pr.commit();
 }
 
+lazy_pcs LogupProver::commit_c(lazy_pcs_pool *pool_c) {
+    return commit_lazy_pcs(c, pool_c);
+}
+
 std::array<LogupDef::pcs_ext, 2> LogupProver::commit_gh(const uint64_t& rho_inv) {
     // set_timer("commit to g, h");
     ligeroProver_ext prg(g, rho_inv), prh(h, rho_inv);
     // end_timer("commit to g, h");
     return { prg.commit(), prh.commit() };
+}
+
+std::array<lazy_pcs, 2> LogupProver::commit_gh(lazy_pcs_pool *pool) {
+    return { commit_lazy_pcs(g, pool), commit_lazy_pcs(h, pool) };
 }
 
 
@@ -271,6 +280,131 @@ bool LogupVerifier::execute_logup(LogupProver& lpr,
     // alert("logup finished");
     return true;
 }
+
+bool LogupVerifier::execute_logup_first_part(
+    LogupProver& lpr, 
+    const oracle& f1, const oracle& f2, 
+    const oracle& t1, const oracle& t2, 
+    const uint64_t& rho_inv, const size_t& sec_param,
+    lazy_pcs_pool *pool_c) {
+    
+    if (pool_c->is_ext()) {
+        throw std::invalid_argument("LogupVerifier::execute_logup_first_part: pool_c should use base field.");
+    }
+
+    startCounter counter("logup");
+    std::array<const oracle*, 4> ft = { &f1, &f2, &t1, &t2 };
+    // set_timer("check commitment of f, t");
+    // for (auto pc : ft) {
+    //     if (!ligeroVerifier::check_commit(pc, sec_param)) return false;
+    // }
+    // end_timer("check commitment of f, t");
+    // alert("f,t commited");
+
+
+    lazy_pcs_c = lpr.commit_c(pool_c);
+
+    return true;
+}
+
+bool LogupVerifier::execute_logup_second_part(
+    LogupProver& lpr, 
+    const oracle& f1, const oracle& f2, 
+    const oracle& t1, const oracle& t2, 
+    const uint64_t& rho_inv, const size_t& sec_param, 
+    lazy_pcs_pool* pool_gh) {
+
+    if (!pool_gh->is_ext()) {
+        throw std::invalid_argument("LogupVerifier::execute_logup_first_part: pool_gh should use ext field.");
+    }
+    startCounter counter("logup");
+    std::array<const oracle*, 4> ft = { &f1, &f2, &t1, &t2 };
+
+    gamma = randnum();
+    lambda = randnum();
+    lpr.calculate_gh(gamma, lambda);
+
+    auto gh = lpr.commit_gh(pool_gh);
+    
+    lazy_pcs_g = gh[0];
+    lazy_pcs_h = gh[1];
+
+    return true;
+}
+
+bool LogupVerifier::execute_logup_third_part(
+    LogupProver& lpr, 
+    const oracle& f1, const oracle& f2, 
+    const oracle& t1, const oracle& t2, 
+    const uint64_t& rho_inv, const size_t& sec_param) {
+
+    std::array<const oracle*, 4> ft = { &f1, &f2, &t1, &t2 };
+    auto pcsg = lazy_pcs_g, pcsh = lazy_pcs_h;
+    
+
+    std::array<sProver, 2> firstProvers = lpr.firstProvers();
+    // Goldilocks2::Element sum = firstProvers[0].get_sum();
+    // assert(sum == firstProvers[1].get_sum());
+    // set_timer("sumcheck 1 / 4");
+    start_proof("logup_sumcheck_1_4");
+    if (!sVerifier::execute_sumcheck(firstProvers[0], pcsg, sec_param)) {
+        std::cout << "logup failed 0 \n";
+        return false;
+    }
+    end_proof("logup_sumcheck_1_4");
+    // end_timer("sumcheck 1 / 4");
+    // alert("sumcheck 1 / 4 finished");
+
+    // set_timer("sumcheck 2 / 4");
+    start_proof("logup_sumcheck_2_4");
+    if (!sVerifier::execute_sumcheck(firstProvers[1], pcsh, sec_param)) {
+        std::cout << "logup failed 1 \n";
+        return false;
+    }
+    end_proof("logup_sumcheck_2_4");
+    // end_timer("sumcheck 2 / 4");
+    // alert("sumcheck 2 / 4 finished");
+
+    // set_timer("generate rg and rh");
+    const size_t numvar_g = pcsg.get_num_vars();
+    const size_t numvar_h = pcsh.get_num_vars();
+    std::vector<Goldilocks2::Element> rg = randvec(numvar_g);
+    std::vector<Goldilocks2::Element> rh = randvec(numvar_h);
+    // end_timer("generate rg and rh");
+
+    std::array<p3Prover, 2> secondProvers = lpr.secondProvers(rg, rh);
+    assert(secondProvers[0].get_sum() == Goldilocks2::one());
+    assert(secondProvers[1].get_sum() == ligeroVerifier::open(c, rh, sec_param));
+
+    // set_timer("calculate eq");
+    MLE_Eq eqg(rg);
+    MLE_Eq eqh(rh);
+    // end_timer("calculate eq");
+    auto pcsf1 = ft[0], pcsf2 = ft[1], pcst1 = ft[2], pcst2 = ft[3];
+
+    // set_timer("sumcheck 3 / 4");
+    start_proof("logup_sumcheck_3_4");
+    if (!p3Verifier::execute_logup_sumcheck(secondProvers[0], eqg, pcsg, *pcsf1, *pcsf2, gamma, lambda, sec_param)) {
+        std::cout << "logup failed 2 \n";
+        return false;
+    }
+    end_proof("logup_sumcheck_3_4");
+    // end_timer("sumcheck 3 / 4");
+    // alert("sumcheck 3 / 4 finished");
+
+    // set_timer("sumcheck 4 / 4");
+    start_proof("logup_sumcheck_4_4");
+    if (!p3Verifier::execute_logup_sumcheck(secondProvers[1], eqh, pcsh, *pcst1, *pcst2, gamma, lambda, sec_param)) {
+        std::cout << "logup failed 3 \n";
+        return false;
+    }
+    end_proof("logup_sumcheck_4_4");
+    // end_timer("sumcheck 4 / 4");
+    // alert("sumcheck 4 / 4 finished");
+    // alert("logup finished");
+    return true;
+}
+
 
 Goldilocks2::Element LogupVerifier::randnum() {
     return { Goldilocks::fromU64(dist(gen)), Goldilocks::fromU64(dist(gen)) };
