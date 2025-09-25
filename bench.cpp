@@ -32,7 +32,7 @@ void bench_VGG16() {
 void bench_VGG11() {
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     // VGG11 VGG11("/home/gaojc/Desktop/zkCNN/training_trace", 0, 1 << 14, 1 << 24, 2, 32);
-    VGG11 VGG11("/home/gaojc/Desktop/zkCNN/training_trace", 0, 1 << 14, 1 << 27, 2, 32);
+    VGG11 VGG11("../training_trace", 0, 1 << 14, 1 << 27, 2, 32);
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
     std::cout << "Loading VGG11 took " << duration.count() / 1000000.0 << " s" << std::endl;
@@ -54,21 +54,22 @@ void bench_VGG11() {
 }
 
 void bench_commit() {
-    int tot_n = 27, bat = 3;
-    set_timer("small commit");
-    for (int i = 0; i < (1 << bat); i++) {
-        auto pcs = ligero_commit_base(random_vec_ext(1ull << (tot_n - bat)), 2);
-        auto cha = random_vec_ext(tot_n - bat);
-        pcs.open(cha, 32);
+    for (int i = 5; i <= 32; ++i) {
+        start_proof("commit/open");
+        set_timer("commit/open");
+        std::vector<Goldilocks2::Element> vec(1ull << i);
+        MLE mle(vec);
+        auto pcs = ligero_commit_base(mle, 2);
+        pcs.open(random_vec_ext(i), 32);
+        end_proof("commit/open");
+        pause_timer("commit/open");
+        std::cout << "i = " << i << std::endl;
+        print_all_proof_size(Counter::B);
+        print_all_timers();
+        std::cout << std::endl;
+        clear_all_timers();
+        clear_proof();
     }
-    pause_timer("small commit");
-    set_timer("large commit");
-    auto pcs = ligero_commit_base(random_vec_ext(1ull << tot_n), 2);
-    auto cha = random_vec_ext(tot_n);
-    pcs.open(cha, 32);
-    pause_timer("large commit");
-    print_all_timers();
-    clear_all_timers();
 }
 
 int main() {
@@ -76,6 +77,7 @@ int main() {
     // find_parameter();
     
     bench_VGG11();
+    // bench_commit();
     // bench_commit();
     // bench_VGG16();
     // std::vector<Goldilocks2::Element> z = random_vec_ext(1 << 24);

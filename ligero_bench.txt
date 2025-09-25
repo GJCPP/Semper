@@ -1,0 +1,139 @@
+i = 5
+commit/open: 1088B
+ligero_open: 1056B
+[commit/open] cost: 0.002 s.
+
+i = 6
+commit/open: 2112B
+ligero_open: 2080B
+[commit/open] cost: 0 s.
+
+i = 7
+commit/open: 3616B
+ligero_open: 3584B
+[commit/open] cost: 0.001 s.
+
+i = 8
+commit/open: 4640B
+ligero_open: 4608B
+[commit/open] cost: 0.001 s.
+
+i = 9
+commit/open: 6688B
+ligero_open: 6656B
+[commit/open] cost: 0.002 s.
+
+i = 10
+commit/open: 9248B
+ligero_open: 9216B
+[commit/open] cost: 0.002 s.
+
+i = 11
+commit/open: 13344B
+ligero_open: 13312B
+[commit/open] cost: 0.003 s.
+
+i = 12
+commit/open: 18464B
+ligero_open: 18432B
+[commit/open] cost: 0.003 s.
+
+i = 13
+commit/open: 26656B
+ligero_open: 26624B
+[commit/open] cost: 0.006 s.
+
+i = 14
+commit/open: 36896B
+ligero_open: 36864B
+[commit/open] cost: 0.007 s.
+
+i = 15
+commit/open: 53280B
+ligero_open: 53248B
+[commit/open] cost: 0.014 s.
+
+i = 16
+commit/open: 73760B
+ligero_open: 73728B
+[commit/open] cost: 0.02 s.
+
+i = 17
+commit/open: 106528B
+ligero_open: 106496B
+[commit/open] cost: 0.041 s.
+
+i = 18
+commit/open: 147488B
+ligero_open: 147456B
+[commit/open] cost: 0.071 s.
+
+i = 19
+commit/open: 213024B
+ligero_open: 212992B
+[commit/open] cost: 0.158 s.
+
+i = 20
+commit/open: 294944B
+ligero_open: 294912B
+[commit/open] cost: 0.287 s.
+
+i = 21
+commit/open: 426016B
+ligero_open: 425984B
+[commit/open] cost: 0.682 s.
+
+i = 22
+commit/open: 589856B
+ligero_open: 589824B
+[commit/open] cost: 1.153 s.
+
+i = 23
+commit/open: 852000B
+ligero_open: 851968B
+[commit/open] cost: 1.32 s.
+
+i = 24
+commit/open: 1.17968e+06B
+ligero_open: 1.17965e+06B
+[commit/open] cost: 3.813 s.
+
+i = 25
+commit/open: 1.70397e+06B
+ligero_open: 1.70394e+06B
+[commit/open] cost: 5.647 s.
+
+i = 26
+commit/open: 2.35933e+06B
+ligero_open: 2.3593e+06B
+[commit/open] cost: 11.09 s.
+
+i = 27
+commit/open: 3.4079e+06B
+ligero_open: 3.40787e+06B
+[commit/open] cost: 23.136 s.
+
+i = 28
+commit/open: 4.71862e+06B
+ligero_open: 4.71859e+06B
+[commit/open] cost: 47.573 s.
+
+i = 29
+commit/open: 6.81578e+06B
+ligero_open: 6.81574e+06B
+[commit/open] cost: 96.98 s.
+
+i = 30
+commit/open: 9.43722e+06B
+ligero_open: 9.43718e+06B
+[commit/open] cost: 210.499 s.
+
+i = 31
+commit/open: 1.36315e+07B
+ligero_open: 1.36315e+07B
+[commit/open] cost: 442.203 s.
+
+i = 32
+commit/open: 1.88744e+07B
+ligero_open: 1.88744e+07B
+[commit/open] cost: 997.963 s.

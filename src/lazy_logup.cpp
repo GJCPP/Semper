@@ -135,7 +135,7 @@ void lazyLogupVerifier::add(
 }
 
 bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, uint64_t rho_inv, uint64_t sec_param) {
-    lazy_pcs_pool pool(sec_param);
+    lazy_pcs_pool pool(sec_param), pool_c(sec_param, false), pool_gh(sec_param, true);
     std::vector<lazy_pcs> pcs_f1_all, pcs_f2_all;
     for (size_t id = 0; id < tables_all.size(); id++) { // table id
         // 0. preprocess
@@ -160,6 +160,9 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, uint64_t rho_inv, uin
         // std::cout << "logup id = " << id << ": f_size = " << (1ull << pcs_f1.get_num_vars()) << ", table size = " << t1.size() << std::endl;
     }
     auto pcs_pool = pool.commit(rho_inv);
+    std::vector<LogupProver> logup_prover(tables_all.size());
+    std::vector<LogupVerifier> logup_verifier(tables_all.size());
+    std::vector<MLE> mle_t1(tables_all.size()), mle_t2(tables_all.size());
     for (size_t id = 0; id < tables_all.size(); id++) { // table id
         // 0. preprocess
         size_t sz = 0;
@@ -217,41 +220,53 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, uint64_t rho_inv, uin
         }
 
         // 3. Prove logup
-        LogupProver logup_prover = prover.get_logup_prover(id);
-        MLE mle_t1 = t1, mle_t2 = t2;
+        logup_prover[id] = prover.get_logup_prover(id);
+        mle_t1[id] = t1;
+        mle_t2[id] = t2;
 
-        // // Debug: check pcs_f1 == prover.f1 & pcs_f2 == prover.f2
-        // for (size_t i = 0; i < prover.f1_all[id].size(); i++) {
-        //     std::vector<Goldilocks2::Element> z(num_vars);
-        //     for (int j = 0; j != num_vars; ++j) {
-        //         z[j] = ((i >> (num_vars - j - 1)) & 1) ? Goldilocks2::one() : Goldilocks2::zero();
-        //     }
-        //     if (pcs_f1.open(z, sec_param)[0].fe != logup_prover.f1[i]) {
-        //         throw std::runtime_error("lazyLogupVerifier: pcs_f1 does not match prover.f1");
-        //     }
-        //     if (pcs_f2.open(z, sec_param)[0].fe != logup_prover.f2[i]) {
-        //         throw std::runtime_error("lazyLogupVerifier: pcs_f2 does not match prover.f2");
-        //     }
-        // }
-        // // Debug: check mle_t1 == prover.t1 & mle_t2 == prover.t2
-        // for (size_t i = 0; i < t1.size(); i++) {
-        //     if (mle_t1.get_eval_table()[i][0].fe != logup_prover.t1[i]) {
-        //         throw std::runtime_error("lazyLogupVerifier: t1 does not match prover.t1");
-        //     }
-        //     if (mle_t2.get_eval_table()[i][0].fe != logup_prover.t2[i]) {
-        //         throw std::runtime_error("lazyLogupVerifier: t2 does not match prover.t2");
-        //     }
-        // }
         start_proof("lazylogup_logup_proof");
-        if (!LogupVerifier::execute_logup(logup_prover, pcs_f1, pcs_f2, mle_t1, mle_t2, rho_inv, sec_param)) {
-            std::cout << "lazyLogupVerifier: logup proof failed." << std::endl;
-            return false;
-        }
+        logup_verifier[id].execute_logup_first_part(logup_prover[id], pcs_f1, pcs_f2, mle_t1[id], mle_t2[id], rho_inv, sec_param, &pool_c);
         end_proof("lazylogup_logup_proof");
     }
+    auto pcs_pool_c = pool_c.commit(rho_inv);
+    
+    for (size_t id = 0; id < tables_all.size(); id++) { // table id
+        // 0. preprocess
+        size_t sz = 0;
+        int num_vars;
+        for (const auto& inst : instances_all[id]) {
+            sz += (1ull << inst.pcs_f1->get_num_vars());
+        }
+        num_vars = find_ceiling_log2(sz);
+        auto &pcs_f1 = pcs_f1_all[id], &pcs_f2 = pcs_f2_all[id];
+        auto &t1 = tables_all[id].t1, &t2 = tables_all[id].t2;
+
+        start_proof("lazylogup_logup_proof");
+        logup_verifier[id].execute_logup_second_part(logup_prover[id], pcs_f1, pcs_f2, mle_t1[id], mle_t2[id], rho_inv, sec_param, &pool_gh);
+        end_proof("lazylogup_logup_proof");
+    }
+    auto pcs_pool_gh = pool_gh.commit(rho_inv);
+    
+    for (size_t id = 0; id < tables_all.size(); id++) { // table id
+        size_t sz = 0;
+        int num_vars;
+        for (const auto& inst : instances_all[id]) {
+            sz += (1ull << inst.pcs_f1->get_num_vars());
+        }
+        num_vars = find_ceiling_log2(sz);
+        auto &pcs_f1 = pcs_f1_all[id], &pcs_f2 = pcs_f2_all[id];
+        auto &t1 = tables_all[id].t1, &t2 = tables_all[id].t2;
+
+        start_proof("lazylogup_logup_proof");
+        logup_verifier[id].execute_logup_third_part(logup_prover[id], pcs_f1, pcs_f2, mle_t1[id], mle_t2[id], rho_inv, sec_param);
+        end_proof("lazylogup_logup_proof");
+    }
+
     // 4. Prove lazy_pcs
     start_proof("lazylogup_lazy_pcs_proof");
     pool.prove_open(pcs_pool, random_ext());
+    pool_c.prove_open(pcs_pool_c, random_ext());
+    pool_gh.prove_open(pcs_pool_gh, random_ext());
     end_proof("lazylogup_lazy_pcs_proof");
     return true;
 }

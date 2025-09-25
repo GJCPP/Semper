@@ -84,7 +84,14 @@
         "format": "cpp",
         "regex": "cpp",
         "hash_map": "cpp",
-        "stop_token": "cpp"
+        "stop_token": "cpp",
+        "__nullptr": "cpp",
+        "__hash_table": "cpp",
+        "__split_buffer": "cpp",
+        "__tree": "cpp",
+        "queue": "cpp",
+        "stack": "cpp",
+        "unordered_set": "cpp"
     },
     "C_Cpp.default.compilerPath": "/usr/bin/clang++-14"
 }
