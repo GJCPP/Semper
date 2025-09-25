@@ -11,7 +11,7 @@
 #include "counter.h"
 
 p2Prover::p2Prover(std::unique_ptr<MultilinearPolynomial> _p1, std::unique_ptr<MultilinearPolynomial> _p2)
-    : p1(std::move(_p1)), p2(std::move(_p2)), nrnd(p1->get_num_vars()), sum(Goldilocks2::zero()) {
+    : p1(std::move(_p1)), p2(std::move(_p2)), sum(Goldilocks2::zero()), nrnd(p1->get_num_vars()) {
 
     assert(p1->get_num_vars() == p2->get_num_vars());
     initialize();
@@ -155,7 +155,7 @@ std::optional<challenge_claim> p2Verifier::partial_sumcheck(p2Prover& pr, Goldil
 
     // s_{i - 1}
     std::array<Goldilocks2::Element, 3> si1;
-    for (int round = 1; round <= nrnd; ++round) {
+    for (size_t round = 1; round <= nrnd; ++round) {
         // s_i
         std::array<Goldilocks2::Element, 3> si;
         si = pr.send_message(round, challenges);
@@ -198,7 +198,7 @@ Goldilocks2::Element p2Verifier::challenge() {
     static std::random_device rd;
     static std::mt19937_64 gen(rd());
 
-    constexpr uint64_t MODULUS = Goldilocks2::p;
+    // constexpr uint64_t MODULUS = Goldilocks2::p;
     // std::uniform_int_distribution<uint64_t> dist(0, MODULUS - 1);
 
     //uint64_t randn[] = { dist(gen), dist(gen) };

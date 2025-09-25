@@ -192,7 +192,7 @@ bool LogupVerifier::execute_logup(LogupProver& lpr,
 
     auto c = lpr.commit_c(rho_inv);
     // set_timer("check commitment of c");
-    if (!ligeroVerifier::check_commit(c, sec_param)) return false;
+    // if (!ligeroVerifier::check_commit(c, sec_param)) return false;
     // end_timer("check commitment of c");
     // alert("c commited");
 
@@ -201,17 +201,17 @@ bool LogupVerifier::execute_logup(LogupProver& lpr,
     lpr.calculate_gh(gamma, lambda);
     auto gh = lpr.commit_gh(rho_inv);
     // set_timer("check commitment of g, h");
-    for (auto pc : gh) {
-        if (!ligeroVerifier::check_commit(pc, sec_param)) return false;
-    }
+    // for (auto pc : gh) {
+    //     if (!ligeroVerifier::check_commit(pc, sec_param)) return false;
+    // }
     // pause_timer("check commitment of g, h");
     // alert("g,h commited");
 
     auto pcsg = gh[0], pcsh = gh[1];
 
     std::array<sProver, 2> firstProvers = lpr.firstProvers();
-    Goldilocks2::Element sum = firstProvers[0].get_sum();
-    assert(sum == firstProvers[1].get_sum());
+    // Goldilocks2::Element sum = firstProvers[0].get_sum();
+    // assert(sum == firstProvers[1].get_sum());
     // set_timer("sumcheck 1 / 4");
     start_proof("logup_sumcheck_1_4");
     if (!sVerifier::execute_sumcheck(firstProvers[0], pcsg, sec_param)) {

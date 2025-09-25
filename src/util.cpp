@@ -218,7 +218,7 @@ Goldilocks2::Element Horner(const std::vector<Goldilocks2::Element>& coefs, cons
 
 void in_place_NTT(std::vector<Goldilocks::Element>& a) {
     const size_t n = a.size();
-    const size_t m = find_ceiling_log2(n);
+    // const size_t m = find_ceiling_log2(n);
 
     // Bit-reverse permutation
     for (size_t i = 1, j = 0; i < n; ++i) {

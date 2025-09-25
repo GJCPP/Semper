@@ -148,3 +148,5 @@ ligeropcs_ext ligero_commit_ext(const MultilinearPolynomial& w, const uint64_t& 
 Goldilocks2::Element dot_product(const std::vector<Goldilocks2::Element>& b, const std::vector<Goldilocks2::Element>& a);
 
 void find_parameter();
+
+void print_all_open_cnt();

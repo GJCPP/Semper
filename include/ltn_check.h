@@ -23,23 +23,21 @@ public:
               field bar,
               uint64_t scale, uint64_t max_val, bool strict, uint64_t rho_inv,
               lazyLogupProver* lazy_logup_prover);
+    
+    void init_ltn();
+    void init_sub();
 
-    inline const std::vector<field>& get_ltn() const { return ltn; }
-
-    inline ligeropcs_base get_pcs_ltn() const { return pcs_ltn; }
+    inline const std::vector<Goldilocks2::Element>& get_ltn() const { return ltn; }
 
     inline size_t get_num() const { return num; }
-
-    inline ligeropcs_base get_pcs_rev_ltn() const { 
-        if (pcs_rev_ltn.empty()) throw std::runtime_error("ltnProver::get_pcs_rev_ltn: pcs_rev_ltn not initialized");
-        return pcs_rev_ltn;
-    }
 
     inline bool use_lazy_logup() const {
         return lazy_logup_prover != nullptr;
     }
 
     ligeropcs_base commit_sub();
+
+    lazy_pcs pre_commit_sub(lazy_pcs_pool *pool);
 
     ligeropcs_base commit_rev_ltn();
 
@@ -52,24 +50,47 @@ protected:
     bool strict;
     uint64_t rho_inv, num;
 
-    ligeropcs_base pcs_ltn, pcs_rev_ltn, pcs_sub;
-
     lazyLogupProver* lazy_logup_prover = nullptr;
-
-    void init_ltn();
 };
 
 template <typename field>
 class ltnVerifier {
 public:
     static bool execute_ltn_check(
-        ltnProver<field>& prover,
-        std::shared_ptr<oracle<field>> pcs_vec,
-        std::shared_ptr<oracle<field>> pcs_ltn,
-        field bar,
+        ltnProver& prover,
+        std::shared_ptr<oracle> pcs_vec,
+        std::shared_ptr<oracle> pcs_ltn,
+        Goldilocks2::Element bar,
         uint64_t max_val,
         bool strict,
         size_t sec_param,
         lazyLogupVerifier* lazy_logup_verifier);
+
+    class resource {
+    public:
+        lazy_pcs pcs_sub;
+        signVerifier::resource sign_res;
+    };
+
+    
+    static resource pre_execute_ltn_check(
+        ltnProver& prover,
+        Goldilocks2::Element bar,
+        uint64_t max_val,
+        bool strict,
+        lazyLogupVerifier* lazy_logup_verifier,
+        lazy_pcs_pool *pool);
+
+        
+    static bool execute_ltn_check(
+        ltnProver& prover,
+        std::shared_ptr<oracle> pcs_vec,
+        std::shared_ptr<oracle> pcs_ltn,
+        Goldilocks2::Element bar,
+        uint64_t max_val,
+        bool strict,
+        size_t sec_param,
+        lazyLogupVerifier* lazy_logup_verifier,
+        resource& prev_resource);
 };
 

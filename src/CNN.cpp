@@ -282,7 +282,14 @@ void CNN::pre_prove(size_t sec_param) {
         //     std::cout << "Skipping layer " << layer.name << " (not conv)" << std::endl;
         //     continue;
         // }
+        
+        // if (layer.type != layer_type::softmax) {
+        //     std::cout << "=================Skipping layer " << layer.name << " (not softmax)" << std::endl;
+        //     continue;
+        // }
+
         std::cout << "Pre-proving layer " << layer.name << "..." << std::endl;
+         
         switch (layer.type) {
             case layer_type::conv:
                 set_timer("preprove conv");
@@ -311,14 +318,11 @@ void CNN::pre_prove(size_t sec_param) {
                 pause_timer("preprove pool");
                 break;
 
-            // case layer_type::softmax:
-            //     set_timer("prove softmax");
-            //     if (!prove_softmax(layer, scale, max_val, rho_inv, sec_param)) {
-            //         std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
-            //         return false;
-            //     }
-            //     pause_timer("prove softmax");
-            //     break;
+            case layer_type::softmax:
+                set_timer("preprove softmax");
+                layer.wit = pre_prove_softmax(layer, scale, max_val, rho_inv, &lazy_logup_prover, &lazy_logup_verifier, &pcs_pool);
+                pause_timer("preprove softmax");
+                break;
 
             // case layer_type::flat:
             //     set_timer("prove flat");
@@ -342,30 +346,35 @@ void CNN::pre_prove(size_t sec_param) {
     // print_all_timers();
     // clear_all_timers();
     // return false;
+    std::cout << "Finishing preprove..." << std::endl;
     finish_pre_prove();
 }
 
 bool CNN::prove(size_t sec_param) {
+
+    std::cout << "model_name = " << model_name << std::endl;
+    std::cout << "batch_sz = " << img_per_batch << std::endl;
+    std::cout << "batch_num = " << minibatch << std::endl;
+
+    std::cout << "Pre-proving..." << std::endl;
     set_timer("pre_prove");
     pre_prove(sec_param);
     pause_timer("pre_prove");
 
     set_timer(std::format("prove {} total", model_name));
-
-    std::cout << "model_name = " << model_name << std::endl;
-    std::cout << "Checking input..." << std::endl;
     
-    // std::cout << "===================Warning: skip proving input." << std::endl;
-    set_timer("check input");
-    if (!prove_input(sec_param)) {
-        std::cout << "❌ Input layer failed." << std::endl;
-        return false;
-    }
+    std::cout << "===================Warning: skip proving input." << std::endl;
+    // std::cout << "Checking input..." << std::endl;
+    // set_timer("check input");
+    // if (!prove_input(sec_param)) {
+    //     std::cout << "❌ Input layer failed." << std::endl;
+    //     return false;
+    // }
     pause_timer("check input");
     for (auto& layer : layers) {
         // print_all_proof_size(Counter::MB);
-        // if (layer.type != layer_type::relu) {
-        //     std::cout << "=================Skipping layer " << layer.name << " (not relu)" << std::endl;
+        // if (layer.type != layer_type::softmax) {
+        //     std::cout << "=================Skipping layer " << layer.name << " (not softmax)" << std::endl;
         //     continue;
         // }
         std::cout << "Proving layer " << layer.name << "..." << std::endl;
@@ -408,7 +417,7 @@ bool CNN::prove(size_t sec_param) {
 
             case layer_type::softmax:
                 set_timer("prove softmax");
-                if (!prove_softmax(layer, scale, max_val, rho_inv, sec_param, &lazy_logup_prover, &lazy_logup_verifier)) {
+                if (!prove_softmax(layer, scale, max_val, rho_inv, sec_param, layer.wit, &lazy_logup_prover, &lazy_logup_verifier)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
                     return false;
                 }
@@ -546,7 +555,7 @@ bool CNN::prove_input(size_t sec_param) {
     #pragma omp parallel for
     for (size_t b = 0; b != batch; ++b) {
         std::vector<Goldilocks2::Element> pre(log_batch);
-        for (size_t i = 0; i != log_batch; ++i) {
+        for (int i = 0; i != log_batch; ++i) {
             pre[i] = ((b >> (log_batch - i - 1)) & 1) ? Goldilocks2::one() : Goldilocks2::zero();
         }
         auto ext_cha = combine_challenges(pre, cha);

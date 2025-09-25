@@ -1,0 +1,536 @@
+[?2004h[01;32mguest@h100-server[00m:[01;34m~/data/gjc/zkCNN[00m$ test
+[?2004l[?2004h[01;32mguest@h100-server[00m:[01;34m~/data/gjc/zkCNN[00m$ cd d[Kbuild
+[?2004l[?2004h[01;32mguest@h100-server[00m:[01;34m~/data/gjc/zkCNN/build[00m$ make run -j
+[?2004l[ 11%] Built target goldilocks
+[ 16%] Built target cnpy
+[ 97%] Built target bench
+[100%] [34m[1mRunning ben[0m
+Loading VGG11 took 30.7477 s
+model_name = VGG11
+batch_sz = 16
+batch_num = 16
+Pre-proving...
+Pre-proving layer conv_1...
+Y_flat shape = 16 64 4351 
+Y_flat shape = 16 64 4351 
+Y_flat shape = 16 64 4351 
+Y_flat shape = 16 64 4351 
+Y_flat shape = 16 64 4351 
+Y_flat shape = 16 64 4351 
+Y_flat shape = 16 64 4351 
+Y_flat shape = 16 64 4351 
+Y_flat shape = 16 64 4351 
+Y_flat shape = 16 64 4351 
+Y_flat shape = 16 64 4351 
+Y_flat shape = 16 64 4351 
+Y_flat shape = 16 64 4351 
+Y_flat shape = 16 64 4351 
+Y_flat shape = 16 64 4351 
+Y_flat shape = 16 64 4351 
+Y_flat shape = 3 64 6143 
+Y_flat shape = 3 64 6143 
+Y_flat shape = 3 64 6143 
+Y_flat shape = 3 64 6143 
+Y_flat shape = 3 64 6143 
+Y_flat shape = 3 64 6143 
+Y_flat shape = 3 64 6143 
+Y_flat shape = 3 64 6143 
+Y_flat shape = 3 64 6143 
+Y_flat shape = 3 64 6143 
+Y_flat shape = 3 64 6143 
+Y_flat shape = 3 64 6143 
+Y_flat shape = 3 64 6143 
+Y_flat shape = 3 64 6143 
+Y_flat shape = 3 64 6143 
+Y_flat shape = 3 64 6143 
+Y_flat shape = 16 3 4351 
+Y_flat shape = 16 3 4351 
+Y_flat shape = 16 3 4351 
+Y_flat shape = 16 3 4351 
+Y_flat shape = 16 3 4351 
+Y_flat shape = 16 3 4351 
+Y_flat shape = 16 3 4351 
+Y_flat shape = 16 3 4351 
+Y_flat shape = 16 3 4351 
+Y_flat shape = 16 3 4351 
+Y_flat shape = 16 3 4351 
+Y_flat shape = 16 3 4351 
+Y_flat shape = 16 3 4351 
+Y_flat shape = 16 3 4351 
+Y_flat shape = 16 3 4351 
+Y_flat shape = 16 3 4351 
+Pre-proving layer relu_1...
+Pre-proving layer pool_1...
+Pre-proving layer conv_2...
+Y_flat shape = 16 128 1151 
+Y_flat shape = 16 128 1151 
+Y_flat shape = 16 128 1151 
+Y_flat shape = 16 128 1151 
+Y_flat shape = 16 128 1151 
+Y_flat shape = 16 128 1151 
+Y_flat shape = 16 128 1151 
+Y_flat shape = 16 128 1151 
+Y_flat shape = 16 128 1151 
+Y_flat shape = 16 128 1151 
+Y_flat shape = 16 128 1151 
+Y_flat shape = 16 128 1151 
+Y_flat shape = 16 128 1151 
+Y_flat shape = 16 128 1151 
+Y_flat shape = 16 128 1151 
+Y_flat shape = 16 128 1151 
+Y_flat shape = 64 128 1535 
+Y_flat shape = 64 128 1535 
+Y_flat shape = 64 128 1535 
+Y_flat shape = 64 128 1535 
+Y_flat shape = 64 128 1535 
+Y_flat shape = 64 128 1535 
+Y_flat shape = 64 128 1535 
+Y_flat shape = 64 128 1535 
+Y_flat shape = 64 128 1535 
+Y_flat shape = 64 128 1535 
+Y_flat shape = 64 128 1535 
+Y_flat shape = 64 128 1535 
+Y_flat shape = 64 128 1535 
+Y_flat shape = 64 128 1535 
+Y_flat shape = 64 128 1535 
+Y_flat shape = 64 128 1535 
+Y_flat shape = 16 64 1151 
+Y_flat shape = 16 64 1151 
+Y_flat shape = 16 64 1151 
+Y_flat shape = 16 64 1151 
+Y_flat shape = 16 64 1151 
+Y_flat shape = 16 64 1151 
+Y_flat shape = 16 64 1151 
+Y_flat shape = 16 64 1151 
+Y_flat shape = 16 64 1151 
+Y_flat shape = 16 64 1151 
+Y_flat shape = 16 64 1151 
+Y_flat shape = 16 64 1151 
+Y_flat shape = 16 64 1151 
+Y_flat shape = 16 64 1151 
+Y_flat shape = 16 64 1151 
+Y_flat shape = 16 64 1151 
+Pre-proving layer relu_2...
+Pre-proving layer pool_2...
+Pre-proving layer conv_3...
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 128 256 383 
+Y_flat shape = 128 256 383 
+Y_flat shape = 128 256 383 
+Y_flat shape = 128 256 383 
+Y_flat shape = 128 256 383 
+Y_flat shape = 128 256 383 
+Y_flat shape = 128 256 383 
+Y_flat shape = 128 256 383 
+Y_flat shape = 128 256 383 
+Y_flat shape = 128 256 383 
+Y_flat shape = 128 256 383 
+Y_flat shape = 128 256 383 
+Y_flat shape = 128 256 383 
+Y_flat shape = 128 256 383 
+Y_flat shape = 128 256 383 
+Y_flat shape = 128 256 383 
+Y_flat shape = 16 128 319 
+Y_flat shape = 16 128 319 
+Y_flat shape = 16 128 319 
+Y_flat shape = 16 128 319 
+Y_flat shape = 16 128 319 
+Y_flat shape = 16 128 319 
+Y_flat shape = 16 128 319 
+Y_flat shape = 16 128 319 
+Y_flat shape = 16 128 319 
+Y_flat shape = 16 128 319 
+Y_flat shape = 16 128 319 
+Y_flat shape = 16 128 319 
+Y_flat shape = 16 128 319 
+Y_flat shape = 16 128 319 
+Y_flat shape = 16 128 319 
+Y_flat shape = 16 128 319 
+Pre-proving layer relu_3...
+Pre-proving layer conv_4...
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 256 256 383 
+Y_flat shape = 256 256 383 
+Y_flat shape = 256 256 383 
+Y_flat shape = 256 256 383 
+Y_flat shape = 256 256 383 
+Y_flat shape = 256 256 383 
+Y_flat shape = 256 256 383 
+Y_flat shape = 256 256 383 
+Y_flat shape = 256 256 383 
+Y_flat shape = 256 256 383 
+Y_flat shape = 256 256 383 
+Y_flat shape = 256 256 383 
+Y_flat shape = 256 256 383 
+Y_flat shape = 256 256 383 
+Y_flat shape = 256 256 383 
+Y_flat shape = 256 256 383 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Y_flat shape = 16 256 319 
+Pre-proving layer relu_4...
+Pre-proving layer pool_3...
+Pre-proving layer conv_5...
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 256 512 95 
+Y_flat shape = 256 512 95 
+Y_flat shape = 256 512 95 
+Y_flat shape = 256 512 95 
+Y_flat shape = 256 512 95 
+Y_flat shape = 256 512 95 
+Y_flat shape = 256 512 95 
+Y_flat shape = 256 512 95 
+Y_flat shape = 256 512 95 
+Y_flat shape = 256 512 95 
+Y_flat shape = 256 512 95 
+Y_flat shape = 256 512 95 
+Y_flat shape = 256 512 95 
+Y_flat shape = 256 512 95 
+Y_flat shape = 256 512 95 
+Y_flat shape = 256 512 95 
+Y_flat shape = 16 256 95 
+Y_flat shape = 16 256 95 
+Y_flat shape = 16 256 95 
+Y_flat shape = 16 256 95 
+Y_flat shape = 16 256 95 
+Y_flat shape = 16 256 95 
+Y_flat shape = 16 256 95 
+Y_flat shape = 16 256 95 
+Y_flat shape = 16 256 95 
+Y_flat shape = 16 256 95 
+Y_flat shape = 16 256 95 
+Y_flat shape = 16 256 95 
+Y_flat shape = 16 256 95 
+Y_flat shape = 16 256 95 
+Y_flat shape = 16 256 95 
+Y_flat shape = 16 256 95 
+Pre-proving layer relu_5...
+Pre-proving layer conv_6...
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 512 512 95 
+Y_flat shape = 512 512 95 
+Y_flat shape = 512 512 95 
+Y_flat shape = 512 512 95 
+Y_flat shape = 512 512 95 
+Y_flat shape = 512 512 95 
+Y_flat shape = 512 512 95 
+Y_flat shape = 512 512 95 
+Y_flat shape = 512 512 95 
+Y_flat shape = 512 512 95 
+Y_flat shape = 512 512 95 
+Y_flat shape = 512 512 95 
+Y_flat shape = 512 512 95 
+Y_flat shape = 512 512 95 
+Y_flat shape = 512 512 95 
+Y_flat shape = 512 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Pre-proving layer relu_6...
+Pre-proving layer pool_4...
+Pre-proving layer conv_7...
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Pre-proving layer relu_7...
+Pre-proving layer conv_8...
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 512 512 23 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Y_flat shape = 16 512 95 
+Pre-proving layer relu_8...
+Pre-proving layer pool_5...
+Pre-proving layer flat...
+Pre-proving layer full_1...
+Pre-proving layer fc_relu_1...
+Pre-proving layer full_2...
+Pre-proving layer fc_relu_2...
+Pre-proving layer full_3...
+Pre-proving layer softmax...
+Finishing preprove...
+Committing lazy pcs with num_vars = 32...
+Checking input...
+Proving layer conv_1...
+Proving layer relu_1...
+Proving layer pool_1...
+Proving layer conv_2...
+Proving layer relu_2...
+Proving layer pool_2...
+Proving layer conv_3...
+Proving layer relu_3...
+Proving layer conv_4...
+Proving layer relu_4...
+Proving layer pool_3...
+Proving layer conv_5...
+Proving layer relu_5...
+Proving layer conv_6...
+Proving layer relu_6...
+Proving layer pool_4...
+Proving layer conv_7...
+Proving layer relu_7...
+Proving layer conv_8...
+Proving layer relu_8...
+Proving layer pool_5...
+Proving layer flat...
+Proving layer full_1...
+Proving layer fc_relu_1...
+Proving layer full_2...
+Proving layer fc_relu_2...
+Proving layer full_3...
+Proving layer softmax...
+Proving final logup...
+Committing lazy pcs with num_vars = 30...
+Proving final map...
+Committing lazy pcs with num_vars = 23...
+Committing lazy pcs with num_vars = 26...
+Proving final opening...
+Final open: num_vars = 32
+[VGG11 load & commit] cost: 30.747 s.
+[pre_prove] cost: 1125.13 s.
+[preprove conv] cost: 109.846 s.
+[preprove conv forward] cost: 16.3 s.
+[prove conv dW] cost: 182.62 s.
+[prove conv dX] cost: 40.398 s.
+[preprove relu] cost: 27.047 s.
+[preprove pool] cost: 24.428 s.
+[commit all] cost: 963.797 s.
+[prove VGG11 total] cost: 1799.34 s.
+[check input] cost: 0.281 s.
+[prove conv] cost: 165.687 s.
+[prove conv forward] cost: 36.198 s.
+[load conv wit] cost: 95.542 s.
+[execute convcheck] cost: 45.026 s.
+[conv2d_prove_perm] cost: 0.028 s.
+[conv2d_prove_conv] cost: 35.648 s.
+[conv2d_openW] cost: 6.694 s.
+[conv2d_openX] cost: 2.114 s.
+[prove relu] cost: 35.836 s.
+[prove pool] cost: 46.738 s.
+[prove flat] cost: 0.034 s.
+[prove full] cost: 1.012 s.
+[prove softmax] cost: 0.633 s.
+[final logup] cost: 634.194 s.
+[final map] cost: 163.207 s.
+[final open] cost: 751.697 s.
+-----------------------------
+VGG11: 62.6667MB
+div_proof: 2.17969MB
+epow_proof: 1.48975MB
+final logup: 25.949MB
+final map: 12.0428MB
+final open: 18.0015MB
+lazylogup_lazy_pcs_proof: 9.00137MB
+lazylogup_logup_proof: 16.0336MB
+ligero_open: 61.8516MB
+logup: 16.0336MB
+logup_sumcheck: 8.02072MB
+logup_sumcheck_1_4: 7.78516MB
+logup_sumcheck_2_4: 0.22757MB
+logup_sumcheck_3_4: 7.78998MB
+logup_sumcheck_4_4: 0.230743MB
+map_proof: 12.0428MB
+map_proof_check_pad: 5.5MB
+p2 final open2: 27MB
+p2sumcheck: 27.0028MB
+p3execute_sumcheck: 0.322266MB
+p3partial_sumcheck: 0.781128MB
+pd_execute_proof: 6.54285MB
+perm_proof: 6.54285MB
+pool_proof: 0.347656MB
+prod_proof: 0.488281MB
+relu_proof: 0.322266MB
+set_proof: 6.54285MB
+softmax_proof: 6.00342MB
+-----------------------------
+ligero open counts:
+  size 4: 96
+  size 5: 50
+  size 6: 48
+  size 7: 48
+  size 8: 1472
+  size 12: 4
+  size 14: 2
+  size 15: 2
+  size 18: 2
+  size 26: 1
+  size 27: 5
+  size 28: 2
+  size 30: 1
+  size 32: 1
+[100%] Built target run
+[?2004h[01;32mguest@h100-server[00m:[01;34m~/data/gjc/zkCNN/build[00m$ 

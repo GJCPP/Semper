@@ -668,7 +668,7 @@ bool test_lazy_logup() {
         lazyLogupProver prover;
         lazyLogupVerifier verifier;
         for (int i = 0; i < num_table; ++i) {
-            size_t table_size = (1ull << (rand() % 10 + 1));
+            int table_size = (1ull << (rand() % 10 + 1));
             std::vector<bool> vis(1 << 18);
             for (int j = 0; j < table_size; ++j) {
                 size_t new_t1 = rand() % (1ull << 18);
@@ -749,16 +749,16 @@ bool test_sign_check() {
     for (int cnt = 0; cnt < CNT_TEST; ++cnt) {
         srand(cnt);
         bool strict = rand() % 2 == 0;
-        int64_t denom = (1ull << (rand() % 10 + 1));
-        int64_t n = (1 << (rand() % 10 + 1)), max_val = (1ull << (rand() % 20 + 1));
+        int denom = (1ull << (rand() % 10 + 1));
+        int n = (1 << (rand() % 10 + 1)), max_val = (1ull << (rand() % 20 + 1));
         std::vector<int64_t> num_val(n), sign_val(n);
-        for (size_t i = 0; i < n; ++i) {
+        for (int i = 0; i < n; ++i) {
             num_val[i] = (rand() % max_val) * (rand() % 2 == 0 ? 1 : -1);
             if (!strict) sign_val[i] = (num_val[i] < 0) ? 0 : 1;
             else sign_val[i] = (num_val[i] <= 0) ? 0 : 1;
         }
         std::vector<Goldilocks2::Element> num(n), sign(n);
-        for (size_t i = 0; i < n; ++i) {
+        for (int i = 0; i < n; ++i) {
             num[i] = Goldilocks2::fromS64(num_val[i]);
             sign[i] = Goldilocks2::fromS64(sign_val[i]);
         }
@@ -878,8 +878,8 @@ bool test_ltn_check() {
                 }
             }
         }
-        auto pcs_a = ligero_commit_base(a, 2);
-        auto pcs_ltn = prover.get_pcs_ltn();
+        auto pcs_a = std::make_shared<ligeropcs_base>(ligero_commit_base(a, 2));
+        auto pcs_ltn = std::make_shared<ligeropcs_base>(ligero_commit_base(prover.get_ltn(), 2));
         if (!ltnVerifier::execute_ltn_check(
             prover,
             pcs_a,
@@ -908,8 +908,8 @@ bool test_e_pow_check() {
             b[i] = std::round(std::exp(-double(v) / double(scale)) * scale);
         }
         eProver prover(a, b, scale, max_val, rho_inv);
-        auto pcs_a = ligero_commit_base(a, 2);
-        auto pcs_b = ligero_commit_base(b, 2);
+        auto pcs_a = std::make_shared<ligeropcs_base>(ligero_commit_base(a, 2));
+        auto pcs_b = std::make_shared<ligeropcs_base>(ligero_commit_base(b, 2));
         if (!eVerifier::execute_check(
             prover,
             pcs_a,
@@ -935,8 +935,8 @@ bool test_e_pow_check() {
             b[i] = std::round(std::exp(-double(v) / double(scale)) * scale);
         }
         eProver prover(a, b, scale, max_val, rho_inv, &lazy_logup_prover);
-        auto pcs_a = ligero_commit_base(a, 2);
-        auto pcs_b = ligero_commit_base(b, 2);
+        auto pcs_a = std::make_shared<ligeropcs_base>(ligero_commit_base(a, 2));
+        auto pcs_b = std::make_shared<ligeropcs_base>(ligero_commit_base(b, 2));
         if (!eVerifier::execute_check(
             prover,
             pcs_a,
@@ -1034,8 +1034,8 @@ bool test_perm_check() {
             f1[i].resize(n1);
             f2[i].resize(n2);
         }
-        for (size_t i = 0; i < n1; ++i) {
-            size_t mapto = rand() % n2;
+        for (int i = 0; i < n1; ++i) {
+            int mapto = rand() % n2;
             while (vis[mapto]) {
                 mapto = rand() % n2;
             }
@@ -1045,7 +1045,7 @@ bool test_perm_check() {
                 f2[j][mapto] = f1[j][i] = Goldilocks2::fromU64(rand() % (1 << 20) + 1);
             }
         }
-        for (size_t i = 0; i < n2; ++i) {
+        for (int i = 0; i < n2; ++i) {
             if (!vis[i]) {
                 for (int j = 0; j != n; ++j) {
                     f2[j][i] = Goldilocks2::fromU64(rand() % (1 << 20) + 1);

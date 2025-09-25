@@ -24,6 +24,8 @@ template <typename field>
 class oracle_sum : public oracle<field> {
 public:
     oracle_sum() = default;
+    oracle_sum(const oracle_sum& other) 
+        : oracles(other.oracles), coeffs(other.coeffs), constant(other.constant) {}
 
     void add(std::shared_ptr<oracle<field>> o, field coeff) {
         if (!oracles.empty() && o->get_num_vars() != oracles[0]->get_num_vars()) {
