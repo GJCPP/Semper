@@ -1,7 +1,6 @@
 #pragma once
 
 #include "goldilocks_quadratic_ext.h"
-#include "Orion/include/linear_gkr/prime_field.h"
 #include <vector>
 
 
@@ -9,25 +8,19 @@
  * Base class for oracle for quadratic extension field
  * To be inherited by the mle (if it's a known polynomial)
 */
-
-typedef prime_field::field_element Orionfield;
-
-
-template <typename field>
 class oracle {
 public:
-    virtual field open(const std::vector<field>& z, const size_t& sec_param) const = 0;
+    virtual Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const = 0;
     virtual int get_num_vars() const = 0;
 };
 
-template <typename field>
-class oracle_sum : public oracle<field> {
+class oracle_sum : public oracle {
 public:
     oracle_sum() = default;
     oracle_sum(const oracle_sum& other) 
         : oracles(other.oracles), coeffs(other.coeffs), constant(other.constant) {}
 
-    void add(std::shared_ptr<oracle<field>> o, field coeff) {
+    void add(std::shared_ptr<oracle> o, Goldilocks2::Element coeff = Goldilocks2::one()) {
         if (!oracles.empty() && o->get_num_vars() != oracles[0]->get_num_vars()) {
             throw std::runtime_error("oracle_sum::add: number of variables does not match.");
         }
@@ -35,12 +28,12 @@ public:
         coeffs.push_back(coeff);
     }
 
-    void add_const(field c) {
+    void add_const(Goldilocks2::Element c) {
         constant += c;
     }
 
-    field open(const std::vector<field>& z, const size_t& sec_param) const override {
-        field result = {};
+    Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const override {
+        Goldilocks2::Element result = Goldilocks2::zero();
         for (size_t i = 0; i < oracles.size(); ++i) {
             result += coeffs[i] * oracles[i]->open(z, sec_param);
         }
@@ -59,22 +52,20 @@ public:
     }
 protected:
     std::unique_ptr<int> open_counter = std::make_unique<int>(0);
-    std::vector<std::shared_ptr<oracle<field>>> oracles;
-    std::vector<field> coeffs; // coefficients for each oracle
-    field constant = {}; // constant term
+    std::vector<std::shared_ptr<oracle>> oracles;
+    std::vector<Goldilocks2::Element> coeffs; // coefficients for each oracle
+    Goldilocks2::Element constant = Goldilocks2::zero(); // constant term
 };
 
-template <typename field>
 class challenge_claim {
 public:
-    std::vector<field> challenges;
+    std::vector<Goldilocks2::Element> challenges;
     Goldilocks2::Element claim;
 };
 
 // Auxiliary information returned by MLE challenge processing
-template <typename field>
 struct mle_aux_info {
-    std::vector<field> r;
+    std::vector<Goldilocks2::Element> r;
     // Additional auxiliary data can be added here as needed
-    field comp; // compensation x open_val = claim
+    Goldilocks2::Element comp; // compensation x open_val = claim
 };

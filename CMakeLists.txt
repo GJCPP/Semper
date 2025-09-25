@@ -10,15 +10,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include_directories(include)
 include_directories(goldilocks/src)
-include_directories(Orion)
-include_directories(Orion/include)
 
 # Use cnpy directory under source tree
 set(CNPY_SOURCE_DIR ${CMAKE_SOURCE_DIR}/cnpy)
 set(CNPY_BINARY_DIR ${CMAKE_BINARY_DIR}/cnpy-build)
 
-set(ORION_SOURCE_DIR ${CMAKE_SOURCE_DIR}/Orion)
-set(ORION_BINARY_DIR ${CMAKE_BINARY_DIR}/Orion-build)
 
 # Only clone if not already present
 if(NOT EXISTS ${CNPY_SOURCE_DIR}/CMakeLists.txt)
@@ -35,23 +31,6 @@ endif()
 # Now build it as part of your project
 add_subdirectory(${CNPY_SOURCE_DIR} ${CNPY_BINARY_DIR})
 include_directories(${CNPY_SOURCE_DIR})
-
-add_subdirectory(${ORION_SOURCE_DIR} ${ORION_BINARY_DIR})
-include_directories(${ORION_SOURCE_DIR})
-
-
-
-file(GLOB_RECURSE ORION_SOURCES
-    ${ORION_SOURCE_DIR}/src/*.cpp
-)
-
-# exclude Orion's main() if present
-list(FILTER ORION_SOURCES EXCLUDE REGEX ".*fft_circuit_GKR\\.cpp")
-
-add_library(orion_core STATIC ${ORION_SOURCES})
-target_include_directories(orion_core PUBLIC ${ORION_SOURCE_DIR}/include)
-target_link_libraries(orion_core PUBLIC ${FLO_SHANI_LIB} ${XKCP_LIB} gmp)
-target_compile_options(orion_core PRIVATE -march=native)
 
 
 # build goldilocks.a
@@ -101,7 +80,7 @@ target_compile_options(bench PRIVATE
 
 # find_library(XKCP_LIB XKCP PATHS ${CMAKE_SOURCE_DIR}/lib REQUIRED)
 
-target_link_libraries(bench PRIVATE cnpy orion_core pthread gmp ssl crypto goldilocks)
+target_link_libraries(bench PRIVATE cnpy pthread gmp ssl crypto goldilocks)
 
 
 add_custom_target(run

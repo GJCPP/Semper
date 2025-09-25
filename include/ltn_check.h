@@ -8,19 +8,18 @@
 #include "sign_check.h"
 #include "lazy_logup.h"
 
-template <typename field>
 class ltnProver {
 public:
     ltnProver() = default;
 
-    ltnProver(const std::vector<field>& vec,
-              field bar,
+    ltnProver(const std::vector<Goldilocks2::Element>& vec,
+              Goldilocks2::Element bar,
               uint64_t scale, uint64_t max_val, bool strict, 
               uint64_t rho_inv,
               lazyLogupProver* lazy_logup_prover);
 
     ltnProver(const std::vector<uint64_t>& vec,
-              field bar,
+              Goldilocks2::Element bar,
               uint64_t scale, uint64_t max_val, bool strict, uint64_t rho_inv,
               lazyLogupProver* lazy_logup_prover);
     
@@ -44,8 +43,8 @@ public:
     signProver prove_rev_ltn(bool strict);
 
 protected:
-    std::vector<field> vec, ltn, rev_ltn, sub; // The vector to check
-    field bar; // The bar value for the check
+    std::vector<Goldilocks2::Element> vec, ltn, rev_ltn, sub; // The vector to check
+    Goldilocks2::Element bar; // The bar value for the check
     uint64_t scale, max_val;
     bool strict;
     uint64_t rho_inv, num;
@@ -53,7 +52,6 @@ protected:
     lazyLogupProver* lazy_logup_prover = nullptr;
 };
 
-template <typename field>
 class ltnVerifier {
 public:
     static bool execute_ltn_check(
@@ -93,4 +91,3 @@ public:
         lazyLogupVerifier* lazy_logup_verifier,
         resource& prev_resource);
 };
-
