@@ -1301,6 +1301,11 @@ CNN::layer_res pre_prove_softmax(const CNN::layer_info& layer,
 
 
         // 6. Prove diff_masked contains zero
+        std::vector<Goldilocks2::Element> zeros(img, Goldilocks2::zero());
+        std::shared_ptr<MLE> mle_zeros = std::make_shared<MLE>(zeros);        
+        prodProver prod_prover(mle_diff_masked, *mle_zeros, logn, rho_inv);
+        auto prod_res = prodVerifier::pre_execute_prod_check(prod_prover, pool);
+        ret.res["prod_res" + _i] = std::make_shared<prodVerifier::resource>(prod_res);
         
         // 7. Prove exp_diff = exp(diff_masked)
         std::vector<size_t> exp_diff(img * (1 << logn)), diff_masked_vec(img * (1 << logn));
@@ -1402,7 +1407,7 @@ bool prove_softmax(const CNN::layer_info& layer,
     if (!is_power_of_2(img)) {
         throw std::invalid_argument("prove_softmax: Image num must be a power of 2");
     }
-    
+
     for (int i = 0; i < batch; ++i) {
         std::string _i = "_" + std::to_string(i);
         auto pcs_input = layer.get_pcs_input(i);
@@ -1500,6 +1505,8 @@ bool prove_softmax(const CNN::layer_info& layer,
             std::cout << "❌ Proving softmax sel boolean failed." << std::endl;
             return false;
         }
+
+
         // 3.2 Prove max = shrink(sel * quo)
         MultilinearPolynomial mle_sel_quo = mle_sel * mle_quo;
         // auto pcs_sel_quo = ligero_commit_base(mle_sel_quo, rho_inv);
@@ -1518,6 +1525,7 @@ bool prove_softmax(const CNN::layer_info& layer,
             std::cout << "❌ Proving softmax max = shrink(sel * quo) failed." << std::endl;
             return false;
         }
+
         // 4. Commit/Prove diff_masked = mask * (max - quo)
         array<Goldilocks2::Element> diff(new_shape), diff_masked(new_shape);
         for (int j = 0; j < img; ++j) {
@@ -1544,6 +1552,11 @@ bool prove_softmax(const CNN::layer_info& layer,
             std::cout << "❌ Proving softmax diff_masked = mask * diff failed." << std::endl;
             return false;
         }
+        
+        // std::cout << "==========================after 4 step in softmax:" << std::endl;
+        // print_all_open_cnt();
+
+
         // 5. Prove diff_masked >= 0
         std::vector<Goldilocks2::Element> ones(diff_masked.data.size(), Goldilocks2::one());
         MLE mle_ones = MLE(ones);
@@ -1561,17 +1574,28 @@ bool prove_softmax(const CNN::layer_info& layer,
 
             std::cout << "❌ Proving softmax diff_masked >= 0 failed: sign proof fails." << std::endl;
             return false;
-        }
+        }        
+        
+        // std::cout << "==========================after 5 step in softmax:" << std::endl;
+        // print_all_open_cnt();
+        
         // 6. Prove diff_masked contains zero
         std::vector<Goldilocks2::Element> zeros(img, Goldilocks2::zero());
         std::shared_ptr<MLE> mle_zeros = std::make_shared<MLE>(zeros);
         // auto pcs_zeros = ligero_commit_base(mle_zeros, rho_inv);
         // TODO: Check pcs_zeros = 0
         prodProver prod_prover(mle_diff_masked, *mle_zeros, logn, rho_inv);
-        if (!prodVerifier::execute_prod_check(prod_prover, {logimg + logn, pcs_diff_masked.get()}, {logimg, mle_zeros.get()}, sec_param)) {
+        auto prod_res = *reinterpret_cast<prodVerifier::resource*>(wit.res.at("prod_res" + _i).get());
+        if (!prodVerifier::execute_prod_check(prod_prover, {logimg + logn, pcs_diff_masked.get()}, {logimg, mle_zeros.get()}, sec_param, prod_res)) {
             std::cout << "❌ Proving softmax diff_masked contains zero failed." << std::endl;
             return false;
         }
+
+        
+        // std::cout << "==========================after 6 step in softmax:" << std::endl;
+        // print_all_open_cnt();
+
+
         // 7. Prove exp_diff = exp(diff_masked)
         std::vector<size_t> exp_diff(img * (1 << logn)), diff_masked_vec(img * (1 << logn));
         for (size_t j = 0; j != exp_diff.size(); ++j) {
@@ -1587,6 +1611,10 @@ bool prove_softmax(const CNN::layer_info& layer,
             std::cout << "❌ Proving softmax exp(diff_masked) * scale failed." << std::endl;
             return false;
         }
+
+        // std::cout << "==========================after 7 step in softmax:" << std::endl;
+        // print_all_open_cnt();
+
         // 8. Prove exp_diff_masked = mask * exp_diff
         array<Goldilocks2::Element> exp_diff_masked(new_shape);
         for (int j = 0; j < img; ++j) {
@@ -1638,6 +1666,12 @@ bool prove_softmax(const CNN::layer_info& layer,
             std::cout << "❌ Proving softmax expand_sum = expand(sum) failed." << std::endl;
             return false;
         }
+
+
+        // std::cout << "==========================after 8 step in softmax:" << std::endl;
+        // print_all_open_cnt();
+
+
         // 9. Prove d_quo = exp_diff_masked * scale / expand_sum
         array<Goldilocks2::Element> d_quo(new_shape), d_rem(new_shape);
         for (int j = 0; j < img; ++j) {
@@ -1666,6 +1700,10 @@ bool prove_softmax(const CNN::layer_info& layer,
             std::cout << "❌ Proving softmax d_div = d_quo / expand_sum failed." << std::endl;
             return false;
         }
+        
+        // std::cout << "==========================after 9.1 step in softmax:" << std::endl;
+        // print_all_open_cnt();
+
         // 9.2 d_rem - sum < 0
         MultilinearPolynomial mle_d_rem_sum = mle_d_rem - mle_expand_sum;
         // auto pcs_d_rem_sum = ligero_commit_base(mle_d_rem_sum, rho_inv);
@@ -1684,10 +1722,15 @@ bool prove_softmax(const CNN::layer_info& layer,
             std::make_shared<lazy_pcs>(pcs_d_rem_sum), 
             mle_input_zeros, 
             sec_param,
-            lazy_logup_verifier)) {
+            lazy_logup_verifier,
+            sign_d_rem_sum_res)) {
             std::cout << "❌ Proving softmax d_rem - sum < 0 failed: sign proof fails." << std::endl;
             return false;
         }
+
+        // std::cout << "==========================after 9 step in softmax:" << std::endl;
+        // print_all_open_cnt();
+
         // 10. Prove d_input = (d_quo - label * scale) / img
         MultilinearPolynomial mle_d_delta = mle_d_quo - mle_label * scale;
         // auto pcs_d_delta = ligero_commit_base(mle_d_delta, rho_inv);
@@ -1711,6 +1754,8 @@ bool prove_softmax(const CNN::layer_info& layer,
             return false;
         }
     }
+    // std::cout << "==========================after softmax:" << std::endl;
+    // print_all_open_cnt();
     return true;
 }
 

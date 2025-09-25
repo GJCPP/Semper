@@ -3,6 +3,7 @@
 #include "mle.h"
 #include "mle_open.h"
 #include "product3_sumcheck.h"
+#include "lazy_pcs.h"
 
 class prodVerifier;
 /*
@@ -15,6 +16,9 @@ public:
     prodProver(const MultilinearPolynomial& raw, const MultilinearPolynomial& pro, int suffix_len, size_t rho_inv);
 
     p3Prover prove_next(const MLE_Eq& cha, ligeropcs_base& pcs_new_raw);
+    p3Prover prove_next(const MLE_Eq& cha);
+
+    lazy_pcs pre_prove_next(lazy_pcs_pool *pool);
 
 protected:
     MultilinearPolynomial raw, pro;
@@ -29,5 +33,20 @@ public:
         open_param raw,
         open_param pro,
         size_t sec_param
+    );
+
+    struct resource {
+        std::vector<lazy_pcs> pcs_raw;
+    };
+
+    static resource pre_execute_prod_check(prodProver& prover, lazy_pcs_pool *pool);
+
+    
+    static bool execute_prod_check(
+        prodProver& prover,
+        open_param raw,
+        open_param pro,
+        size_t sec_param,
+        resource& res
     );
 };
