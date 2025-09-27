@@ -247,6 +247,36 @@ void in_place_NTT(std::vector<Goldilocks::Element>& a) {
     }
 }
 
+void in_place_NTT(Goldilocks::Element *a, size_t n) {
+    // const size_t m = find_ceiling_log2(n);
+
+    // Bit-reverse permutation
+    for (size_t i = 1, j = 0; i < n; ++i) {
+        size_t bit = n >> 1;
+        for (; j & bit; bit >>= 1)
+            j ^= bit;
+        j ^= bit;
+        if (i < j) std::swap(a[i], a[j]);
+    }
+
+    // Iterative Cooley-Tukey NTT
+    for (size_t len = 2, level = 1; len <= n; len <<= 1, ++level) {
+        size_t half = len >> 1;
+        Goldilocks::Element w_len = ROOTS[level]; // omega^(N / len)
+        for (size_t i = 0; i < n; i += len) {
+            Goldilocks::Element w = Goldilocks::one();
+            for (size_t j = 0; j < half; ++j) {
+                auto& u = a[i + j];
+                auto& v = a[i + j + half];
+                Goldilocks::Element t = Goldilocks::mul(w, v);
+                v = u - t;
+                u = u + t;
+                Goldilocks::mul(w, w, w_len);
+            }
+        }
+    }
+}
+
 std::vector<Goldilocks::Element> NTT(const std::vector<Goldilocks::Element>& input) {
     std::vector<Goldilocks::Element> a = input;
     in_place_NTT(a);
@@ -304,6 +334,15 @@ std::vector<Goldilocks::Element> eval_with_ntt(std::vector<Goldilocks::Element> 
     // N is power of 2
     f.resize(N, Goldilocks::zero());
     return NTT(f);
+}
+
+
+void eval_with_ntt(const std::vector<Goldilocks::Element>& f, const size_t& N, Goldilocks::Element *output) {
+    // copy reversed f to output
+    for (size_t i = 0; i != f.size(); ++i) {
+        output[f.size() - 1 - i] = f[i];
+    }
+    in_place_NTT(output, f.size());
 }
 
 std::vector<Goldilocks2::Element> eval_with_ntt(std::vector<Goldilocks2::Element> f, const size_t& N) {

@@ -22,9 +22,10 @@ public:
               Goldilocks2::Element bar,
               uint64_t scale, uint64_t max_val, bool strict, uint64_t rho_inv,
               lazyLogupProver* lazy_logup_prover);
+
+    void init_sub();
     
     void init_ltn();
-    void init_sub();
 
     inline const std::vector<Goldilocks2::Element>& get_ltn() const { return ltn; }
 
@@ -34,16 +35,10 @@ public:
         return lazy_logup_prover != nullptr;
     }
 
-    ligeropcs_base commit_sub();
-
-    lazy_pcs pre_commit_sub(lazy_pcs_pool *pool);
-
-    ligeropcs_base commit_rev_ltn();
-
     signProver prove_rev_ltn(bool strict);
 
 protected:
-    std::vector<Goldilocks2::Element> vec, ltn, rev_ltn, sub; // The vector to check
+    std::vector<Goldilocks2::Element> vec, ltn, rev_ltn, sub; 
     Goldilocks2::Element bar; // The bar value for the check
     uint64_t scale, max_val;
     bool strict;
@@ -66,7 +61,6 @@ public:
 
     class resource {
     public:
-        lazy_pcs pcs_sub;
         signVerifier::resource sign_res;
     };
 

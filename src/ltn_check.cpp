@@ -9,6 +9,7 @@ ltnProver::ltnProver(
     : vec(vec), bar(bar), scale(scale), max_val(max_val), strict(strict), rho_inv(rho_inv), lazy_logup_prover(lazy_logup_prover) {
     num = vec.size();
     init_ltn();
+    init_sub();
 }
 
 ltnProver::ltnProver(
@@ -22,8 +23,8 @@ ltnProver::ltnProver(
     for (size_t i = 0; i < vec.size(); ++i) {
         vec[i] = Goldilocks2::fromU64(vec_u[i]);
     }
-    init_sub();
     init_ltn();
+    init_sub();
 }
 
 void ltnProver::init_sub() {
@@ -31,14 +32,6 @@ void ltnProver::init_sub() {
     for (size_t i = 0; i < num; ++i) {
         sub[i] = vec[i] - bar;
     }
-}
-
-ligeropcs_base ltnProver::commit_sub() {
-    return ligero_commit_base(sub, rho_inv);
-}
-
-lazy_pcs ltnProver::pre_commit_sub(lazy_pcs_pool* pool) {
-    return commit_lazy_pcs(sub, pool);
 }
 
 signProver ltnProver::prove_rev_ltn(bool _strict) {
@@ -87,23 +80,20 @@ bool ltnVerifier::execute_ltn_check(
         throw std::invalid_argument("ltnVerifier: disagree in lazy_logup.");
     }
 
-    // Step 1. Commit/Prove sub
-    auto pcs_sub = prover.commit_sub();
+    // Step 1. Oracle to sub
+    oracle_sum pcs_sub;
+    pcs_sub.add(pcs_vec);
+    pcs_sub.add_const(-bar);
     oracle_sum pcs_rev_ltn;
     pcs_rev_ltn.add(pcs_ltn, Goldilocks2::negone());
     pcs_rev_ltn.add_const(Goldilocks2::one());
-    auto sub_cha = random_vec_ext(lognum);
-    if (pcs_vec->open(sub_cha, sec_param) != pcs_sub.open(sub_cha, sec_param) + bar) {
-        std::cerr << "❌ LTN check failed: pcs_vec != pcs_sub + bar" << std::endl;
-        return false;
-    }
 
     // Step 2. Prove rev_ltn = strict ? [sub >= 0] : [sub > 0]
     auto sign_prover = prover.prove_rev_ltn(strict);
     
     if (!signVerifier::execute_sign_check(
         sign_prover, 
-        std::make_shared<ligeropcs_base>(pcs_sub), 
+        std::make_shared<oracle_sum>(pcs_sub), 
         std::make_shared<oracle_sum>(pcs_rev_ltn), 
         sec_param,
         lazy_logup_verifier)) {
@@ -126,7 +116,6 @@ ltnVerifier::resource ltnVerifier::pre_execute_ltn_check(
     int lognum = find_ceiling_log2(num);
 
     // Step 1. Commit/Prove sub
-    ret.pcs_sub = prover.pre_commit_sub(pool);
     
     auto sign_prover = prover.prove_rev_ltn(strict);
     
@@ -153,12 +142,14 @@ bool ltnVerifier::execute_ltn_check(
     }
 
     // Step 1. Commit/Prove sub
-    auto pcs_sub = std::make_shared<lazy_pcs>(res.pcs_sub);
+    oracle_sum pcs_sub;
+    pcs_sub.add(pcs_vec);
+    pcs_sub.add_const(-bar);
     oracle_sum pcs_rev_ltn;
     pcs_rev_ltn.add(pcs_ltn, Goldilocks2::negone());
     pcs_rev_ltn.add_const(Goldilocks2::one());
     auto sub_cha = random_vec_ext(lognum);
-    if (pcs_vec->open(sub_cha, sec_param) != pcs_sub->open(sub_cha, sec_param) + bar) {
+    if (pcs_vec->open(sub_cha, sec_param) != pcs_sub.open(sub_cha, sec_param) + bar) {
         std::cerr << "❌ LTN check failed: pcs_vec != pcs_sub + bar" << std::endl;
         return false;
     }
@@ -167,9 +158,9 @@ bool ltnVerifier::execute_ltn_check(
     auto sign_prover = prover.prove_rev_ltn(strict);
     
     if (!signVerifier::execute_sign_check(
-        sign_prover, 
-        pcs_sub, 
-        std::make_shared<oracle_sum>(pcs_rev_ltn), 
+        sign_prover,
+        std::make_shared<oracle_sum>(pcs_sub),
+        std::make_shared<oracle_sum>(pcs_rev_ltn),
         sec_param,
         lazy_logup_verifier,
         res.sign_res)) {

@@ -93,9 +93,13 @@ size_t bisearch(const std::vector<uint64_t>& arr, const uint64_t& val);
 // evaluate a polynomial with its coefficients known as coefs at point x with Horners method
 Goldilocks2::Element Horner(const std::vector<Goldilocks2::Element> &coefs, const Goldilocks2::Element& x);
 
+void in_place_NTT(Goldilocks::Element* a, size_t n);
+
 std::vector<Goldilocks::Element> eval_with_ntt(std::vector<Goldilocks::Element> f, const size_t& N);
 
 std::vector<Goldilocks2::Element> eval_with_ntt(std::vector<Goldilocks2::Element> f, const size_t& N);
+
+void eval_with_ntt(const std::vector<Goldilocks::Element>& f, const size_t& N, Goldilocks::Element* output);
 
 // returns vec on base field
 std::vector<Goldilocks::Element> eval_with_ntt_base(std::vector<Goldilocks2::Element> f, const size_t& N);

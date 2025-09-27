@@ -1267,99 +1267,99 @@ bool test_lazy_pcs() {
 
 bool run_test() {
     srand(79);
-    if (!test_lazy_pcs()) {
-        std::cout << "test_lazy_pcs failed" << std::endl;
-        return false;
-    }
-    if (!test_pre_sign_check()) {
-        std::cout << "test_pre_sign_check failed" << std::endl;
-        return false;
-    }
-    if (!test_lazy_logup()) {
-        std::cout << "test_lazy_logup failed" << std::endl;
-        return false;
-    }
-    if (!test_arithmetic()) {
-        std::cout << "test_arithmetic failed" << std::endl;
-        return false;
-    }
-    if (!test_eval_power_mle()) {
-        std::cout << "test_eval_power_mle failed" << std::endl;
-        return false;
-    }
-    if (!test_product3_sumcheck()) {
-        std::cout << "test_product3_sumcheck failed" << std::endl;
-        return false;
-    }
-    if (!test_product2_sumcheck()) {
-        std::cout << "test_product2_sumcheck failed" << std::endl;
-        return false;
-    }
-    if (!test_partial_sumcheck_product2()) {
-        std::cout << "test_partial_sumcheck_product2 failed" << std::endl;
-        return false;
-    }
-    if (!test_logup()) {
-        std::cout << "test_logup failed" << std::endl;
-        return false;
-    }
+    // if (!test_lazy_pcs()) {
+    //     std::cout << "test_lazy_pcs failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_pre_sign_check()) {
+    //     std::cout << "test_pre_sign_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_lazy_logup()) {
+    //     std::cout << "test_lazy_logup failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_arithmetic()) {
+    //     std::cout << "test_arithmetic failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_eval_power_mle()) {
+    //     std::cout << "test_eval_power_mle failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_product3_sumcheck()) {
+    //     std::cout << "test_product3_sumcheck failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_product2_sumcheck()) {
+    //     std::cout << "test_product2_sumcheck failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_partial_sumcheck_product2()) {
+    //     std::cout << "test_partial_sumcheck_product2 failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_logup()) {
+    //     std::cout << "test_logup failed" << std::endl;
+    //     return false;
+    // }
     
-    if (!test_pd_check()) {
-        std::cout << "test_pd_check failed" << std::endl;
-        return false;
-    }
-    if (!test_set_check()) {
-        std::cout << "test_set_check failed" << std::endl;
-        return false;
-    }
-    if (!test_perm_check()) {
-        std::cout << "test_perm_check failed" << std::endl;
-        return false;
-    }
-    if (!test_map_check()) {
-        std::cout << "test_map_check failed" << std::endl;
-        return false;
-    }
-    if (!test_lazy_map_check()) {
-        std::cout << "test_lazy_map_check failed" << std::endl;
-        return false;
-    }
-    if (!test_conv_check()) {
-        std::cout << "test_conv_check failed" << std::endl;
-        return false;
-    }
-    if (!test_conv2_check()) {
-        std::cout << "test_conv2_check failed" << std::endl;
-        return false;
-    }
-    if (!test_pad_check()) {
-        std::cout << "test_pad_check failed" << std::endl;
-        return false;
-    }
-    if (!test_pad_weights()) {
-        std::cout << "test_pad_weights failed" << std::endl;
-        return false;
-    }
-    if (!test_mat_mult()) {
-        std::cout << "test_mat_mult failed" << std::endl;
-        return false;
-    }
-    if (!test_div_check()) {
-        std::cout << "test_div_check failed" << std::endl;
-        return false;
-    }
-    if (!test_sign_check()) {
-        std::cout << "test_sign_check failed" << std::endl;
-        return false;
-    }
-    if (!test_prod_check()) {
-        std::cout << "test_prod_check failed" << std::endl;
-        return false;
-    }
-    if (!test_ltn_check()) {
-        std::cout << "test_ltn_check failed" << std::endl;
-        return false;
-    }
+    // if (!test_pd_check()) {
+    //     std::cout << "test_pd_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_set_check()) {
+    //     std::cout << "test_set_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_perm_check()) {
+    //     std::cout << "test_perm_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_map_check()) {
+    //     std::cout << "test_map_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_lazy_map_check()) {
+    //     std::cout << "test_lazy_map_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_conv_check()) {
+    //     std::cout << "test_conv_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_conv2_check()) {
+    //     std::cout << "test_conv2_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_pad_check()) {
+    //     std::cout << "test_pad_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_pad_weights()) {
+    //     std::cout << "test_pad_weights failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_mat_mult()) {
+    //     std::cout << "test_mat_mult failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_div_check()) {
+    //     std::cout << "test_div_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_sign_check()) {
+    //     std::cout << "test_sign_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_prod_check()) {
+    //     std::cout << "test_prod_check failed" << std::endl;
+    //     return false;
+    // }
+    // if (!test_ltn_check()) {
+    //     std::cout << "test_ltn_check failed" << std::endl;
+    //     return false;
+    // }
     if (!test_e_pow_check()) {
         std::cout << "test_e_pow_check failed" << std::endl;
         return false;

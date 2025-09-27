@@ -185,6 +185,8 @@ std::vector<std::shared_ptr<oracle>> permProver::commit_pad_f1(uint64_t rho_inv)
         return {};
     }
 
+    if (!pcs_pad_f1.empty()) return pcs_pad_f1;
+
     std::vector<const std::vector<Goldilocks2::Element> *> evs1, evs2;
     std::vector<bool> vis(n2);
     for (size_t i = 0; i < len; ++i) {
@@ -220,6 +222,51 @@ std::vector<std::shared_ptr<oracle>> permProver::commit_pad_f1(uint64_t rho_inv)
         }
     }
     return ret;
+}
+
+
+void permProver::forward_commit_pad_f1(lazy_pcs_pool *pool) {
+    const size_t n1 = (1 << f1[0]->get_num_vars()), n2 = (1 << f2[0]->get_num_vars());
+    const size_t len = f1.size();
+    if (n1 == n2) {
+        return;
+    }
+
+    if (pool->is_ext() != ext) {
+        throw std::invalid_argument("permProver::forward_commit_pad_f1 : ext mismatch");
+    }
+
+    std::vector<const std::vector<Goldilocks2::Element> *> evs1, evs2;
+    std::vector<bool> vis(n2);
+    for (size_t i = 0; i < len; ++i) {
+        evs1.push_back(&f1[i]->get_eval_table());
+        evs2.push_back(&f2[i]->get_eval_table());
+    }
+    std::vector<std::vector<Goldilocks2::Element>> new_evs(len, std::vector<Goldilocks2::Element>(n2, Goldilocks2::zero()));
+    for (size_t i = 0; i < n1; ++i) {
+        vis[perm[i]] = true;
+    }
+    for (size_t i = 0; i < len; ++i) {
+        memcpy(new_evs[i].data(), evs1[i]->data(), sizeof(Goldilocks2::Element) * n1);
+    }
+    perm.resize(n2);
+    size_t next = 0;
+    for (size_t i = n1; i < n2; ++i) {
+        while (vis[next]) ++next;
+        for (size_t j = 0; j < len; ++j) {
+            new_evs[j][i] = (*evs2[j])[next];
+        }
+        perm[i] = next;
+        ++next;
+    }
+    std::vector<std::shared_ptr<oracle>> ret;
+    pad_f1.reserve(len);
+    ret.reserve(len);
+    for (size_t i = 0; i < len; ++i) {
+        pad_f1.emplace_back(new_evs[i]);
+        ret.push_back(std::make_shared<lazy_pcs>(commit_lazy_pcs(pad_f1.back(), pool)));
+    }
+    pcs_pad_f1 = ret;
 }
 
 setProver permProver::get_set_prover(const MLE& id_perm, const MLE& perm) {
@@ -325,6 +372,19 @@ std::vector<std::shared_ptr<oracle>> mapProver::commit_right(uint64_t rho_inv) c
     return right_pcs;
 }
 
+std::vector<std::shared_ptr<oracle>> mapProver::commit_right(lazy_pcs_pool *pool) const {
+    if (ext != pool->is_ext()) {
+        throw std::invalid_argument("mapProver::commit_right : ext mismatch.");
+    }
+    std::vector<std::shared_ptr<oracle>> right_pcs;
+    right_pcs.reserve(right.size());
+    for (const auto& mle : right) {
+        right_pcs.push_back(std::make_shared<lazy_pcs>(commit_lazy_pcs(mle, pool)));
+    }
+    return right_pcs;
+}
+
+
 permProver mapProver::get_perm_prover() {
     permProver prover(mapto, ext);
     size_t len = left.size();
@@ -366,10 +426,18 @@ bool mapVerifier::execute_check(mapProver& prover, uint64_t rho_inv, uint64_t se
     // std::cout << "Skipping mapVerifier::execute_check" << std::endl;
     // return true;
     startCounter counter("map_proof");
+    lazy_pcs_pool pool(sec_param, prover.use_ext());
     // 1. Commit/Check padded right
     size_t len = pcs_left.size();
     int right_num_vars = prover.get_right_num_vars(), pad_num_vars = prover.get_pad_num_vars();
-    auto pcs_pad_right = prover.commit_right(rho_inv);
+    auto pcs_pad_right = prover.commit_right(&pool);
+
+    permProver perm_prover = prover.get_perm_prover();
+    permVerifier perm_verifier;
+    perm_prover.forward_commit_pad_f1(&pool);
+
+    auto pcs_pool = pool.commit(rho_inv);
+
     auto cha = random_vec_ext(right_num_vars);
     std::vector<Goldilocks2::Element> small_cha(cha.begin() + pad_num_vars, cha.end());
     for (int i = 0; i != pad_num_vars; ++i) cha[i] = Goldilocks2::zero();
@@ -384,8 +452,6 @@ bool mapVerifier::execute_check(mapProver& prover, uint64_t rho_inv, uint64_t se
     }
     end_proof("map_proof_check_pad");
     // 2. Perform perm check.
-    permProver perm_prover = prover.get_perm_prover();
-    permVerifier perm_verifier;
     for (size_t i = 0; i != len; ++i) {
         perm_verifier.add_pcs(pcs_left[i], pcs_pad_right[i]);
     }
@@ -393,5 +459,6 @@ bool mapVerifier::execute_check(mapProver& prover, uint64_t rho_inv, uint64_t se
         std::cerr << "mapVerifier::execute_check : perm check fails" << std::endl;
         return false;
     }
+    pool.prove_open(pcs_pool, random_ext());
     return true;
 }

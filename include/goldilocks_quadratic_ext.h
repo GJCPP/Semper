@@ -323,6 +323,11 @@ inline Goldilocks2::Element operator*(const Goldilocks2::Element &in1, const Gol
     Goldilocks2::mul(result, in1, in2);
     return result;
 }
+inline Goldilocks2::Element operator*(const Goldilocks2::Element &in1, const Goldilocks::Element &in2) { 
+    Goldilocks2::Element result;
+    Goldilocks2::mul(result, in1, in2);
+    return result;
+}
 inline Goldilocks2::Element operator-(const Goldilocks2::Element &in1, const Goldilocks2::Element &in2) { 
     Goldilocks2::Element result;
     Goldilocks2::sub(result, in1, in2);

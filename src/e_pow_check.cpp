@@ -21,8 +21,9 @@ eProver::eProver(
             throw std::invalid_argument("eProver: Elements in 'from' vector must be less than max_val.");
         }
     }
-    init();
     eVerifier::init_e_table(scale, rho_inv);
+    bar = eVerifier::e_pow_from[scale].size();
+    init();
 }
 
 eProver::eProver(
@@ -54,6 +55,7 @@ eProver::eProver(
 }
 
 void eProver::init() {
+    
     filtered_from = from;
     for (size_t i = 0; i < num; ++i) {
         if (from[i] >= bar) {
@@ -98,12 +100,6 @@ ligeropcs_base eProver::commit_filtered_from() {
 }
 
 lazy_pcs eProver::pre_commit_filtered_from(lazy_pcs_pool* pool) {
-    filtered_from = from;
-    for (size_t i = 0; i < num; ++i) {
-        if (from[i] >= bar) {
-            filtered_from[i] = 0; // Map to 0
-        }
-    }
     return commit_lazy_pcs(filtered_from, pool);
 }
 
@@ -113,12 +109,6 @@ ligeropcs_base eProver::commit_masked_from() {
 }
 
 lazy_pcs eProver::pre_commit_masked_from(lazy_pcs_pool* pool) {
-    masked_from = from;
-    for (size_t i = 0; i < num; ++i) {
-        if (from[i] >= bar) {
-            masked_from[i] = bar - 1; // Map to max_val - 1
-        }
-    }
     return commit_lazy_pcs(masked_from, pool);
 }
 
