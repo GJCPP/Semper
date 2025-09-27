@@ -346,8 +346,6 @@ void CNN::pre_prove(size_t sec_param) {
     // print_all_timers();
     // clear_all_timers();
     // return false;
-    std::cout << "Finishing preprove..." << std::endl;
-    finish_pre_prove();
 }
 
 bool CNN::prove(size_t sec_param) {
@@ -362,6 +360,8 @@ bool CNN::prove(size_t sec_param) {
     pause_timer("pre_prove");
 
     set_timer(std::format("prove {} total", model_name));
+    
+    finish_pre_prove();
     
     // std::cout << "===================Warning: skip proving input." << std::endl;
     std::cout << "Checking input..." << std::endl;
@@ -448,6 +448,7 @@ bool CNN::prove(size_t sec_param) {
     pause_timer("final logup");
     end_proof("final logup");
 
+    // std::cout << "======================Warning: skip final map." << std::endl;
     std::cout << "Proving final map..." << std::endl;
     set_timer("final map");
     start_proof("final map");

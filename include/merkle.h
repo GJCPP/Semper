@@ -24,7 +24,8 @@ public:
     typedef std::vector<Goldilocks::Element> col_t;
     typedef struct{
         MerkleDef::MTPath path;
-        col_t column;
+        const Goldilocks::Element *col;
+        size_t sz_col;
         // this is index in the tree, not matrix!!
         size_t index;
     } MTPayload;
@@ -32,10 +33,12 @@ public:
 private:
     MerkleDef::MTtree T;
     size_t leaf_offset;
-    std::vector<col_t> cols;
+    std::vector<Goldilocks::Element> cols;
+    size_t num_rows, num_cols;
 public:
     MerkleTree_base(){};
-    MerkleTree_base(const std::vector<std::vector<Goldilocks::Element>> &data);
+    MerkleTree_base(const Goldilocks::Element *data, size_t num_rows, size_t num_cols);
+    // MerkleTree_base(const Goldilocks::Element* data, size_t num_rows, size_t num_cols);
     MTPayload MerkleOpen(const size_t& idx) const;
     MerkleDef::Digest MerkleCommit() const {return T[1];}
     static bool MerkleVerify(const MerkleDef::Digest& root, const MTPayload& payload);
@@ -63,3 +66,4 @@ public:
     MerkleDef::Digest MerkleCommit() const {return T[1];}
     static bool MerkleVerify(const MerkleDef::Digest& root, const MTPayload& payload);
 };
+

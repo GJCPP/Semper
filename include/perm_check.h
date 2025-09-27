@@ -4,6 +4,7 @@
 #include "ligero.h"
 #include "util.h"
 #include "product3_sumcheck.h"
+#include "lazy_pcs.h"
 
 inline bool zero_check(const oracle* pcs, uint64_t sec_param) {
     auto cha = random_vec_ext(pcs->get_num_vars());
@@ -114,7 +115,9 @@ public:
     // return null pcs if padding is not needed
     std::vector<std::shared_ptr<oracle>> commit_pad_f1(uint64_t rho_inv);
 
-    setProver get_set_prover(const MLE& id_perm, const MLE& perm);
+    void forward_commit_pad_f1(lazy_pcs_pool* pool);
+
+setProver get_set_prover(const MLE& id_perm, const MLE& perm);
 
 protected:
     bool ext;
@@ -123,6 +126,7 @@ protected:
     size_t sz;
 
     std::vector<MLE> pad_f1;
+    std::vector<std::shared_ptr<oracle>> pcs_pad_f1;
 };
 
 
@@ -146,8 +150,11 @@ public:
     int get_pad_num_vars() const { return pad_num_vars; }
     
     std::vector<std::shared_ptr<oracle>> commit_right(uint64_t rho_inv) const;
+    std::vector<std::shared_ptr<oracle>> commit_right(lazy_pcs_pool *pool) const;
 
     // get_pad_right;
+
+    bool use_ext() const {return ext;}
     
     permProver get_perm_prover();
     

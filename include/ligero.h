@@ -76,7 +76,7 @@ public:
     // original vector
     std::vector<Goldilocks::Element> M;
     // encoded matrix
-    std::vector<std::vector<Goldilocks::Element>> codewords;
+    // std::vector<std::vector<Goldilocks::Element>> codewords;
     // number of variables
     int num_vars;
     // merkle hash tree of codewords
@@ -141,6 +141,7 @@ private:
 
 std::vector<Goldilocks2::Element> rsencode(const std::vector<Goldilocks2::Element>& data, const uint64_t& rho_inv);
 std::vector<Goldilocks::Element> rsencode(const std::vector<Goldilocks::Element>& data, const uint64_t& rho_inv);
+void rsencode(const std::vector<Goldilocks::Element>& data, const uint64_t& rho_inv, Goldilocks::Element *output);
 
 ligeropcs_base ligero_commit_base(const MultilinearPolynomial& w, const uint64_t& rho_inv, int loga = -1);
 ligeropcs_ext ligero_commit_ext(const MultilinearPolynomial& w, const uint64_t& rho_inv);

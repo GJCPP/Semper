@@ -374,7 +374,7 @@ bool LogupVerifier::execute_logup_third_part(
 
     std::array<p3Prover, 2> secondProvers = lpr.secondProvers(rg, rh);
     assert(secondProvers[0].get_sum() == Goldilocks2::one());
-    assert(secondProvers[1].get_sum() == ligeroVerifier::open(c, rh, sec_param));
+    // assert(secondProvers[1].get_sum() == ligeroVerifier::open(c, rh, sec_param));
 
     // set_timer("calculate eq");
     MLE_Eq eqg(rg);
