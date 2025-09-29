@@ -95,7 +95,7 @@ MultilinearPolynomial::MultilinearPolynomial(const array_view<Goldilocks2::Eleme
     // Index vector for iteration
     std::vector<size_t> ind(dim, 0);
 
-    #pragma omp parallel for schedule(static)
+    // #pragma omp parallel for schedule(static)
     for (size_t i = 0; i < total_output_size; ++i) {
         bool in_bounds = true;
         // size_t input_offset = 0;
@@ -225,17 +225,13 @@ void MultilinearPolynomial::iterate_nonzero(const std::function<void(size_t)> f,
 
 void MultilinearPolynomial::fix(size_t pos, const Goldilocks2::Element& val) {
     assert(pos >= 0 && pos < num_vars);
-    pos = num_vars - pos - 1; // reverse the pos, 0 -> MSB
+    pos = num_vars - pos - 1; // reverse the pos, now pos = 0 -> LSB
     std::vector<Goldilocks2::Element> new_evs(1ull << (num_vars - 1));
     Goldilocks2::Element one_minus_val = Goldilocks2::one() - val;
-    for (size_t i = 0; i < (1ull << num_vars); ++i) {
-        size_t index = (i & ((1ull << pos) - 1)) | ((i >> (pos + 1)) << pos);
-        if ((i >> (pos)) & 1) {
-            new_evs[index] = new_evs[index] + evaluations[i] * val;
-        }
-        else {
-            new_evs[index] = new_evs[index] + evaluations[i] * one_minus_val;
-        }
+    // #pragma omp parallel for if(num_vars >= 10) schedule(static)
+    for (size_t i = 0; i < (1ull << (num_vars - 1)); ++i) {
+        size_t ind = (i & ((1ull << pos) - 1)) | ((i >> pos) << (pos + 1));
+        new_evs[i] = evaluations[ind] * one_minus_val + evaluations[ind | (1 << pos)] * val;
     }
     evaluations = std::move(new_evs);
     --num_vars;

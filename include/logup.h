@@ -52,6 +52,50 @@ public:
 
 class LogupVerifier {
 public:
+    class SumcheckInst {
+    public:
+        sProver prover;
+        lazy_pcs pcs;
+        size_t sec_param;
+        
+        SumcheckInst() = default;
+        SumcheckInst(sProver &&_prover, lazy_pcs _pcs, size_t _sec_param)
+            : prover(std::move(_prover)), pcs(_pcs), sec_param(_sec_param) {}
+        bool execute() {
+            return sVerifier::execute_sumcheck(prover, pcs, sec_param);
+        }
+    };
+    class LogupSumcheckInst {
+    public:
+        p3Prover prover;
+        MLE_Eq eqr;
+        lazy_pcs frac;
+        const oracle *f1, *f2;
+        Goldilocks2::Element gamma, lambda;
+        size_t sec_param;
+        
+        LogupSumcheckInst() = default;
+        LogupSumcheckInst(
+            p3Prover &&_prover,
+            MLE_Eq &&_eqr,
+            lazy_pcs _frac,
+            const oracle *_f1,
+            const oracle *_f2,
+            const Goldilocks2::Element &_gamma,
+            const Goldilocks2::Element &_lambda,
+            size_t _sec_param)
+            : prover(std::move(_prover)),
+              eqr(std::move(_eqr)),
+              frac(_frac),
+              f1(_f1),
+              f2(_f2),
+              gamma(_gamma),
+              lambda(_lambda),
+              sec_param(_sec_param) {}
+        bool execute() {
+            return p3Verifier::execute_logup_sumcheck(prover, eqr, frac, *f1, *f2, gamma, lambda, sec_param);
+        }
+    };
     static bool execute_logup(LogupProver& lpr, const uint64_t& rho_inv, const size_t& sec_param);
     static bool execute_logup(LogupProver& lpr, 
         const oracle& f1, const oracle& f2,
@@ -69,11 +113,13 @@ public:
         const oracle& t1, const oracle& t2,
         const uint64_t& rho_inv, const size_t& sec_param,
         lazy_pcs_pool *pool_gh);
-        
-    bool execute_logup_third_part(LogupProver& lpr,
+
+    std::pair<std::array<SumcheckInst, 2>, std::array<LogupSumcheckInst, 2>>
+        execute_logup_third_part(LogupProver& lpr,
         const oracle& f1, const oracle& f2, 
         const oracle& t1, const oracle& t2, 
         const uint64_t& rho_inv, const size_t& sec_param);
+
 private:
     static std::mt19937_64 gen;
     static std::uniform_int_distribution<uint64_t> dist;

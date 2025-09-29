@@ -70,13 +70,13 @@ ligeroProver_base::ligeroProver_base(const MultilinearPolynomial& w, const uint6
     codelen = b * rho_inv;
     size_t sz = evals.size();
 
-    set_timer("ligero_commit_copy");
+    // set_timer("ligero_commit_copy");
     #pragma omp parallel for schedule(static)
     for (size_t i = 0; i < sz; ++i) {
         M[i] = evals[i][0];
     }
-    pause_timer("ligero_commit_copy");
-    set_timer("ligero_commit_rsencode");
+    // pause_timer("ligero_commit_copy");
+    // set_timer("ligero_commit_rsencode");
 
     codelen = b * rho_inv;
     std::vector<Goldilocks::Element> codewords;
@@ -84,16 +84,17 @@ ligeroProver_base::ligeroProver_base(const MultilinearPolynomial& w, const uint6
 
     #pragma omp parallel for schedule(static)
     for (size_t i = 0; i < a; ++i) {
-        Goldilocks::Element *cw = &codewords[i * b];
+        std::vector<Goldilocks::Element> dataline(b);
         for (size_t j = 0; j < b; ++j) {
-            cw[b - j - 1] = M[i * b + j];
+            dataline[j] = M[i * b + j];
         }
-        in_place_NTT(cw, b);
+        auto vec = rsencode(dataline, rho_inv);
+        std::copy(vec.begin(), vec.end(), &codewords[i * codelen]);
     }
-    pause_timer("ligero_commit_rsencode");
-    set_timer("ligero_commit_merkle");
+    // pause_timer("ligero_commit_rsencode");
+    // set_timer("ligero_commit_merkle");
     mt_t = MerkleTree_base(codewords.data(), a, codelen);
-    pause_timer("ligero_commit_merkle");
+    // pause_timer("ligero_commit_merkle");
 }
 
 
@@ -117,10 +118,10 @@ ligeroProver_base::ligeroProver_base(const std::vector<Goldilocks::Element>& w, 
         auto vec = rsencode(dataline, rho_inv);
         std::copy(vec.begin(), vec.end(), &codewords[i * codelen]);
     }
-    pause_timer("ligero_commit_rsencode");
-    set_timer("ligero_commit_merkle");
+    // pause_timer("ligero_commit_rsencode");
+    // set_timer("ligero_commit_merkle");
     mt_t = MerkleTree_base(codewords.data(), a, codelen);
-    pause_timer("ligero_commit_merkle");
+    // pause_timer("ligero_commit_merkle");
 }
 
 ligeroProver_base::ligeroProver_base(const std::vector<uint64_t>& w, const uint64_t& rho_inv, int loga) :rho_inv(rho_inv) {
@@ -152,10 +153,10 @@ ligeroProver_base::ligeroProver_base(const std::vector<uint64_t>& w, const uint6
         auto vec = rsencode(dataline, rho_inv);
         std::copy(vec.begin(), vec.end(), &codewords[i * codelen]);
     }
-    pause_timer("ligero_commit_rsencode");
-    set_timer("ligero_commit_merkle");
+    // pause_timer("ligero_commit_rsencode");
+    // set_timer("ligero_commit_merkle");
     mt_t = MerkleTree_base(codewords.data(), a, codelen);
-    pause_timer("ligero_commit_merkle");
+    // pause_timer("ligero_commit_merkle");
 }
 
 std::vector<Goldilocks2::Element> ligeroProver_base::lincomb(const std::vector<Goldilocks2::Element>& r) const {

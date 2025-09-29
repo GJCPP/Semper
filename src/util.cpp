@@ -63,6 +63,30 @@ std::vector<Goldilocks2::Element> eq_table(const size_t& num_var, const std::vec
     }
     for (uint64_t i = 0; i < num_var; ++i) {
         // Goldilocks2::sub(one_minus_r[i], Goldilocks2::one(), r[i]);
+        // #pragma omp parallel for
+        // #pragma omp parallel for if(i >= 12) schedule(static)
+        for (uint64_t j = 0; j < (1ull << i); ++j) {
+            // for r: low index corresponds with high bit
+            Goldilocks2::mul(evaluations[j + (1ull << i)], evaluations[j], r[num_var - i - 1]);
+            Goldilocks2::mul(evaluations[j], evaluations[j], one_minus_r[num_var - i - 1]);
+        }
+    }
+    return evaluations;
+}
+
+
+// The famous multi-linear eq.
+std::vector<Goldilocks2::Element> eq_table(size_t num_var, const Goldilocks2::Element *r) {
+    std::vector<Goldilocks2::Element> evaluations;
+    evaluations.resize(1ull << num_var, Goldilocks2::one());
+    std::vector<Goldilocks2::Element> one_minus_r(num_var);
+    for (size_t i = 0; i < num_var; ++i) {
+        Goldilocks2::sub(one_minus_r[i], Goldilocks2::one(), r[i]);
+    }
+    for (uint64_t i = 0; i < num_var; ++i) {
+        // Goldilocks2::sub(one_minus_r[i], Goldilocks2::one(), r[i]);
+        // #pragma omp parallel for
+        // #pragma omp parallel for if(i >= 12) schedule(static)
         for (uint64_t j = 0; j < (1ull << i); ++j) {
             // for r: low index corresponds with high bit
             Goldilocks2::mul(evaluations[j + (1ull << i)], evaluations[j], r[num_var - i - 1]);

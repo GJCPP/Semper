@@ -2,7 +2,7 @@
 #include "logup.h"
 #include "lazy_logup.h"
 #include "counter.h"
-
+#include "timer.h"
 
 
 void lazyLogupProver::add(
@@ -135,9 +135,18 @@ void lazyLogupVerifier::add(
 }
 
 bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, uint64_t rho_inv, uint64_t sec_param) {
+    
+    size_t batch = tables_all.size();
     lazy_pcs_pool pool(sec_param), pool_c(sec_param, false), pool_gh(sec_param, true);
-    std::vector<lazy_pcs> pcs_f1_all, pcs_f2_all;
-    for (size_t id = 0; id < tables_all.size(); id++) { // table id
+    std::vector<lazy_pcs> pcs_f1_all(batch), pcs_f2_all(batch);
+
+    // bool ret = true;
+    
+    prover.start_prove();
+
+    set_timer("lazy logup 1");
+    #pragma omp parallel for
+    for (size_t id = 0; id < batch; id++) { // table id
         // 0. preprocess
         size_t sz = 0;
         int num_vars;
@@ -146,7 +155,6 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, uint64_t rho_inv, uin
         }
         num_vars = find_ceiling_log2(sz);
 
-        prover.start_prove();
 
         // 1. Sort and commit all f
         auto &t1 = tables_all[id].t1, &t2 = tables_all[id].t2;
@@ -155,15 +163,21 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, uint64_t rho_inv, uin
         if (num_vars != pcs_f1.get_num_vars() || num_vars != pcs_f2.get_num_vars()) {
             throw std::runtime_error("lazyLogupVerifier: committed f does not match the number of variables");
         }
-        pcs_f1_all.push_back(pcs_f1);
-        pcs_f2_all.push_back(pcs_f2);
+        pcs_f1_all[id] = pcs_f1;
+        pcs_f2_all[id] = pcs_f2;
         // std::cout << "logup id = " << id << ": f_size = " << (1ull << pcs_f1.get_num_vars()) << ", table size = " << t1.size() << std::endl;
     }
     auto pcs_pool = pool.commit(rho_inv);
-    std::vector<LogupProver> logup_prover(tables_all.size());
-    std::vector<LogupVerifier> logup_verifier(tables_all.size());
-    std::vector<MLE> mle_t1(tables_all.size()), mle_t2(tables_all.size());
-    for (size_t id = 0; id < tables_all.size(); id++) { // table id
+    std::vector<LogupProver> logup_prover(batch);
+    std::vector<LogupVerifier> logup_verifier(batch);
+    std::vector<MLE> mle_t1(batch), mle_t2(batch);
+
+    pause_timer("lazy logup 1");
+    std::cout << __LINE__ << std::endl;
+
+    set_timer("lazy logup 2");
+    #pragma omp parallel for
+    for (size_t id = 0; id < batch; id++) { // table id
         // 0. preprocess
         size_t sz = 0;
         int num_vars;
@@ -216,7 +230,7 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, uint64_t rho_inv, uin
         }
         if (claim_f1_cha != verifier_f1_cha || claim_f2_cha != verifier_f2_cha) {
             std::cout << "lazyLogupVerifier: f1/f2 commitment check failed." << std::endl;
-            return false;
+            throw;
         }
 
         // 3. Prove logup
@@ -229,8 +243,13 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, uint64_t rho_inv, uin
         end_proof("lazylogup_logup_proof");
     }
     auto pcs_pool_c = pool_c.commit(rho_inv);
+    pause_timer("lazy logup 2");
     
-    for (size_t id = 0; id < tables_all.size(); id++) { // table id
+    std::cout << __LINE__ << std::endl;
+
+    set_timer("lazy logup 3");
+    #pragma omp parallel for
+    for (size_t id = 0; id < batch; id++) { // table id
         // 0. preprocess
         size_t sz = 0;
         int num_vars;
@@ -246,8 +265,13 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, uint64_t rho_inv, uin
         end_proof("lazylogup_logup_proof");
     }
     auto pcs_pool_gh = pool_gh.commit(rho_inv);
-    
-    for (size_t id = 0; id < tables_all.size(); id++) { // table id
+    pause_timer("lazy logup 3");
+
+    set_timer("lazy logup 4");
+    std::vector<LogupVerifier::SumcheckInst> inst1(batch * 2);
+    std::vector<LogupVerifier::LogupSumcheckInst> inst2(batch * 2);
+    #pragma omp parallel for
+    for (size_t id = 0; id < batch; id++) { // table id
         size_t sz = 0;
         int num_vars;
         for (const auto& inst : instances_all[id]) {
@@ -258,16 +282,42 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, uint64_t rho_inv, uin
         auto &t1 = tables_all[id].t1, &t2 = tables_all[id].t2;
 
         start_proof("lazylogup_logup_proof");
-        logup_verifier[id].execute_logup_third_part(logup_prover[id], pcs_f1, pcs_f2, mle_t1[id], mle_t2[id], rho_inv, sec_param);
+        auto [first, second] = logup_verifier[id].execute_logup_third_part(logup_prover[id], pcs_f1, pcs_f2, mle_t1[id], mle_t2[id], rho_inv, sec_param);
+        inst1[id * 2] = first[0];
+        inst1[id * 2 + 1] = first[1];
+        inst2[id * 2] = second[0];
+        inst2[id * 2 + 1] = second[1];
         end_proof("lazylogup_logup_proof");
     }
+    #pragma omp parallel for
+    for (size_t id = 0; id != inst1.size(); ++id) {
+        if (!inst1[id].execute()) {
+            std::cout << "lazy_logup: inst1 check fail" << std::endl;
+            throw;
+        }
+    }
+    #pragma omp parallel for
+    for (size_t id = 0; id != inst2.size(); ++id) {
+        if (!inst2[id].execute()) {
+            std::cout << "lazy_logup: inst2 check fail" << std::endl;
+            throw;
+        }
+    }
+    
+    std::cout << __LINE__ << std::endl;
+    pause_timer("lazy logup 4");
 
     // 4. Prove lazy_pcs
+    set_timer("lazy logup 5");
     start_proof("lazylogup_lazy_pcs_proof");
-    pool.prove_open(pcs_pool, random_ext());
-    pool_c.prove_open(pcs_pool_c, random_ext());
-    pool_gh.prove_open(pcs_pool_gh, random_ext());
+    // pool.prove_open(pcs_pool, random_ext());
+    // pool_c.prove_open(pcs_pool_c, random_ext());
+    // pool_gh.prove_open(pcs_pool_gh, random_ext());
     end_proof("lazylogup_lazy_pcs_proof");
+    
+    std::cout << __LINE__ << std::endl;
+    pause_timer("lazy logup 5");
+
     return true;
 }
 

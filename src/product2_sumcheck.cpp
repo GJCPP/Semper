@@ -8,6 +8,7 @@
 #include "goldilocks_quadratic_ext.h"
 #include "mle.h"
 #include "util.h"
+#include "timer.h"
 #include "counter.h"
 
 p2Prover::p2Prover(std::unique_ptr<MultilinearPolynomial> _p1, std::unique_ptr<MultilinearPolynomial> _p2)
@@ -101,6 +102,7 @@ bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<const oracle*, 
 
     // s_{i - 1}
     std::array<Goldilocks2::Element, 3> si1;
+    set_timer("p2 compute");
     for (size_t round = 1; round <= nrnd; ++round) {
         // s_i
         std::array<Goldilocks2::Element, 3> si;
@@ -121,13 +123,15 @@ bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<const oracle*, 
             // final check
             if (round == nrnd) {
                 challenges.push_back(challenge());
-
+                pause_timer("p2 compute");
+                set_timer("p2 open");
                 start_proof("p2 final open1");
                 auto o1 = oracle[0]->open(challenges, sec_param);
                 end_proof("p2 final open1");
                 start_proof("p2 final open2");
                 auto o2 = oracle[1]->open(challenges, sec_param);
                 end_proof("p2 final open2");
+                pause_timer("p2 open");
                 auto f_r = o1 * o2;
                 // Goldilocks2::Element f_r = oracle[0]->open(challenges, sec_param) * oracle[1]->open(challenges, sec_param);
                 Goldilocks2::Element slrl;

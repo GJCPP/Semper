@@ -332,7 +332,8 @@ bool LogupVerifier::execute_logup_second_part(
     return true;
 }
 
-bool LogupVerifier::execute_logup_third_part(
+std::pair<std::array<LogupVerifier::SumcheckInst, 2>, std::array<LogupVerifier::LogupSumcheckInst, 2>>
+    LogupVerifier::execute_logup_third_part(
     LogupProver& lpr, 
     const oracle& f1, const oracle& f2, 
     const oracle& t1, const oracle& t2, 
@@ -342,28 +343,11 @@ bool LogupVerifier::execute_logup_third_part(
     auto pcsg = lazy_pcs_g, pcsh = lazy_pcs_h;
     
 
+    std::pair<std::array<SumcheckInst, 2>, std::array<LogupSumcheckInst, 2>> ret;
     std::array<sProver, 2> firstProvers = lpr.firstProvers();
-    // Goldilocks2::Element sum = firstProvers[0].get_sum();
-    // assert(sum == firstProvers[1].get_sum());
-    // set_timer("sumcheck 1 / 4");
-    start_proof("logup_sumcheck_1_4");
-    if (!sVerifier::execute_sumcheck(firstProvers[0], pcsg, sec_param)) {
-        std::cout << "logup failed 0 \n";
-        return false;
-    }
-    end_proof("logup_sumcheck_1_4");
-    // end_timer("sumcheck 1 / 4");
-    // alert("sumcheck 1 / 4 finished");
 
-    // set_timer("sumcheck 2 / 4");
-    start_proof("logup_sumcheck_2_4");
-    if (!sVerifier::execute_sumcheck(firstProvers[1], pcsh, sec_param)) {
-        std::cout << "logup failed 1 \n";
-        return false;
-    }
-    end_proof("logup_sumcheck_2_4");
-    // end_timer("sumcheck 2 / 4");
-    // alert("sumcheck 2 / 4 finished");
+    ret.first[0] = {std::move(firstProvers[0]), pcsg, sec_param};
+    ret.first[1] = {std::move(firstProvers[1]), pcsh, sec_param};
 
     // set_timer("generate rg and rh");
     const size_t numvar_g = pcsg.get_num_vars();
@@ -382,27 +366,10 @@ bool LogupVerifier::execute_logup_third_part(
     // end_timer("calculate eq");
     auto pcsf1 = ft[0], pcsf2 = ft[1], pcst1 = ft[2], pcst2 = ft[3];
 
-    // set_timer("sumcheck 3 / 4");
-    start_proof("logup_sumcheck_3_4");
-    if (!p3Verifier::execute_logup_sumcheck(secondProvers[0], eqg, pcsg, *pcsf1, *pcsf2, gamma, lambda, sec_param)) {
-        std::cout << "logup failed 2 \n";
-        return false;
-    }
-    end_proof("logup_sumcheck_3_4");
-    // end_timer("sumcheck 3 / 4");
-    // alert("sumcheck 3 / 4 finished");
+    ret.second[0] = {std::move(secondProvers[0]), std::move(eqg), pcsg, pcsf1, pcsf2, gamma, lambda, sec_param};
+    ret.second[1] = {std::move(secondProvers[1]), std::move(eqh), pcsh, pcst1, pcst2, gamma, lambda, sec_param};
 
-    // set_timer("sumcheck 4 / 4");
-    start_proof("logup_sumcheck_4_4");
-    if (!p3Verifier::execute_logup_sumcheck(secondProvers[1], eqh, pcsh, *pcst1, *pcst2, gamma, lambda, sec_param)) {
-        std::cout << "logup failed 3 \n";
-        return false;
-    }
-    end_proof("logup_sumcheck_4_4");
-    // end_timer("sumcheck 4 / 4");
-    // alert("sumcheck 4 / 4 finished");
-    // alert("logup finished");
-    return true;
+    return ret;
 }
 
 

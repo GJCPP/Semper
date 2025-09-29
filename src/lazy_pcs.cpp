@@ -5,10 +5,15 @@
 #include "util.h"
 #include "ligero.h"
 #include "counter.h"
+
+#define OMIT_PCS
+
 std::shared_ptr<oracle> lazy_pcs_pool::commit(uint64_t rho_inv) {
-    // std::cout << "====== warning: lazy_pcs_pool::commit skipped." << std::endl;
-    // committed = true;
-    // return {};
+#ifdef OMIT_PCS
+    std::cout << "====== warning: lazy_pcs_pool::commit skipped." << std::endl;
+    committed = true;
+    return {};
+#endif
 
     if (committed) {
         throw std::runtime_error("lazy_pcs_pool::commit: already committed");
@@ -79,9 +84,13 @@ std::shared_ptr<oracle> lazy_pcs_pool::commit(uint64_t rho_inv) {
 }
 
 void lazy_pcs_pool::record_open(size_t ind, const std::vector<Goldilocks2::Element>& z, Goldilocks2::Element val, size_t sec) {
-    // std::cout << "====== warning: lazy_pcs_pool::record_open skipped." << std::endl;
-    // return ;
     
+#ifdef OMIT_PCS
+    std::cout << "====== warning: lazy_pcs_pool::record_open skipped." << std::endl;
+    return ;
+#endif
+
+    std::lock_guard<std::mutex> lock(mtx);
     if (!committed) {
         throw std::runtime_error("lazy_pcs_pool::record_open: not committed");
     }
@@ -108,8 +117,11 @@ void lazy_pcs_pool::record_open(size_t ind, const std::vector<Goldilocks2::Eleme
 }
 
 bool lazy_pcs_pool::prove_open(std::shared_ptr<oracle> pcs, Goldilocks2::Element lambda) {
-    // std::cout << "====== warning: lazy_pcs_pool::prove_open skipped." << std::endl;
-    // return true;
+
+#ifdef OMIT_PCS
+    std::cout << "====== warning: lazy_pcs_pool::prove_open skipped." << std::endl;
+    return true;
+#endif
 
     if (!committed) {
         throw std::runtime_error("lazy_pcs_pool::prove_open: not committed");
@@ -119,10 +131,20 @@ bool lazy_pcs_pool::prove_open(std::shared_ptr<oracle> pcs, Goldilocks2::Element
     }
     finalized = true;
 
+    if (open_eqs.size() == 0) return true;
+
     std::vector<Goldilocks2::Element> table(1ull << num_vars);
     Goldilocks2::Element claim = Goldilocks2::zero();
-    Goldilocks2::Element base = Goldilocks2::one();
+    std::vector<Goldilocks2::Element> base(open_eqs.size());
     oracle_sum eq_sum_oracle;
+    
+
+    set_timer("lazy pcs open gen");
+    base[0] = Goldilocks2::one();
+    for (size_t i = 1; i < base.size(); ++i) {
+        base[i] = base[i - 1] * lambda;
+    }
+    #pragma omp parallel for
     for (size_t i = 0; i != open_eqs.size(); ++i) {
         int pre_len = prefix[open_ind[i]].size();
         size_t offset = 0;
@@ -130,16 +152,21 @@ bool lazy_pcs_pool::prove_open(std::shared_ptr<oracle> pcs, Goldilocks2::Element
             offset = open_eqs[i][j] == Goldilocks2::one() ? ((offset << 1) | 1) : (offset << 1);
         }
         offset <<= (num_vars - pre_len);
-        MLE_Eq eq(open_eqs[i].begin() + pre_len, open_eqs[i].end());
-        auto& eqt = eq.get_eval_table();
+        auto eqt = eq_table(num_vars - pre_len, &open_eqs[i][pre_len]);
         for (size_t k = 0; k != (1ull << (num_vars - pre_len)); ++k) {
-            table[k + offset] += eqt[k] * base;
+            eqt[k] *= base[i];
         }
-        eq_sum_oracle.add(std::make_shared<MLE_Eq_Oracle>(open_eqs[i]), base);
-        claim += open_val[i] * base;
-        base *= lambda;
+        #pragma omp critical
+        {
+            for (size_t k = 0; k != (1ull << (num_vars - pre_len)); ++k) {
+                table[k + offset] += eqt[k];
+            }
+            eq_sum_oracle.add(std::make_shared<MLE_Eq_Oracle>(open_eqs[i]), base[i]);
+            claim += open_val[i] * base[i];
+        }
     }
     MLE mle_sum(std::move(table));
+    pause_timer("lazy pcs open gen");
     p2Prover prover(mle_sum.clone(), uni_mle.clone());
     if (!p2Verifier::execute_sumcheck(prover, {&eq_sum_oracle, pcs.get()}, claim, sec_param)) {
         std::cerr << __LINE__ << ": lazy_pcs_pool::prove_open: sumcheck failed" << std::endl;

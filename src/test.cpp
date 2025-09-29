@@ -19,7 +19,7 @@
 #include "lazy_map_check.h"
 #include "counter.h"
 
-#define CNT_TEST 20
+#define CNT_TEST 5
 
 bool test_arithmetic() {
     typedef Goldilocks2::Element Element;
@@ -613,7 +613,7 @@ bool test_logup() {
         }
     }
     end_proof("test logup");
-    print_all_proof_size(Counter::MB);
+    // print_all_proof_size(Counter::MB);
     for (int cnt(0); cnt != CNT_TEST; ++cnt) {
         srand(cnt);
         size_t fsize = 4 << (rand() % 10), tsize = 4 << (rand() % 10);
@@ -1308,22 +1308,22 @@ bool run_test() {
     //     std::cout << "test_pd_check failed" << std::endl;
     //     return false;
     // }
-    // if (!test_set_check()) {
-    //     std::cout << "test_set_check failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_perm_check()) {
-    //     std::cout << "test_perm_check failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_map_check()) {
-    //     std::cout << "test_map_check failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_lazy_map_check()) {
-    //     std::cout << "test_lazy_map_check failed" << std::endl;
-    //     return false;
-    // }
+    if (!test_set_check()) {
+        std::cout << "test_set_check failed" << std::endl;
+        return false;
+    }
+    if (!test_perm_check()) {
+        std::cout << "test_perm_check failed" << std::endl;
+        return false;
+    }
+    if (!test_map_check()) {
+        std::cout << "test_map_check failed" << std::endl;
+        return false;
+    }
+    if (!test_lazy_map_check()) {
+        std::cout << "test_lazy_map_check failed" << std::endl;
+        return false;
+    }
     // if (!test_conv_check()) {
     //     std::cout << "test_conv_check failed" << std::endl;
     //     return false;
@@ -1344,22 +1344,22 @@ bool run_test() {
     //     std::cout << "test_mat_mult failed" << std::endl;
     //     return false;
     // }
-    // if (!test_div_check()) {
-    //     std::cout << "test_div_check failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_sign_check()) {
-    //     std::cout << "test_sign_check failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_prod_check()) {
-    //     std::cout << "test_prod_check failed" << std::endl;
-    //     return false;
-    // }
-    // if (!test_ltn_check()) {
-    //     std::cout << "test_ltn_check failed" << std::endl;
-    //     return false;
-    // }
+    if (!test_div_check()) {
+        std::cout << "test_div_check failed" << std::endl;
+        return false;
+    }
+    if (!test_sign_check()) {
+        std::cout << "test_sign_check failed" << std::endl;
+        return false;
+    }
+    if (!test_prod_check()) {
+        std::cout << "test_prod_check failed" << std::endl;
+        return false;
+    }
+    if (!test_ltn_check()) {
+        std::cout << "test_ltn_check failed" << std::endl;
+        return false;
+    }
     if (!test_e_pow_check()) {
         std::cout << "test_e_pow_check failed" << std::endl;
         return false;

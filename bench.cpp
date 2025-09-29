@@ -6,6 +6,8 @@
 #include <iomanip>
 #include <chrono>
 
+#include <omp.h>
+
 #include "timer.h"
 #include "test.h"
 #include "VGG16.h"
@@ -32,7 +34,7 @@ void bench_VGG16() {
 void bench_VGG11() {
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     // VGG11 VGG11("/home/gaojc/Desktop/zkCNN/training_trace", 0, 1 << 14, 1 << 24, 2, 32);
-    VGG11 VGG11("../training_trace", 0, 1 << 14, 1 << 27, 2, 32);
+    VGG11 VGG11("/home/guest/data/gjc/zkCNN/training_trace", 0, 1 << 14, 1 << 27, 2, 32);
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
     std::cout << "Loading VGG11 took " << duration.count() / 1000000.0 << " s" << std::endl;
@@ -103,7 +105,7 @@ void bench_transpose() {
 
 void bench_commit() {
     clear_all_timers();
-    for (int i = 32; i <= 32; ++i) {
+    for (int i = 28; i <= 28; ++i) {
         std::cout << "i = " << i << std::endl;
         set_timer("allocation");
         std::vector<Goldilocks2::Element> vec(1ull << i);
@@ -133,9 +135,10 @@ void bench_commit() {
 int main() {
     // if (!run_test()) return 0;
     // find_parameter();
-    
-    // bench_VGG11();
-    bench_commit();
+    omp_set_num_threads(NUM_THREADS);
+    // omp_set_nested(true);
+    bench_VGG11();
+    // bench_commit();
     // bench_transpose();
     // bench_VGG16();
     // std::vector<Goldilocks2::Element> z = random_vec_ext(1 << 24);
@@ -154,25 +157,4 @@ int main() {
     // }
     return 0;
 }
-// int main() {
-//     // if (!run_test()) return 0;
-//     // find_parameter();
-//     bench_VGG11();
-//     // bench_commit();
-//     // bench_VGG16();
-//     // std::vector<Goldilocks2::Element> z = random_vec_ext(1 << 24);
-//     // MLE mle = z;
-//     // auto pcs = ligero_commit_ext(mle, 2);
-//     // auto cha = random_vec_ext(24);
-//     // set_timer("pcs_open");
-//     // pcs.open(cha, 32);
-//     // pause_timer("pcs_open");
-//     // set_timer("mle_open");
-//     // mle.open(cha, 32);
-//     // pause_timer("mle_open");
-//     // print_all_timers();
-//     // for (auto& [key, value] : lazy_pcs_open_cnt) {
-//     //     std::cout << "lazy_pcs index " << key << " opened " << value << " times" << std::endl;
-//     // }
-//     return 0;
-// }
+
