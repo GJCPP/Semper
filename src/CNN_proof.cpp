@@ -311,7 +311,7 @@ bool prove_conv(
 bool pre_prove_conv_forward(const CNN::layer_info& layer, CNN::conv_wit wit, int padding, CNN::layer_res& res, lazy_pcs_pool* pool) {
     int bat = int(layer.input.shape(0));
 
-    // #pragma omp parallel for
+    // // #pragma omp parallel for
     for (int i = 0; i < bat; ++i) {
         auto wit_copy = wit;
         wit_copy.set_forward();
@@ -333,7 +333,7 @@ bool prove_conv_forward(
 
     int bat = int(layer.input.shape(0));
 
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (int i = 0; i < bat; ++i) {
         auto wit_copy = wit;
         wit_copy.set_forward();
@@ -358,7 +358,7 @@ bool prove_conv_forward(
 bool pre_prove_conv_backward_dW(const CNN::layer_info& layer, CNN::conv_wit _wit, int padding, CNN::layer_res& res, lazy_pcs_pool* pool) {
     int bat = int(layer.input.shape(0));
 
-    // #pragma omp parallel for
+    // // #pragma omp parallel for
     for (int i = 0; i < bat; ++i) {
         auto wit = _wit;
         wit.set_dW();
@@ -380,7 +380,7 @@ bool prove_conv_backward_dW(
 
     int bat = int(layer.input.shape(0));
 
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (int i = 0; i < bat; ++i) {
         auto pcs_input = layer.get_pcs_input(i);
         auto pcs_d_output = layer.get_pcs_d_output(i);
@@ -411,7 +411,7 @@ bool prove_conv_backward_dW(
 bool pre_prove_conv_backward_dX(const CNN::layer_info& layer, CNN::conv_wit _wit, int padding, CNN::layer_res& res, lazy_pcs_pool* pool) {
     int bat = int(layer.input.shape(0));
 
-    // #pragma omp parallel for
+    // // #pragma omp parallel for
     for (int i = 0; i < bat; ++i) {
         auto wit = _wit;
         wit.set_dX();
@@ -433,7 +433,7 @@ bool prove_conv_backward_dX(
 
     int bat = int(layer.input.shape(0));
 
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (int i = 0; i < bat; ++i) {
         auto pcs_d_output = layer.get_pcs_d_output(i);
         auto pcs_weight = layer.get_pcs_weight(i);
@@ -554,7 +554,7 @@ bool prove_full_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_p
     startCounter counter("full_proof");
     const int batch = int(layer.input.shape(0));
     // Prove forward
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (int i = 0; i < batch; ++i) {
         auto pcs_input = layer.get_pcs_input(i);
         auto pcs_weight = layer.get_pcs_weight(i);
@@ -573,7 +573,7 @@ bool prove_full_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_p
     }
 
     // Prove backward dW = X^T * dY
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (int i = 0; i < batch; ++i) {
         auto pcs_input = layer.get_pcs_input(i);
         auto pcs_d_weight = layer.get_pcs_d_weight(i);
@@ -597,7 +597,7 @@ bool prove_full_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_p
     }
 
     // Prove backward dX = dY * W^T
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (int i = 0; i < batch; ++i) {
         auto pcs_d_output = layer.get_pcs_d_output(i);
         auto pcs_weight = layer.get_pcs_weight(i);
@@ -636,7 +636,7 @@ CNN::layer_res pre_prove_relu_layer(
 
     const int batch = int(layer.input.shape(0));
 
-    // #pragma omp parallel for
+    // // #pragma omp parallel for
     for (int i = 0; i != batch; ++i) {
         std::string _i = "_" + std::to_string(i);
         // Prove forward
@@ -714,7 +714,7 @@ bool prove_relu_layer(const CNN::layer_info& layer,
 
     const int batch = int(layer.input.shape(0));
 
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (int i = 0; i != batch; ++i) {
         std::string _i = "_" + std::to_string(i);
         // Prove forward
@@ -876,7 +876,7 @@ CNN::layer_res pre_prove_pool_layer(const CNN::layer_info& layer,
     // layer.input : [batch, img, C, N, N]
     // layer.output: [batch, img, C, N/2, N/2]
 
-    // #pragma omp parallel for
+    // // #pragma omp parallel for
     for (int i = 0; i < batch; ++i) {
         std::string _i = "_" + std::to_string(i);
         auto input = layer.input[i]; // [img, C, N, N]
@@ -1003,7 +1003,7 @@ bool prove_pool_layer(const CNN::layer_info& layer,
     int logC = find_ceiling_log2(C);
     int logN = find_ceiling_log2(N);
 
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (int i = 0; i < batch; ++i) {
         std::string _i = "_" + std::to_string(i);
 
@@ -1772,7 +1772,7 @@ bool prove_flat_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_p
         throw std::invalid_argument("prove_flat_layer: Input shape must be [batch, img, C, 1, 1]");
     }
     bool ret = true;
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (int i = 0; i != batch; ++i) {
         auto pcs_input = layer.get_pcs_input(i);
         auto pcs_output = layer.get_pcs_output(i);

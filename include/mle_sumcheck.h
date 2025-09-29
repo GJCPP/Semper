@@ -12,6 +12,7 @@ class sProver{
 public:
     sProver(const MultilinearPolynomial& g);
     sProver(MultilinearPolynomial&& g);
+    sProver() = default;
     void initialize();
     std::array<Goldilocks2::Element, 2> send_message(const size_t& round,const std::vector<Goldilocks2::Element>& rands);
     Goldilocks2::Element get_sum() const { return sum; }

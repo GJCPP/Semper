@@ -332,7 +332,7 @@ def train_manual():
         ])
     dataset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
     loader = DataLoader(dataset , batch_size=16, shuffle=True)
-    subset = Subset(dataset, indices=range(16))
+    subset = Subset(dataset, indices=range(64))
     indexed_subset = IndexedDataset(subset)  # Wrap to include indices
     loader = DataLoader(indexed_subset, batch_size=16, shuffle=True)
     model = ManualVGG11()

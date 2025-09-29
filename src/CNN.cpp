@@ -439,6 +439,7 @@ bool CNN::prove(size_t sec_param) {
     }
 
     std::cout << "Proving final logup..." << std::endl;
+    // std::cout << "======================Warning: skip final logup." << std::endl;
     set_timer("final logup");
     start_proof("final logup");
     if (!lazy_logup_verifier.prove_all(lazy_logup_prover, rho_inv, sec_param)) {
@@ -448,25 +449,27 @@ bool CNN::prove(size_t sec_param) {
     pause_timer("final logup");
     end_proof("final logup");
 
-    // std::cout << "======================Warning: skip final map." << std::endl;
-    std::cout << "Proving final map..." << std::endl;
-    set_timer("final map");
-    start_proof("final map");
-    if (!lazy_map_verifier.prove_all(lazy_map_prover, rho_inv, sec_param)) {
-        std::cout << "❌ Final lazy map proof failed." << std::endl;
-        return false;
-    }
-    pause_timer("final map");
-    end_proof("final map");
+    std::cout << "======================Warning: skip final map." << std::endl;
+    // std::cout << "Proving final map..." << std::endl;
+    // set_timer("final map");
+    // start_proof("final map");
+    // if (!lazy_map_verifier.prove_all(lazy_map_prover, rho_inv, sec_param)) {
+    //     std::cout << "❌ Final lazy map proof failed." << std::endl;
+    //     return false;
+    // }
+    // pause_timer("final map");
+    // end_proof("final map");
 
-    // std::cout << "===================Warning: skip final opening." << std::endl;
-    std::cout << "Proving final opening..." << std::endl;
-    start_proof("final open");
-    if (!prove_final_open(random_ext())) {
-        std::cout << "❌ Final opening proof failed." << std::endl;
-        return false;
-    }
-    end_proof("final open");
+    // clear_all_timers();
+
+    std::cout << "===================Warning: skip final opening." << std::endl;
+    // std::cout << "Proving final opening..." << std::endl;
+    // start_proof("final open");
+    // if (!prove_final_open(random_ext())) {
+    //     std::cout << "❌ Final opening proof failed." << std::endl;
+    //     return false;
+    // }
+    // end_proof("final open");
 
     pause_timer(std::format("prove {} total", model_name));
     print_all_timers();
@@ -498,7 +501,7 @@ bool CNN::prove_input(size_t sec_param) {
     from.resize(batch * img * channel * wide * height);
     to.resize(batch * img * channel * wide * height);
 
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (size_t b = 0; b != batch; ++b) {
         size_t ind_b = b * up_img * up_channel * up_wide * up_height;
         size_t out_ind_b = b * img * channel * wide * height;
@@ -553,7 +556,7 @@ bool CNN::prove_input(size_t sec_param) {
     auto cha = random_vec_ext(mle_input.get_num_vars() - log_batch);
     auto label_cha = random_vec_ext(mle_label.get_num_vars() - log_batch);
     bool succ = true;
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (size_t b = 0; b != batch; ++b) {
         std::vector<Goldilocks2::Element> pre(log_batch);
         for (int i = 0; i != log_batch; ++i) {
@@ -602,7 +605,7 @@ void CNN::add_layer(layer_type type, int id,
     auto init_mle = [&](const std::string& key) {
         auto& mle = this->mle[key];
         mle.resize(minibatch);
-        #pragma omp parallel for
+        // #pragma omp parallel for
         for (int i = 0; i < minibatch; ++i) {
             mle[i] = std::make_shared<MultilinearPolynomial>(data_view[key][i]);
         }

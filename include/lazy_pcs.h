@@ -2,6 +2,7 @@
 
 #include <map>
 #include <vector>
+#include <mutex>
 
 #include "goldilocks_quadratic_ext.h"
 #include "ligero.h"
@@ -51,6 +52,8 @@ public:
 
     bool is_ext() const { return use_ext; }
 
+    size_t get_open_num() const { return open_eqs.size(); }
+
 protected:
     bool committed = false, finalized = false;
     int num_vars = 0;
@@ -66,11 +69,15 @@ protected:
     MLE uni_mle;
 
     size_t add_mle(const MLE& mle) {
+        std::lock_guard<std::mutex> lock(mtx);
         mles.push_back({mle, mles.size()});
         return mles.size() - 1;
     }
 
     void record_open(size_t ind, const std::vector<Goldilocks2::Element>& z, Goldilocks2::Element val, size_t sec_param);
+
+private:
+    std::mutex mtx;
 };
 
 

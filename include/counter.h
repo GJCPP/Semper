@@ -4,6 +4,7 @@
 #include <map>
 #include <set>
 #include <iostream>
+#include <mutex>
 
 // count proof size
 class Counter {
@@ -14,6 +15,7 @@ public:
     Counter() = default;
 
     void add(const std::string& str, size_t sz) {
+        std::lock_guard<std::mutex> lock(mtx);
         if (counts.find(str) == counts.end()) {
             counts[str] = 0;
         }
@@ -21,20 +23,24 @@ public:
     }
 
     void add(size_t sz) {
+        std::lock_guard<std::mutex> lock(mtx);
         for (auto& s : active) {
             add(s, sz);
         }
     }
 
     void start(const std::string& str) {
+        std::lock_guard<std::mutex> lock(mtx);
         active.insert(str);
     }
 
     void end(const std::string& str) {
+        std::lock_guard<std::mutex> lock(mtx);
         active.erase(str);
     }
 
     void clear() {
+        std::lock_guard<std::mutex> lock(mtx);
         counts.clear();
         active.clear();
     }
@@ -61,6 +67,8 @@ protected:
     std::set<std::string> active;
     const static std::map<metric, double> scale;
     const static std::map<metric, std::string> unit;
+private:
+    std::mutex mtx;
 };
 
 
