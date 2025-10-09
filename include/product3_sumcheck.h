@@ -4,6 +4,7 @@
 #include "mle.h"
 #include "mle_eq.h"
 #include "ligero.h"
+#include "protocol.h"
 #include <array>
 #include <vector>
 #include <optional>
@@ -65,5 +66,55 @@ bool prove_mle_product(const MultilinearPolynomial& prod,
     const oracle& o_p1, 
     const oracle& o_p2, 
     size_t sec_param);
+
+class p3proto : public protocol {
+public:
+    p3proto(p3Prover&& _prover, std::array<std::shared_ptr<oracle>, 3> _oracles, Goldilocks2::Element _claim, uint64_t _sec_param)
+        : protocol(_sec_param), prover(std::move(_prover)), oracles(_oracles), claim(_claim), has_claim(true) {
+        ;
+    }
+    p3proto(p3Prover&& _prover, std::array<std::shared_ptr<oracle>, 3> _oracles, uint64_t _sec_param)
+        : protocol(_sec_param), prover(std::move(_prover)), oracles(_oracles), has_claim(false) {
+        ;
+    }
+    bool execute() override {
+        if (has_claim) return p3Verifier::execute_sumcheck(prover, claim, {oracles[0].get(), oracles[1].get(), oracles[2].get()}, sec_param);
+        return p3Verifier::execute_sumcheck(prover, {oracles[0].get(), oracles[1].get(), oracles[2].get()}, sec_param);
+    }
+private:
+    p3Prover prover;
+    std::array<std::shared_ptr<oracle>, 3> oracles;
+    Goldilocks2::Element claim;
+    bool has_claim;
+};
+
+class logup_sum_proto : public protocol {
+public:
+    logup_sum_proto(p3Prover&& _prover, 
+                const MLE_Eq& _eqr,
+                std::shared_ptr<oracle> _frac,
+                std::shared_ptr<oracle> _p1,
+                std::shared_ptr<oracle> _p2,
+                Goldilocks2::Element _gamma,
+                Goldilocks2::Element _lambda,
+                uint64_t _sec_param)
+        : protocol(_sec_param), prover(std::move(_prover)), eqr(_eqr), frac(_frac), p1(_p1), p2(_p2), gamma(_gamma), lambda(_lambda) {
+        ;
+    }
+    
+    bool execute() override {
+        return p3Verifier::execute_logup_sumcheck(prover, eqr, *frac, *p1, *p2, gamma, lambda, sec_param);
+    }
+    
+private:
+    p3Prover prover;
+    MLE_Eq eqr;
+    std::shared_ptr<oracle> frac;
+    std::shared_ptr<oracle> p1;
+    std::shared_ptr<oracle> p2;
+    Goldilocks2::Element gamma;
+    Goldilocks2::Element lambda;
+};
+
 
 

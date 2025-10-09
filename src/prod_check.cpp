@@ -87,7 +87,6 @@ bool prodVerifier::execute_prod_check(prodProver& prover, open_param raw, open_p
 
 prodVerifier::resource prodVerifier::pre_execute_prod_check(prodProver& prover, lazy_pcs_pool* pool) {
     resource ret;
-    bool first = true;
     ret.pcs_raw.resize(prover.suffix_len);
     for (int rnd = prover.suffix_len - 1; rnd >= 0; --rnd) {
         std::vector<Goldilocks2::Element> cha = random_vec_ext(prover.num_vars - 1);

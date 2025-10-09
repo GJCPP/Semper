@@ -72,7 +72,7 @@ target_sources(bench PRIVATE ${SOURCES})
 # set(CMAKE_CXX_FLAGS_DEBUG "-g -DDEBUG")
 
 target_compile_options(bench PRIVATE
-    $<$<CONFIG:Release>:-Wall -O3  -march=native -fopenmp>
+    $<$<CONFIG:Release>:-Wall -O3 -march=native -fopenmp>
     $<$<CONFIG:Debug>:-Wall -g -DDEBUG  -march=native -fopenmp>)
 
 # Use "cmake -DCMAKE_CXX_COMPILER=g++-13 -DCMAKE_BUILD_TYPE=Debug .." to build in debug mode

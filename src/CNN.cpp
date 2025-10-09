@@ -361,6 +361,7 @@ bool CNN::prove(size_t sec_param) {
 
     set_timer(std::format("prove {} total", model_name));
     
+    std::cout << "Committing all pcs..." << std::endl;
     finish_pre_prove();
     
     // std::cout << "===================Warning: skip proving input." << std::endl;

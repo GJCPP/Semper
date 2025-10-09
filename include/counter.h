@@ -23,7 +23,6 @@ public:
     }
 
     void add(size_t sz) {
-        std::lock_guard<std::mutex> lock(mtx);
         for (auto& s : active) {
             add(s, sz);
         }

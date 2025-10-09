@@ -1,5 +1,10 @@
 #pragma once
 
+#include <vector>
+#include <array>
+#include <optional>
+#include <random>
+
 #include "goldilocks_quadratic_ext.h"
 #include "mle_sumcheck.h"
 #include "product3_sumcheck.h"
@@ -7,10 +12,7 @@
 #include "mle_eq.h"
 #include "ligero.h"
 #include "lazy_pcs.h"
-#include <vector>
-#include <array>
-#include <optional>
-#include <random>
+#include "protocol.h"
 
 namespace LogupDef {
     typedef ligeropcs_base pcs_base;
@@ -39,12 +41,12 @@ public:
     void calculate_gh(const Goldilocks2::Element& gamma, const Goldilocks2::Element& lambda);
 
     LogupDef::pcs_base commit_c(const uint64_t& rho_inv);
-    lazy_pcs commit_c(lazy_pcs_pool* pool_c);
+    std::shared_ptr<lazy_pcs> commit_c(lazy_pcs_pool* pool_c);
 
     std::array<LogupDef::pcs_base, 4> commit_ft(const uint64_t& rho_inv);
 
     std::array<LogupDef::pcs_ext, 2> commit_gh(const uint64_t& rho_inv);
-    std::array<lazy_pcs, 2> commit_gh(lazy_pcs_pool* pool);
+    std::array<std::shared_ptr<lazy_pcs>, 2> commit_gh(lazy_pcs_pool* pool);
 
     std::array<sProver, 2> firstProvers();
     std::array<p3Prover, 2> secondProvers(const std::vector<Goldilocks2::Element>& rg, const std::vector<Goldilocks2::Element>& rh);
@@ -52,50 +54,6 @@ public:
 
 class LogupVerifier {
 public:
-    class SumcheckInst {
-    public:
-        sProver prover;
-        lazy_pcs pcs;
-        size_t sec_param;
-        
-        SumcheckInst() = default;
-        SumcheckInst(sProver &&_prover, lazy_pcs _pcs, size_t _sec_param)
-            : prover(std::move(_prover)), pcs(_pcs), sec_param(_sec_param) {}
-        bool execute() {
-            return sVerifier::execute_sumcheck(prover, pcs, sec_param);
-        }
-    };
-    class LogupSumcheckInst {
-    public:
-        p3Prover prover;
-        MLE_Eq eqr;
-        lazy_pcs frac;
-        const oracle *f1, *f2;
-        Goldilocks2::Element gamma, lambda;
-        size_t sec_param;
-        
-        LogupSumcheckInst() = default;
-        LogupSumcheckInst(
-            p3Prover &&_prover,
-            MLE_Eq &&_eqr,
-            lazy_pcs _frac,
-            const oracle *_f1,
-            const oracle *_f2,
-            const Goldilocks2::Element &_gamma,
-            const Goldilocks2::Element &_lambda,
-            size_t _sec_param)
-            : prover(std::move(_prover)),
-              eqr(std::move(_eqr)),
-              frac(_frac),
-              f1(_f1),
-              f2(_f2),
-              gamma(_gamma),
-              lambda(_lambda),
-              sec_param(_sec_param) {}
-        bool execute() {
-            return p3Verifier::execute_logup_sumcheck(prover, eqr, frac, *f1, *f2, gamma, lambda, sec_param);
-        }
-    };
     static bool execute_logup(LogupProver& lpr, const uint64_t& rho_inv, const size_t& sec_param);
     static bool execute_logup(LogupProver& lpr, 
         const oracle& f1, const oracle& f2,
@@ -103,21 +61,21 @@ public:
         const uint64_t& rho_inv, const size_t& sec_param);
 
     bool execute_logup_first_part(LogupProver& lpr, 
-        const oracle& f1, const oracle& f2,
-        const oracle& t1, const oracle& t2,
+        std::shared_ptr<oracle> f1, std::shared_ptr<oracle> f2,
+        std::shared_ptr<oracle> t1, std::shared_ptr<oracle> t2,
         const uint64_t& rho_inv, const size_t& sec_param,
         lazy_pcs_pool *pool_c);
 
     bool execute_logup_second_part(LogupProver& lpr, 
-        const oracle& f1, const oracle& f2,
-        const oracle& t1, const oracle& t2,
+        std::shared_ptr<oracle> f1, std::shared_ptr<oracle> f2,
+        std::shared_ptr<oracle> t1, std::shared_ptr<oracle> t2,
         const uint64_t& rho_inv, const size_t& sec_param,
         lazy_pcs_pool *pool_gh);
 
-    std::pair<std::array<SumcheckInst, 2>, std::array<LogupSumcheckInst, 2>>
-        execute_logup_third_part(LogupProver& lpr,
-        const oracle& f1, const oracle& f2, 
-        const oracle& t1, const oracle& t2, 
+    bool execute_logup_third_part(LogupProver& lpr,
+        std::shared_ptr<oracle> f1, std::shared_ptr<oracle> f2, 
+        std::shared_ptr<oracle> t1, std::shared_ptr<oracle> t2, 
+        protoque& que,
         const uint64_t& rho_inv, const size_t& sec_param);
 
 private:
@@ -127,5 +85,5 @@ private:
     static std::vector<Goldilocks2::Element> randvec(const uint64_t& n);
 
     Goldilocks2::Element gamma, lambda;
-    lazy_pcs lazy_pcs_c, lazy_pcs_g, lazy_pcs_h;
+    std::shared_ptr<lazy_pcs> lazy_pcs_c, lazy_pcs_g, lazy_pcs_h;
 };

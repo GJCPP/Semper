@@ -4,6 +4,7 @@
 #include <vector>
 #include <memory>
 #include <map>
+#include <mutex>
 
 #include "lazy_pcs.h"
 #include "perm_check.h"
@@ -38,7 +39,11 @@ public:
 
     bool using_ext() const { return use_ext; }
     
+    void lock() { mut.lock(); }
+    void release() { mut.unlock(); }
+
 protected:
+    std::mutex mut;
     bool use_ext;
     std::vector<mapProofInstance> ins_left, ins_right;
 };

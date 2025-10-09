@@ -136,8 +136,8 @@ LogupDef::pcs_base LogupProver::commit_c(const uint64_t& rho_inv) {
     return pr.commit();
 }
 
-lazy_pcs LogupProver::commit_c(lazy_pcs_pool *pool_c) {
-    return commit_lazy_pcs(c, pool_c);
+std::shared_ptr<lazy_pcs> LogupProver::commit_c(lazy_pcs_pool *pool_c) {
+    return std::make_shared<lazy_pcs>(commit_lazy_pcs(c, pool_c));
 }
 
 std::array<LogupDef::pcs_ext, 2> LogupProver::commit_gh(const uint64_t& rho_inv) {
@@ -147,8 +147,9 @@ std::array<LogupDef::pcs_ext, 2> LogupProver::commit_gh(const uint64_t& rho_inv)
     return { prg.commit(), prh.commit() };
 }
 
-std::array<lazy_pcs, 2> LogupProver::commit_gh(lazy_pcs_pool *pool) {
-    return { commit_lazy_pcs(g, pool), commit_lazy_pcs(h, pool) };
+std::array<std::shared_ptr<lazy_pcs>, 2> LogupProver::commit_gh(lazy_pcs_pool *pool) {
+    return { std::make_shared<lazy_pcs>(commit_lazy_pcs(g, pool)),
+             std::make_shared<lazy_pcs>(commit_lazy_pcs(h, pool)) };
 }
 
 
@@ -283,8 +284,8 @@ bool LogupVerifier::execute_logup(LogupProver& lpr,
 
 bool LogupVerifier::execute_logup_first_part(
     LogupProver& lpr, 
-    const oracle& f1, const oracle& f2, 
-    const oracle& t1, const oracle& t2, 
+    std::shared_ptr<oracle> f1, std::shared_ptr<oracle> f2, 
+    std::shared_ptr<oracle> t1, std::shared_ptr<oracle> t2, 
     const uint64_t& rho_inv, const size_t& sec_param,
     lazy_pcs_pool *pool_c) {
     
@@ -293,7 +294,7 @@ bool LogupVerifier::execute_logup_first_part(
     }
 
     startCounter counter("logup");
-    std::array<const oracle*, 4> ft = { &f1, &f2, &t1, &t2 };
+    std::array<std::shared_ptr<oracle>, 4> ft = { f1, f2, t1, t2 };
     // set_timer("check commitment of f, t");
     // for (auto pc : ft) {
     //     if (!ligeroVerifier::check_commit(pc, sec_param)) return false;
@@ -309,8 +310,8 @@ bool LogupVerifier::execute_logup_first_part(
 
 bool LogupVerifier::execute_logup_second_part(
     LogupProver& lpr, 
-    const oracle& f1, const oracle& f2, 
-    const oracle& t1, const oracle& t2, 
+    std::shared_ptr<oracle> f1, std::shared_ptr<oracle> f2, 
+    std::shared_ptr<oracle> t1, std::shared_ptr<oracle> t2, 
     const uint64_t& rho_inv, const size_t& sec_param, 
     lazy_pcs_pool* pool_gh) {
 
@@ -318,7 +319,7 @@ bool LogupVerifier::execute_logup_second_part(
         throw std::invalid_argument("LogupVerifier::execute_logup_first_part: pool_gh should use ext field.");
     }
     startCounter counter("logup");
-    std::array<const oracle*, 4> ft = { &f1, &f2, &t1, &t2 };
+    std::array<std::shared_ptr<oracle>, 4> ft = { f1, f2, t1, t2 };
 
     gamma = randnum();
     lambda = randnum();
@@ -332,26 +333,24 @@ bool LogupVerifier::execute_logup_second_part(
     return true;
 }
 
-std::pair<std::array<LogupVerifier::SumcheckInst, 2>, std::array<LogupVerifier::LogupSumcheckInst, 2>>
-    LogupVerifier::execute_logup_third_part(
+bool LogupVerifier::execute_logup_third_part(
     LogupProver& lpr, 
-    const oracle& f1, const oracle& f2, 
-    const oracle& t1, const oracle& t2, 
+    std::shared_ptr<oracle> f1, std::shared_ptr<oracle> f2, 
+    std::shared_ptr<oracle> t1, std::shared_ptr<oracle> t2, 
+    protoque& que,
     const uint64_t& rho_inv, const size_t& sec_param) {
 
-    std::array<const oracle*, 4> ft = { &f1, &f2, &t1, &t2 };
+    std::array<std::shared_ptr<oracle>, 4> ft = { f1, f2, t1, t2 };
     auto pcsg = lazy_pcs_g, pcsh = lazy_pcs_h;
     
-
-    std::pair<std::array<SumcheckInst, 2>, std::array<LogupSumcheckInst, 2>> ret;
     std::array<sProver, 2> firstProvers = lpr.firstProvers();
 
-    ret.first[0] = {std::move(firstProvers[0]), pcsg, sec_param};
-    ret.first[1] = {std::move(firstProvers[1]), pcsh, sec_param};
+    que.push_back(std::make_unique<sproto>(std::move(firstProvers[0]), pcsg, sec_param));
+    que.push_back(std::make_unique<sproto>(std::move(firstProvers[1]), pcsh, sec_param));
 
     // set_timer("generate rg and rh");
-    const size_t numvar_g = pcsg.get_num_vars();
-    const size_t numvar_h = pcsh.get_num_vars();
+    const size_t numvar_g = pcsg->get_num_vars();
+    const size_t numvar_h = pcsh->get_num_vars();
     std::vector<Goldilocks2::Element> rg = randvec(numvar_g);
     std::vector<Goldilocks2::Element> rh = randvec(numvar_h);
     // end_timer("generate rg and rh");
@@ -365,11 +364,11 @@ std::pair<std::array<LogupVerifier::SumcheckInst, 2>, std::array<LogupVerifier::
     MLE_Eq eqh(rh);
     // end_timer("calculate eq");
     auto pcsf1 = ft[0], pcsf2 = ft[1], pcst1 = ft[2], pcst2 = ft[3];
+    que.push_back(std::make_unique<logup_sum_proto>(std::move(secondProvers[0]), std::move(eqg), pcsg, pcsf1, pcsf2, gamma, lambda, sec_param));
+    que.push_back(std::make_unique<logup_sum_proto>(std::move(secondProvers[1]), std::move(eqh), pcsh, pcst1, pcst2, gamma, lambda, sec_param));
 
-    ret.second[0] = {std::move(secondProvers[0]), std::move(eqg), pcsg, pcsf1, pcsf2, gamma, lambda, sec_param};
-    ret.second[1] = {std::move(secondProvers[1]), std::move(eqh), pcsh, pcst1, pcst2, gamma, lambda, sec_param};
 
-    return ret;
+    return true;
 }
 
 

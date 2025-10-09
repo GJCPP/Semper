@@ -7,6 +7,7 @@
 #include "mle.h"
 #include "goldilocks_quadratic_ext.h"
 #include "ligero.h"
+#include "protocol.h"
 
 class sProver{
 public:
@@ -32,3 +33,20 @@ public:
 private:
     static Goldilocks2::Element challenge();
 };
+
+class sproto : public protocol {
+public:
+    sproto(sProver&& _prover, std::shared_ptr<oracle> _oracle, uint64_t _sec_param)
+        : protocol(_sec_param), prover(std::move(_prover)), oracle_ptr(_oracle) {
+        ;
+    }
+    
+    bool execute() override {
+        return sVerifier::execute_sumcheck(prover, *oracle_ptr, sec_param);
+    }
+    
+private:
+    sProver prover;
+    std::shared_ptr<oracle> oracle_ptr;
+};
+

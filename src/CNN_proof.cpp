@@ -477,13 +477,13 @@ CNN::layer_res pre_prove_conv_layer(const CNN::layer_info& layer, CNN::conv_wit 
     pre_prove_conv_forward(layer, wit, padding, res, pool);
     pause_timer("preprove conv forward");
 
-    set_timer("prove conv dW");
+    set_timer("preprove conv dW");
     pre_prove_conv_backward_dW(layer, wit, padding, res, pool);
-    pause_timer("prove conv dW");
+    pause_timer("preprove conv dW");
 
-    set_timer("prove conv dX");
+    set_timer("preprove conv dX");
     pre_prove_conv_backward_dX(layer, wit, padding, res, pool);
-    pause_timer("prove conv dX");
+    pause_timer("preprove conv dX");
 
 
     return res;
@@ -1276,7 +1276,7 @@ CNN::layer_res pre_prove_softmax(const CNN::layer_info& layer,
         ret.pcs["pcs_prod_sel" + _i] = commit_lazy_pcs(mle_prod_sel, pool);
         // 3.2 Prove max = shrink(sel * quo)
         MultilinearPolynomial mle_sel_quo = mle_sel * mle_quo;
-        auto pcs_sel_quo = ligero_commit_base(mle_sel_quo, rho_inv);
+        // auto pcs_sel_quo = ligero_commit_base(mle_sel_quo, rho_inv);
         ret.pcs["pcs_sel_quo" + _i] = commit_lazy_pcs(mle_sel_quo, pool);
         // 4. Commit/Prove diff_masked = mask * (max - quo)
         array<Goldilocks2::Element> diff(new_shape), diff_masked(new_shape);
