@@ -477,13 +477,13 @@ CNN::layer_res pre_prove_conv_layer(const CNN::layer_info& layer, CNN::conv_wit 
     pre_prove_conv_forward(layer, wit, padding, res, pool);
     pause_timer("preprove conv forward");
 
-    set_timer("prove conv dW");
+    set_timer("preprove conv dW");
     pre_prove_conv_backward_dW(layer, wit, padding, res, pool);
-    pause_timer("prove conv dW");
+    pause_timer("preprove conv dW");
 
-    set_timer("prove conv dX");
+    set_timer("preprove conv dX");
     pre_prove_conv_backward_dX(layer, wit, padding, res, pool);
-    pause_timer("prove conv dX");
+    pause_timer("preprove conv dX");
 
 
     return res;

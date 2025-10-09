@@ -73,7 +73,7 @@ bool ltnVerifier::execute_ltn_check(
     lazyLogupVerifier* lazy_logup_verifier) {
 
     size_t num = prover.get_num();
-    int lognum = find_ceiling_log2(num);
+    // int lognum = find_ceiling_log2(num);
 
     bool use_lazy_logup = (lazy_logup_verifier != nullptr);
     if (use_lazy_logup != prover.use_lazy_logup()) {

@@ -105,7 +105,7 @@ void bench_transpose() {
 
 void bench_commit() {
     clear_all_timers();
-    for (int i = 28; i <= 28; ++i) {
+    for (int i = 10; i <= 20; ++i) {
         std::cout << "i = " << i << std::endl;
         set_timer("allocation");
         std::vector<Goldilocks2::Element> vec(1ull << i);

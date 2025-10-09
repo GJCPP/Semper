@@ -461,8 +461,10 @@ bool convVerifier::execute_convcheck_2d(
             return false;
         }
     } else {
+        lazy_map_prover->lock();
         prover.get_lazy_map_prover(mapfrom, mapto, lazy_map_prover);
         lazy_map_verifier->add(mapfrom, mapto, std::make_shared<open_param>(Y), std::make_shared<open_param>(flat_Y));
+        lazy_map_prover->release();
     }
     pause_timer("conv2d_prove_perm");
     // std::chrono::duration<double> duration = std::chrono::high_resolution_clock::now() - start;

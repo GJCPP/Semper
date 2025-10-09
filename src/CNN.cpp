@@ -360,9 +360,8 @@ bool CNN::prove(size_t sec_param) {
     pause_timer("pre_prove");
 
     set_timer(std::format("prove {} total", model_name));
-
-    std::cout << "Committing PCS pool..." << std::endl;
-
+    
+    std::cout << "Committing all pcs..." << std::endl;
     finish_pre_prove();
     
     // std::cout << "===================Warning: skip proving input." << std::endl;
