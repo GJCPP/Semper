@@ -6,6 +6,8 @@
 #include <memory>
 #include <mutex>
 
+#include "timer.h"
+
 class protocol {
 public:
     protocol(uint64_t _sec_param) : sec_param(_sec_param) {}
@@ -22,7 +24,8 @@ public:
     }
 
     bool execute_all() {
-        std::lock_guard<std::mutex> lock(mut);
+        // std::lock_guard<std::mutex> lock(mut);
+        startTimer timer("prove protoque");
         bool ret = true;
 
         #pragma omp parallel for

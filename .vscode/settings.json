@@ -91,7 +91,12 @@
         "__tree": "cpp",
         "queue": "cpp",
         "stack": "cpp",
-        "unordered_set": "cpp"
+        "unordered_set": "cpp",
+        "__locale": "cpp",
+        "semaphore": "cpp",
+        "filesystem": "cpp",
+        "*.inc": "cpp",
+        "*.def": "cpp"
     },
     "C_Cpp.default.compilerPath": "/usr/bin/clang++-14"
 }

@@ -73,7 +73,7 @@ target_sources(bench PRIVATE ${SOURCES})
 
 target_compile_options(bench PRIVATE
     $<$<CONFIG:Release>:-Wall -O3 -march=native -fopenmp>
-    $<$<CONFIG:Debug>:-Wall -g -DDEBUG  -march=native -fopenmp>)
+    $<$<CONFIG:Debug>:-Wall -g -O0 -DDEBUG  -march=native -fopenmp>)
 
 # Use "cmake -DCMAKE_CXX_COMPILER=g++-13 -DCMAKE_BUILD_TYPE=Debug .." to build in debug mode
 # Use "cmake -DCMAKE_CXX_COMPILER=g++-13 -DCMAKE_BUILD_TYPE=Release .." to build in release mode

@@ -6,11 +6,13 @@
 #include "protocol.h"
 
 
-void lazyLogupProver::add(
+std::array<size_t, 2> lazyLogupProver::add(
     const std::vector<uint64_t>& f1,
     const std::vector<uint64_t>& f2,
     const std::vector<uint64_t>& t1,
     const std::vector<uint64_t>& t2) {
+
+    std::lock_guard<std::mutex> lock(mut);
 
     if (t1.size() != t2.size()) {
         throw std::runtime_error("lazyLogupProver: t1 and t2 must have the same size");
@@ -28,27 +30,28 @@ void lazyLogupProver::add(
     uint64_t h = table.hash();
     auto it = index.find(h);
     bool found = false;
-    size_t ind;
+    size_t table_ind;
     if (it != index.end()) {
         for (const auto& i : it->second) {
             if (tables_all[i] == table) {
                 found = true;
-                ind = i;
+                table_ind = i;
                 break;
             }
         }
     }
     if (found) {
-        instances_all[ind].push_back({f1, f2});
-        return;
+        instances_all[table_ind].push_back({f1, f2});
+        return { table_ind, instances_all[table_ind].size() - 1 };
     } else {
-        ind = instances_all.size();
+        table_ind = instances_all.size();
         tables_all.push_back(table);
         instances_all.push_back(std::vector<logupInstance>({{f1, f2}}));
         if (index.find(h) == index.end()) {
             index[h] = std::vector<size_t>();
         }
-        index[h].push_back(ind);
+        index[h].push_back(table_ind);
+        return { table_ind, 0 };
     }
 }
 
@@ -96,8 +99,10 @@ void lazyLogupVerifier::add(
     std::shared_ptr<oracle> pcs_f1,
     std::shared_ptr<oracle> pcs_f2,
     const std::vector<uint64_t>& t1,
-    const std::vector<uint64_t>& t2) {
+    const std::vector<uint64_t>& t2,
+    std::array<size_t, 2> prover_index) {
 
+    std::lock_guard<std::mutex> lock(mut);
     if (t1.size() != t2.size()) {
         throw std::runtime_error("lazyLogupProver: t1 and t2 must have the same size");
     }
@@ -110,32 +115,29 @@ void lazyLogupVerifier::add(
     logupTable table = {t1, t2};
     uint64_t h = table.hash();
     auto it = index.find(h);
-    bool found = false;
-    size_t ind;
-    if (it != index.end()) {
-        for (const auto& i : it->second) {
-            if (tables_all[i] == table) {
-                found = true;
-                ind = i;
-                break;
-            }
-        }
+    bool found = true;
+    size_t table_ind = prover_index[0], f_ind = prover_index[1];
+    if (tables_all.size() <= table_ind || tables_all[table_ind] != table) {
+        found = false;
     }
     if (found) {
-        instances_all[ind].push_back({pcs_f1, pcs_f2});
+        if (instances_all[table_ind].size() <= f_ind) instances_all[table_ind].resize(f_ind + 1);
+        instances_all[table_ind][f_ind] = {pcs_f1, pcs_f2};
         return;
     } else {
-        ind = instances_all.size();
-        tables_all.push_back(table);
-        instances_all.push_back(std::vector<logupInstance>({{pcs_f1, pcs_f2}}));
+        if (tables_all.size() <= table_ind) tables_all.resize(table_ind + 1);
+        tables_all[table_ind] = table;
+        if (instances_all.size() <= table_ind) instances_all.resize(table_ind + 1);
+        if (instances_all[table_ind].size() <= f_ind) instances_all[table_ind].resize(f_ind + 1);
+        instances_all[table_ind][f_ind] = {pcs_f1, pcs_f2};
         if (index.find(h) == index.end()) {
             index[h] = std::vector<size_t>();
         }
-        index[h].push_back(ind);
+        index[h].push_back(table_ind);
     }
 }
 
-bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, uint64_t rho_inv, uint64_t sec_param) {
+bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, protoque& que, uint64_t rho_inv, uint64_t sec_param) {
     
     size_t batch = tables_all.size();
     lazy_pcs_pool pool(sec_param), pool_c(sec_param, false), pool_gh(sec_param, true);
@@ -277,8 +279,6 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, uint64_t rho_inv, uin
 
 
     set_timer("lazy logup 4");
-    
-    protoque que;
 
     #pragma omp parallel for
     for (size_t id = 0; id < batch; id++) { // table id
@@ -307,9 +307,9 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, uint64_t rho_inv, uin
 
 
 
-    set_timer("lazy logup 5");
-    ret &= que.execute_all();
-    pause_timer("lazy logup 5");
+    // set_timer("lazy logup 5");
+    // ret &= que.execute_all();
+    // pause_timer("lazy logup 5");
     
 
     // 4. Prove lazy_pcs

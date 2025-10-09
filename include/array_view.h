@@ -359,7 +359,7 @@ std::ostream& operator<<(std::ostream& os, const array_view<T>& arr) {
 template <typename T>
 class array {
 public:
-    array() {}
+    array() = default;
 
     array(const array_view<T>& view) {
         size_t sz = view.size();

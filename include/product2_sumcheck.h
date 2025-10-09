@@ -66,3 +66,29 @@ private:
     Goldilocks2::Element claim;
     bool has_claim;
 };
+
+class p2partproto : public protocol {
+public:
+    p2partproto(p2Prover&& _prover, std::shared_ptr<oracle> _oracle, uint64_t _sec_param)
+        : protocol(_sec_param), prover(std::move(_prover)), ora(_oracle), has_claim(false) {
+        ;
+    }
+    p2partproto(p2Prover&& _prover, std::shared_ptr<oracle> _oracle, Goldilocks2::Element _claim, uint64_t _sec_param)
+        : protocol(_sec_param), prover(std::move(_prover)), ora(_oracle), claim(_claim), has_claim(true) {
+        ;
+    }
+
+    bool execute() {
+        std::optional<challenge_claim> cha;
+        if (has_claim) cha = p2Verifier::partial_sumcheck(prover, claim, sec_param);
+        else cha = p2Verifier::partial_sumcheck(prover, sec_param);
+        if (!cha) return false;
+        if (cha->claim != ora->open(cha->challenges, sec_param)) return false;
+        return true;
+    }
+private:
+    p2Prover prover;
+    std::shared_ptr<oracle> ora;
+    Goldilocks2::Element claim;
+    bool has_claim;
+};

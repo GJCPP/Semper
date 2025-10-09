@@ -54,6 +54,8 @@ public:
 
     LogupProver get_logup_prover() const;
 
+    std::array<size_t, 2> get_lazy_logup_prover() const;
+
     inline MLE get_mle_range() const {
         return mle_range[{denom, allow_neg_rem, rho_inv}];
     }

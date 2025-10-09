@@ -200,11 +200,13 @@ uint64_t divProver::get_denom() const {
 }
 
 LogupProver divProver::get_logup_prover() const {
-    if (lazy_logup_prover) {
-        lazy_logup_prover->add(rem_u64, zeros_u64[rem_u64.size()], range_u64[{denom, allow_neg_rem}], valid_u64[{denom, allow_neg_rem}]);
-        return {};
-    }
+    
     return LogupProver(rem_u64, zeros_u64[rem_u64.size()], range_u64[{denom, allow_neg_rem}], valid_u64[{denom, allow_neg_rem}]);
+}
+
+std::array<size_t, 2> divProver::get_lazy_logup_prover() const {
+
+    return lazy_logup_prover->add(rem_u64, zeros_u64[rem_u64.size()], range_u64[{denom, allow_neg_rem}], valid_u64[{denom, allow_neg_rem}]);
 }
 
 bool divVerifier::execute_div_check(
@@ -234,15 +236,17 @@ bool divVerifier::execute_div_check(
     }
 
     // Step 2. Check if pcs_rem is in the valid range
-    auto logup_prover = prover.get_logup_prover();
     if (use_lazy_logup) {
+        auto ind = prover.get_lazy_logup_prover();
         lazy_logup_verifier->add(
             pcs_rem,
             std::make_shared<MLE>(prover.get_mle_zeros()),
             prover.get_range(),
-            prover.get_valid());
+            prover.get_valid(),
+            ind);
         return true;
     }
+    auto logup_prover = prover.get_logup_prover();
     if (!LogupVerifier::execute_logup(logup_prover,
         *pcs_rem,
         prover.get_mle_zeros(),

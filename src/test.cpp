@@ -693,12 +693,16 @@ bool test_lazy_logup() {
             pcs_f2[i] = ligero_commit_base(f2[i], 2);
         }
         for (int i = 0; i < num; ++i) {
-            prover.add(f1[i], f2[i], t1[tab[i]], t2[tab[i]]);
+            auto ind = prover.add(f1[i], f2[i], t1[tab[i]], t2[tab[i]]);
             verifier.add(std::make_shared<ligeropcs_base>(pcs_f1[i]),
                         std::make_shared<ligeropcs_base>(pcs_f2[i]),
-                        t1[tab[i]], t2[tab[i]]);
+                        t1[tab[i]], t2[tab[i]], ind);
         }
-        if (!verifier.prove_all(prover, 2, 32)) {
+        protoque que;
+        if (!verifier.prove_all(prover, que, 2, 32)) {
+            return false;
+        }
+        if (!que.execute_all()) {
             return false;
         }
     }
@@ -946,7 +950,12 @@ bool test_e_pow_check() {
             return false;
         }
     }
-    if (!lazy_logup_verifier.prove_all(lazy_logup_prover, 2, 32)) {
+    protoque que;
+    if (!lazy_logup_verifier.prove_all(lazy_logup_prover, que, 2, 32)) {
+        std::cerr << __LINE__ << " " << __FUNCTION__ << ": lazy_logup_verifier.prove_all failed." << std::endl;
+        return false;
+    }
+    if (!que.execute_all()) {
         std::cerr << __LINE__ << " " << __FUNCTION__ << ": lazy_logup_verifier.prove_all failed." << std::endl;
         return false;
     }

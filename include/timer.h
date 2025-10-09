@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <string>
 #include <stdexcept>
+#include <mutex>
 
 #define PRINT_INFO false
 
@@ -15,45 +16,51 @@ public:
     }
 
     void start(const std::string& label) {
+        mut.lock();
         if (ind.count(label)) {
+            mut.unlock();
             resume(label);
             return;
         }
         ind[label] = nextInd++;
-        timers.push_back(TimerData{Clock::now(), 0, false});
+        timers.push_back(TimerData{Clock::now(), 0, 1});
         labels.push_back(label);
+        mut.unlock();
     }
 
     void pause(const std::string& label) {
+        std::lock_guard<std::mutex> lock(mut);
         auto id = ind.find(label);
         if (id == ind.end()) {
             std::cerr << "pause failed, label not found: " << label << std::endl;
             return;
         }
-        if (timers[id->second].paused) {
+        if (timers[id->second].req == 0) {
             std::cerr << "Timer '" << label << "' is already paused" << std::endl;
             return;
         }
         auto now = Clock::now();
         timers[id->second].accumulated += std::chrono::duration_cast<std::chrono::milliseconds>(now - timers[id->second].startTime).count();
-        timers[id->second].paused = true;
+        --timers[id->second].req;
     }
 
     void resume(const std::string& label) {
+        std::lock_guard<std::mutex> lock(mut);
         auto id = ind.find(label);
         if (id == ind.end()) {
             std::cerr << "resume failed, label not found: " << label << std::endl;
             return;
         }
-        if (!timers[id->second].paused) {
-            std::cerr << "Timer '" << label << "' is not paused" << std::endl;
-            return;
-        }
+        // if (timers[id->second].paused > 0) {
+        //     std::cerr << "Timer '" << label << "' is not paused" << std::endl;
+        //     return;
+        // }
         timers[id->second].startTime = Clock::now();
-        timers[id->second].paused = false;
+        ++timers[id->second].req;
     }
 
     void clear() {
+        std::lock_guard<std::mutex> lock(mut);
         nextInd = 0;
         ind.clear();
         timers.clear();
@@ -70,6 +77,7 @@ public:
     }
 
     void remove(const std::string& label) {
+        std::lock_guard<std::mutex> lock(mut);
         auto id = ind.find(label);
         if (id == ind.end()) {
             std::cerr << "remove failed, label not found: " << label << std::endl;
@@ -79,18 +87,23 @@ public:
     }
 
     void printAll() {
+        std::lock_guard<std::mutex> lock(mut);
         for (int i = 0; i != nextInd; ++i) {
+            if (timers[i].req > 0) {
+                std::cout << "Warning: Timer '" << labels[i] << "' is still running." << std::endl;
+            }
             std::cout << "[" << labels[i] << "] cost: " << double(timers[i].accumulated) / 1000 << " s." << std::endl;
         }
     }
 
 private:
+    std::mutex mut;
     using Clock = std::chrono::high_resolution_clock;
 
     struct TimerData {
         Clock::time_point startTime;
         uint64_t accumulated;
-        bool paused;
+        int req;
     };
 
     int nextInd = 0;

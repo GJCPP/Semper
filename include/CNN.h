@@ -12,6 +12,7 @@
 #include "lazy_pcs.h"
 #include "lazy_logup.h"
 #include "lazy_map_check.h"
+#include "protocol.h"
 #include "timer.h"
 class CNN {
 public:
@@ -186,7 +187,8 @@ public:
 
     bool prove_final_open(Goldilocks2::Element lambda) {
         set_timer("final open");
-        std::cout << "Final open: num_vars = " << pcs_all->get_num_vars() << std::endl;
+        if (pcs_all)
+            std::cout << "Final open: num_vars = " << pcs_all->get_num_vars() << std::endl;
         bool ret = pcs_pool.prove_open(pcs_all, lambda);
         pause_timer("final open");
         return ret;
@@ -236,5 +238,7 @@ protected:
 
     lazyMapProver lazy_map_prover;
     lazyMapVerifier lazy_map_verifier;
+
+    protoque que;
 };
 

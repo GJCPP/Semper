@@ -265,6 +265,9 @@ bool CNN::check(size_t n_samples) const {
     return true;
 }
 
+// #define LAYER_TYPE layer_type::softmax
+// #define LAYER_NAME "softmax"
+
 void CNN::pre_prove(size_t sec_param) {
     // set_timer(std::format("prove {} total", model_name));
     // std::cout << "model_name = " << model_name << std::endl;
@@ -278,8 +281,14 @@ void CNN::pre_prove(size_t sec_param) {
     // pause_timer("check input");
     for (auto& layer : layers) {
         // print_all_proof_size(Counter::MB);
-        // if (layer.type != layer_type::conv) {
-        //     std::cout << "Skipping layer " << layer.name << " (not conv)" << std::endl;
+#ifdef LAYER_TYPE
+        if (layer.type != LAYER_TYPE) {
+            std::cout << "Skipping layer " << layer.name << " - not " << LAYER_NAME << std::endl;
+            continue;
+        }
+#endif
+        // if (layer.name != "conv_1"){
+        //     std::cout << "Skipping layer " << layer.name << " (not conv_1)" << std::endl;
         //     continue;
         // }
         
@@ -372,8 +381,19 @@ bool CNN::prove(size_t sec_param) {
         return false;
     }
     pause_timer("check input");
+    // #pragma omp parallel for
     for (auto& layer : layers) {
         // print_all_proof_size(Counter::MB);
+#ifdef LAYER_TYPE
+        if (layer.type != LAYER_TYPE) {
+            std::cout << "Skipping layer " << layer.name << " - not " << LAYER_NAME << std::endl;
+            continue;
+        }
+#endif
+        // if (layer.name != "conv_1"){
+        //     std::cout << "Skipping layer " << layer.name << " (not conv_1)" << std::endl;
+        //     continue;
+        // }
         // if (layer.type != layer_type::softmax) {
         //     std::cout << "=================Skipping layer " << layer.name << " (not softmax)" << std::endl;
         //     continue;
@@ -384,7 +404,7 @@ bool CNN::prove(size_t sec_param) {
                 set_timer("prove conv");
                 if (!prove_conv_layer(layer, conv_wit(data_dir, epoch, layer.id), rho_inv, sec_param, &lazy_map_prover, &lazy_map_verifier)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
-                    return false;
+                    // return false;
                 }
                 pause_timer("prove conv");
                 break;
@@ -393,7 +413,7 @@ bool CNN::prove(size_t sec_param) {
                 set_timer("prove full");
                 if (!prove_full_layer(layer, rho_inv, sec_param)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
-                    return false;
+                    // return false;
                 }
                 pause_timer("prove full");
                 break;
@@ -402,7 +422,7 @@ bool CNN::prove(size_t sec_param) {
                 set_timer("prove relu");
                 if (!prove_relu_layer(layer, scale, max_val, sqr_val, rho_inv, sec_param, layer.wit, &lazy_logup_prover, &lazy_logup_verifier)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
-                    return false;
+                    // return false;
                 }
                 pause_timer("prove relu");
                 break;
@@ -411,7 +431,7 @@ bool CNN::prove(size_t sec_param) {
                 set_timer("prove pool");
                 if (!prove_pool_layer(layer, scale, max_val, rho_inv, sec_param, &lazy_logup_prover, &lazy_logup_verifier, layer.wit)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
-                    return false;
+                    // return false;
                 }
                 pause_timer("prove pool");
                 break;
@@ -420,7 +440,7 @@ bool CNN::prove(size_t sec_param) {
                 set_timer("prove softmax");
                 if (!prove_softmax(layer, scale, max_val, rho_inv, sec_param, layer.wit, &lazy_logup_prover, &lazy_logup_verifier)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
-                    return false;
+                    // return false;
                 }
                 pause_timer("prove softmax");
                 break;
@@ -429,7 +449,7 @@ bool CNN::prove(size_t sec_param) {
                 set_timer("prove flat");
                 if (!prove_flat_layer(layer, rho_inv, sec_param)) {
                     std::cout << "❌ Layer " << layer.name << " failed." << std::endl;
-                    return false;
+                    // return false;
                 }
                 pause_timer("prove flat");
                 break;
@@ -439,11 +459,11 @@ bool CNN::prove(size_t sec_param) {
         }
     }
 
-    std::cout << "Proving final logup..." << std::endl;
     // std::cout << "======================Warning: skip final logup." << std::endl;
+    std::cout << "Proving final logup..." << std::endl;
     set_timer("final logup");
     start_proof("final logup");
-    if (!lazy_logup_verifier.prove_all(lazy_logup_prover, rho_inv, sec_param)) {
+    if (!lazy_logup_verifier.prove_all(lazy_logup_prover, que, rho_inv, sec_param)) {
         std::cout << "❌ Final lazy logup proof failed." << std::endl;
         return false;
     }
@@ -461,16 +481,22 @@ bool CNN::prove(size_t sec_param) {
     // pause_timer("final map");
     // end_proof("final map");
 
-    // clear_all_timers();
+    // std::cout << "===================Warning: skip protoque." << std::endl;
+    std::cout << "Proving protoque..." << std::endl;
+    start_proof("protoque");
+    que.execute_all();
+    end_proof("protoque");
 
-    std::cout << "===================Warning: skip final opening." << std::endl;
-    // std::cout << "Proving final opening..." << std::endl;
-    // start_proof("final open");
-    // if (!prove_final_open(random_ext())) {
-    //     std::cout << "❌ Final opening proof failed." << std::endl;
-    //     return false;
-    // }
-    // end_proof("final open");
+    // std::cout << "===================Warning: skip final opening." << std::endl;
+    std::cout << "Proving final opening..." << std::endl;
+    start_proof("final open");
+    if (!prove_final_open(random_ext())) {
+        std::cout << "❌ Final opening proof failed." << std::endl;
+        return false;
+    }
+    end_proof("final open");
+
+    
 
     pause_timer(std::format("prove {} total", model_name));
     print_all_timers();
@@ -532,9 +558,10 @@ bool CNN::prove_input(size_t sec_param) {
     }
 
     // Check that input is subset of dataset_input
+    lazy_map_prover.lock();
     lazy_map_prover.add(from, to, mle_input, mle_dataset_input);
     lazy_map_verifier.add(from, to, std::make_shared<lazy_pcs>(pcs_input), std::make_shared<lazy_pcs>(pcs_dataset_input));
-
+    lazy_map_prover.release();
 
     // Check that label is subset of dataset_label
     std::vector<size_t> label_from, label_to;
@@ -548,9 +575,10 @@ bool CNN::prove_input(size_t sec_param) {
             }
         }
     }
+    lazy_map_prover.lock();
     lazy_map_prover.add(label_from, label_to, mle_label, mle_dataset_label);
     lazy_map_verifier.add(label_from, label_to, std::make_shared<lazy_pcs>(pcs_label), std::make_shared<lazy_pcs>(pcs_dataset_label));
-
+    lazy_map_prover.release();
 
     // Check that input is used as the input of a0 layer
     start_proof("check_input_layer");

@@ -5,7 +5,11 @@
 
 CNN::layer_res pre_prove_conv_layer(const CNN::layer_info& layer, CNN::conv_wit wit, lazy_pcs_pool *pool);
 
-bool prove_conv_layer(const CNN::layer_info& layer, CNN::conv_wit wit, size_t rho_inv, size_t sec_param, lazyMapProver *lazy_map_prover, lazyMapVerifier *lazy_map_verifier);
+bool prove_conv_layer(
+    const CNN::layer_info& layer, 
+    CNN::conv_wit wit, 
+    size_t rho_inv, size_t sec_param, 
+    lazyMapProver *lazy_map_prover, lazyMapVerifier *lazy_map_verifier);
 
 CNN::layer_res pre_prove_relu_layer(
     const CNN::layer_info& layer,

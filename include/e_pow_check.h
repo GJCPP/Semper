@@ -24,6 +24,10 @@ public:
         const std::vector<uint64_t>& e_from, 
         const std::vector<uint64_t>& e_to);
 
+    std::array<size_t, 2> get_lazy_logup_prover(
+        const std::vector<uint64_t>& e_from, 
+        const std::vector<uint64_t>& e_to);
+
     ltnProver prove_ltn(uint64_t bar);
 
     ligeropcs_base commit_ltn();
@@ -40,6 +44,10 @@ public:
 
     LogupProver get_masked_logup_prover(
         const std::vector<uint64_t>& e_from,
+        const std::vector<uint64_t>& e_to);
+
+    std::array<size_t, 2> get_lazy_masked_logup_prover(
+        const std::vector<uint64_t>& e_from, 
         const std::vector<uint64_t>& e_to);
 
     bool use_lazy_logup() const { return lazy_logup_prover != nullptr; }

@@ -18,7 +18,7 @@ class oracle_sum : public oracle {
 public:
     oracle_sum() = default;
     oracle_sum(const oracle_sum& other) 
-        : oracles(other.oracles), coeffs(other.coeffs), constant(other.constant) {}
+        : oracles(other.oracles), coeffs(other.coeffs), use_coeff(other.use_coeff), constant(other.constant) {}
 
     void add(std::shared_ptr<oracle> o, Goldilocks2::Element coeff = Goldilocks2::one()) {
         if (!oracles.empty() && o->get_num_vars() != oracles[0]->get_num_vars()) {
@@ -26,6 +26,13 @@ public:
         }
         oracles.push_back(o);
         coeffs.push_back(coeff);
+        use_coeff.push_back(true);
+    }
+
+    void add(std::shared_ptr<oracle> o1, std::shared_ptr<oracle> o2) {
+        oracles.push_back(o1);
+        mul.push_back(o2);
+        use_coeff.push_back(false);
     }
 
     void add_const(Goldilocks2::Element c) {
@@ -35,7 +42,11 @@ public:
     Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const override {
         Goldilocks2::Element result = Goldilocks2::zero();
         for (size_t i = 0; i < oracles.size(); ++i) {
-            result += coeffs[i] * oracles[i]->open(z, sec_param);
+            if (use_coeff[i]) {
+                result += coeffs[i] * oracles[i]->open(z, sec_param);
+            } else {
+                result += mul[i]->open(z, sec_param) * oracles[i]->open(z, sec_param);
+            }
         }
         ++*open_counter;
         if (*open_counter >= 2) {
@@ -53,7 +64,9 @@ public:
 protected:
     std::unique_ptr<int> open_counter = std::make_unique<int>(0);
     std::vector<std::shared_ptr<oracle>> oracles;
+    std::vector<std::shared_ptr<oracle>> mul;
     std::vector<Goldilocks2::Element> coeffs; // coefficients for each oracle
+    std::vector<bool> use_coeff;
     Goldilocks2::Element constant = Goldilocks2::zero(); // constant term
 };
 

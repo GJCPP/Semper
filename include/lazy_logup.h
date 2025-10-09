@@ -4,6 +4,7 @@
 #include <vector>
 #include <memory>
 #include <map>
+#include <mutex>
 
 #include "logup.h"
 #include "lazy_pcs.h"
@@ -39,7 +40,7 @@ public:
     };
     lazyLogupProver() = default;
 
-    void add(const std::vector<uint64_t>& f1,
+    std::array<size_t, 2> add(const std::vector<uint64_t>& f1,
                    const std::vector<uint64_t>& f2,
                    const std::vector<uint64_t>& t1,
                    const std::vector<uint64_t>& t2);
@@ -50,11 +51,15 @@ public:
 
     LogupProver get_logup_prover(size_t id);
 
-// protected:
+    // void lock() { mut.lock(); }
+    // void release() { mut.unlock(); }
+
+protected:
     std::vector<std::vector<logupInstance>> instances_all;
     std::vector<logupTable> tables_all;
     std::vector<std::vector<uint64_t>> f1_all, f2_all;
     std::map<uint64_t, std::vector<size_t>> index;
+    std::mutex mut;
 };
 
 class lazyLogupVerifier {
@@ -68,13 +73,16 @@ public:
     void add(std::shared_ptr<oracle> pcs_f1,
             std::shared_ptr<oracle> pcs_f2,
             const std::vector<uint64_t>& t1,
-            const std::vector<uint64_t>& t2);
+            const std::vector<uint64_t>& t2,
+            std::array<size_t, 2> index);
 
-    bool prove_all(lazyLogupProver& prover, uint64_t rho_inv, uint64_t sec_param);
+    bool prove_all(lazyLogupProver& prover, protoque& que, uint64_t rho_inv, uint64_t sec_param);
 
     std::vector<size_t> sort_f(std::vector<logupInstance>& instances);
 protected:
     std::vector<std::vector<logupInstance>> instances_all;
     std::vector<logupTable> tables_all;
     std::map<uint64_t, std::vector<size_t>> index;
+
+    std::mutex mut;
 };

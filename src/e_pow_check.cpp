@@ -81,6 +81,13 @@ LogupProver eProver::get_logup_prover(
     return LogupProver(from, to, e_from, e_to);
 }
 
+std::array<size_t, 2> eProver::get_lazy_logup_prover(
+    const std::vector<uint64_t>& e_from, 
+    const std::vector<uint64_t>& e_to) {
+
+    return lazy_logup_prover->add(from, to, e_from, e_to);
+}
+
 ltnProver eProver::prove_ltn(uint64_t n) {
     bar = n;
     return ltn_prover = ltnProver(from, Goldilocks2::fromU64(bar), scale, max_val, true, rho_inv, lazy_logup_prover);
@@ -115,11 +122,15 @@ lazy_pcs eProver::pre_commit_masked_from(lazy_pcs_pool* pool) {
 LogupProver eProver::get_masked_logup_prover(
     const std::vector<uint64_t>& e_from,
     const std::vector<uint64_t>& e_to) {
-    if (lazy_logup_prover) {
-        lazy_logup_prover->add(masked_from, to, e_from, e_to);
-        return {};
-    }
+
     return LogupProver(masked_from, to, e_from, e_to);
+}
+
+std::array<size_t, 2> eProver::get_lazy_masked_logup_prover(
+    const std::vector<uint64_t>& e_from,
+    const std::vector<uint64_t>& e_to) {
+
+    return lazy_logup_prover->add(masked_from, to, e_from, e_to);
 }
 
 void eVerifier::init_e_table(size_t scale, size_t rho_inv) {
@@ -167,14 +178,15 @@ bool eVerifier::execute_check(
     const int lognum = find_ceiling_log2(num);
     if (max_val < e_pow_from.size()) {
         // Just look up the table.
-        auto logup_prover = prover.get_logup_prover(e_pow_from, e_pow_to);
         if (use_lazy_logup) {
+            auto ind = prover.get_lazy_logup_prover(e_pow_from, e_pow_to);
             lazy_logup_verifier->add(
                 pcs_from,
                 pcs_to,
-                e_pow_from, e_pow_to);
-            return true;
+                e_pow_from, e_pow_to, ind);
+                return true;
         }
+        auto logup_prover = prover.get_logup_prover(e_pow_from, e_pow_to);
         if (!LogupVerifier::execute_logup(logup_prover, *pcs_from, *pcs_to, mle_e_pow_from, mle_e_pow_to, rho_inv, sec_param)) {
             std::cerr << "❌ eVerifier: execute_logup failed (pure lookup)." << std::endl;
             return false;
@@ -214,14 +226,15 @@ bool eVerifier::execute_check(
         }
 
         // Step 3. Look up with masked_from
-        LogupProver logup_prover = prover.get_masked_logup_prover(e_pow_from, e_pow_to);
         if (use_lazy_logup) {
+            auto ind = prover.get_lazy_masked_logup_prover(e_pow_from, e_pow_to);
             lazy_logup_verifier->add(
                 std::make_shared<ligeropcs_base>(pcs_masked_from),
                 pcs_to,
-                e_pow_from, e_pow_to);
-            return true;
+                e_pow_from, e_pow_to, ind);
+                return true;
         }
+        LogupProver logup_prover = prover.get_masked_logup_prover(e_pow_from, e_pow_to);
         if (!LogupVerifier::execute_logup(
             logup_prover, pcs_masked_from, *pcs_to, mle_e_pow_from, mle_e_pow_to, rho_inv, sec_param)) {
             std::cerr << "❌ eVerifier: execute_logup failed (masked lookup)." << std::endl;
@@ -305,14 +318,15 @@ bool eVerifier::execute_check(eProver& prover, std::shared_ptr<oracle> pcs_from,
     const int lognum = find_ceiling_log2(num);
     if (max_val < e_pow_from.size()) {
         // Just look up the table.
-        auto logup_prover = prover.get_logup_prover(e_pow_from, e_pow_to);
         if (use_lazy_logup) {
+            auto ind = prover.get_lazy_logup_prover(e_pow_from, e_pow_to);
             lazy_logup_verifier->add(
                 pcs_from,
                 pcs_to,
-                e_pow_from, e_pow_to);
+                e_pow_from, e_pow_to, ind);
             return true;
         }
+        auto logup_prover = prover.get_logup_prover(e_pow_from, e_pow_to);
         if (!LogupVerifier::execute_logup(logup_prover, *pcs_from, *pcs_to, mle_e_pow_from, mle_e_pow_to, rho_inv, sec_param)) {
             std::cerr << "❌ eVerifier: execute_logup failed (pure lookup)." << std::endl;
             return false;
@@ -352,14 +366,15 @@ bool eVerifier::execute_check(eProver& prover, std::shared_ptr<oracle> pcs_from,
         }
 
         // Step 3. Look up with masked_from
-        LogupProver logup_prover = prover.get_masked_logup_prover(e_pow_from, e_pow_to);
         if (use_lazy_logup) {
+            auto ind = prover.get_lazy_masked_logup_prover(e_pow_from, e_pow_to);
             lazy_logup_verifier->add(
                 pcs_masked_from,
                 pcs_to,
-                e_pow_from, e_pow_to);
+                e_pow_from, e_pow_to, ind);
             return true;
         }
+        LogupProver logup_prover = prover.get_masked_logup_prover(e_pow_from, e_pow_to);
         if (!LogupVerifier::execute_logup(
             logup_prover, *pcs_masked_from, *pcs_to, mle_e_pow_from, mle_e_pow_to, rho_inv, sec_param)) {
             std::cerr << "❌ eVerifier: execute_logup failed (masked lookup)." << std::endl;

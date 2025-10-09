@@ -6,7 +6,7 @@
 #include "ligero.h"
 #include "counter.h"
 
-#define OMIT_PCS
+// #define OMIT_PCS
 
 std::shared_ptr<oracle> lazy_pcs_pool::commit(uint64_t rho_inv) {
 #ifdef OMIT_PCS
@@ -177,7 +177,6 @@ bool lazy_pcs_pool::prove_open(std::shared_ptr<oracle> pcs, Goldilocks2::Element
 }
 
 lazy_pcs commit_lazy_pcs(const MLE& mle, lazy_pcs_pool* pool) {
-    startCounter counter("lazy_pcs_commit");
     lazy_pcs res(mle, pool);
     res.index = pool->add_mle(mle);
     return res;
@@ -186,7 +185,6 @@ lazy_pcs commit_lazy_pcs(const MLE& mle, lazy_pcs_pool* pool) {
 std::map<int, int> lazy_pcs_open_cnt;
 
 Goldilocks2::Element lazy_pcs::open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const {
-    startCounter counter("lazy_pcs_open");
     auto val = mle->open(z, sec_param);
     pool->record_open(index, z, val, sec_param);
     return val;

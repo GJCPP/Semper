@@ -82,7 +82,7 @@ ligeroProver_base::ligeroProver_base(const MultilinearPolynomial& w, const uint6
     std::vector<Goldilocks::Element> codewords;
     codewords.resize(a * codelen);
 
-    // #pragma omp parallel for schedule(static)
+    #pragma omp parallel for schedule(static)
     for (size_t i = 0; i < a; ++i) {
         std::vector<Goldilocks::Element> dataline(b);
         for (size_t j = 0; j < b; ++j) {
