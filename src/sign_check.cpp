@@ -56,7 +56,7 @@ divProver signProver::next_prover(ligeropcs_base& pcs_quo, ligeropcs_base& pcs_r
     return divProver(vec, quo, rem, scale, false, rho_inv, lazy_logup_prover);
 }
 
-divProver signProver::pre_next_prover(lazy_pcs &pcs_quo, lazy_pcs &pcs_rem, signProver& next_prover, lazy_pcs_pool *pool) const {
+divProver signProver::pre_next_prover(lazy_pcs &pcs_quo, lazy_pcs &pcs_rem, signProver& next_prover, std::shared_ptr<lazy_pcs_pool> pool) const {
     auto [quo, rem] = get_quo_rem(vec, scale, false);
     pcs_quo = commit_lazy_pcs(quo, pool);
     pcs_rem = commit_lazy_pcs(rem, pool);
@@ -84,7 +84,7 @@ std::vector<Goldilocks2::Element> get_sign(const std::vector<Goldilocks2::Elemen
 
 signVerifier::resource signVerifier::pre_execute_sign_check(
     const signProver& prover,
-    lazy_pcs_pool *pool,
+    std::shared_ptr<lazy_pcs_pool> pool,
     lazyLogupVerifier *lazy_logup_verifier) {
 
     ligeropcs_base pcs_bias_x;

@@ -41,12 +41,12 @@ public:
     void calculate_gh(const Goldilocks2::Element& gamma, const Goldilocks2::Element& lambda);
 
     LogupDef::pcs_base commit_c(const uint64_t& rho_inv);
-    std::shared_ptr<lazy_pcs> commit_c(lazy_pcs_pool* pool_c);
+    std::shared_ptr<lazy_pcs> commit_c(std::shared_ptr<lazy_pcs_pool> pool_c);
 
     std::array<LogupDef::pcs_base, 4> commit_ft(const uint64_t& rho_inv);
 
     std::array<LogupDef::pcs_ext, 2> commit_gh(const uint64_t& rho_inv);
-    std::array<std::shared_ptr<lazy_pcs>, 2> commit_gh(lazy_pcs_pool* pool);
+    std::array<std::shared_ptr<lazy_pcs>, 2> commit_gh(std::shared_ptr<lazy_pcs_pool> pool);
 
     std::array<sProver, 2> firstProvers();
     std::array<p3Prover, 2> secondProvers(const std::vector<Goldilocks2::Element>& rg, const std::vector<Goldilocks2::Element>& rh);
@@ -64,13 +64,13 @@ public:
         std::shared_ptr<oracle> f1, std::shared_ptr<oracle> f2,
         std::shared_ptr<oracle> t1, std::shared_ptr<oracle> t2,
         const uint64_t& rho_inv, const size_t& sec_param,
-        lazy_pcs_pool *pool_c);
+        std::shared_ptr<lazy_pcs_pool> pool_c);
 
     bool execute_logup_second_part(LogupProver& lpr, 
         std::shared_ptr<oracle> f1, std::shared_ptr<oracle> f2,
         std::shared_ptr<oracle> t1, std::shared_ptr<oracle> t2,
         const uint64_t& rho_inv, const size_t& sec_param,
-        lazy_pcs_pool *pool_gh);
+        std::shared_ptr<lazy_pcs_pool> pool_gh);
 
     bool execute_logup_third_part(LogupProver& lpr,
         std::shared_ptr<oracle> f1, std::shared_ptr<oracle> f2, 

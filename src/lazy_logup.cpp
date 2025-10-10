@@ -60,7 +60,7 @@ void lazyLogupProver::start_prove() {
     f2_all.resize(tables_all.size());
 }
 
-std::pair<lazy_pcs, lazy_pcs> lazyLogupProver::commit_sort_f(size_t id, const std::vector<size_t>& order, lazy_pcs_pool* pool) {
+std::pair<lazy_pcs, lazy_pcs> lazyLogupProver::commit_sort_f(size_t id, const std::vector<size_t>& order, std::shared_ptr<lazy_pcs_pool> pool) {
     if (order.size() != instances_all[id].size()) {
         throw std::runtime_error("lazyLogupProver: order size must match the number of instances");
     }
@@ -140,7 +140,9 @@ void lazyLogupVerifier::add(
 bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, protoque& que, uint64_t rho_inv, uint64_t sec_param) {
     
     size_t batch = tables_all.size();
-    lazy_pcs_pool pool(sec_param), pool_c(sec_param, false), pool_gh(sec_param, true);
+    std::shared_ptr<lazy_pcs_pool> pool = lazy_pcs_pool::create(sec_param),
+                                   pool_c = lazy_pcs_pool::create(sec_param, false),
+                                   pool_gh = lazy_pcs_pool::create(sec_param, true);
     std::vector<std::shared_ptr<lazy_pcs>> pcs_f1_all(batch), pcs_f2_all(batch);
 
     bool ret = true;
@@ -162,7 +164,7 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, protoque& que, uint64
         // 1. Sort and commit all f
         auto &t1 = tables_all[id].t1, &t2 = tables_all[id].t2;
         auto order = sort_f(instances_all[id]);
-        auto [pcs_f1, pcs_f2] = prover.commit_sort_f(id, order, &pool);
+        auto [pcs_f1, pcs_f2] = prover.commit_sort_f(id, order, pool);
         if (num_vars != pcs_f1.get_num_vars() || num_vars != pcs_f2.get_num_vars()) {
             throw std::runtime_error("lazyLogupVerifier: committed f does not match the number of variables");
         }
@@ -170,7 +172,7 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, protoque& que, uint64
         pcs_f2_all[id] = std::make_shared<lazy_pcs>(std::move(pcs_f2));
         // std::cout << "logup id = " << id << ": f_size = " << (1ull << pcs_f1.get_num_vars()) << ", table size = " << t1.size() << std::endl;
     }
-    auto pcs_pool = pool.commit(rho_inv);
+    auto pcs_pool = pool->commit(rho_inv);
     std::vector<LogupProver> logup_prover(batch);
     std::vector<LogupVerifier> logup_verifier(batch);
     std::vector<std::shared_ptr<MLE>> mle_t1(batch), mle_t2(batch);
@@ -241,10 +243,10 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, protoque& que, uint64
         mle_t2[id] = std::make_shared<MLE>(t2);
 
         start_proof("lazylogup_logup_proof");
-        logup_verifier[id].execute_logup_first_part(logup_prover[id], pcs_f1, pcs_f2, mle_t1[id], mle_t2[id], rho_inv, sec_param, &pool_c);
+        logup_verifier[id].execute_logup_first_part(logup_prover[id], pcs_f1, pcs_f2, mle_t1[id], mle_t2[id], rho_inv, sec_param, pool_c);
         end_proof("lazylogup_logup_proof");
     }
-    auto pcs_pool_c = pool_c.commit(rho_inv);
+    auto pcs_pool_c = pool_c->commit(rho_inv);
     pause_timer("lazy logup 2");
 
     set_timer("lazy logup 3");
@@ -261,7 +263,7 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, protoque& que, uint64
         auto &t1 = tables_all[id].t1, &t2 = tables_all[id].t2;
 
         start_proof("lazylogup_logup_proof");
-        bool check = logup_verifier[id].execute_logup_second_part(logup_prover[id], pcs_f1, pcs_f2, mle_t1[id], mle_t2[id], rho_inv, sec_param, &pool_gh);
+        bool check = logup_verifier[id].execute_logup_second_part(logup_prover[id], pcs_f1, pcs_f2, mle_t1[id], mle_t2[id], rho_inv, sec_param, pool_gh);
         end_proof("lazylogup_logup_proof");
 
         if (!check) {
@@ -269,7 +271,7 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, protoque& que, uint64
             // throw std::runtime_error("lazy logup fail at " + std::to_string(__LINE__));
         }
     }
-    auto pcs_pool_gh = pool_gh.commit(rho_inv);
+    auto pcs_pool_gh = pool_gh->commit(rho_inv);
     pause_timer("lazy logup 3");
 
 
@@ -310,15 +312,6 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, protoque& que, uint64
     // set_timer("lazy logup 5");
     // ret &= que.execute_all();
     // pause_timer("lazy logup 5");
-    
-
-    // 4. Prove lazy_pcs
-    start_proof("lazylogup_lazy_pcs_proof");
-    pool.prove_open(pcs_pool, random_ext());
-    pool_c.prove_open(pcs_pool_c, random_ext());
-    pool_gh.prove_open(pcs_pool_gh, random_ext());
-    end_proof("lazylogup_lazy_pcs_proof");
-    
 
     return ret;
 }

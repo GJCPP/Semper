@@ -28,7 +28,7 @@ public:
 
     divProver next_prover(ligeropcs_base& pcs_quo, ligeropcs_base& pcs_rem, signProver& next_prover) const;
 
-    divProver pre_next_prover(lazy_pcs &pcs_quo, lazy_pcs &pcs_rem, signProver& next_prover, lazy_pcs_pool *pool) const;
+    divProver pre_next_prover(lazy_pcs &pcs_quo, lazy_pcs &pcs_rem, signProver& next_prover, std::shared_ptr<lazy_pcs_pool> pool) const;
 
     inline int get_round() const {
         uint64_t v = max_val;
@@ -87,7 +87,7 @@ public:
 
     static resource pre_execute_sign_check(
         const signProver& prover,
-        lazy_pcs_pool *pool,
+        std::shared_ptr<lazy_pcs_pool> pool,
         lazyLogupVerifier *lazy_logup_verifier
     );
 

@@ -59,20 +59,20 @@ void lazyMapProver::add(
 }
 
 mapProver lazyMapProver::commit_left_right(
-    lazy_pcs_pool& pool_left, lazy_pcs_pool& pool_right,
+    std::shared_ptr<lazy_pcs_pool> pool_left, std::shared_ptr<lazy_pcs_pool> pool_right,
     std::shared_ptr<oracle>& pcs_left, std::shared_ptr<oracle>& pcs_right,
     uint64_t rho_inv) {
     for (auto& ins : ins_left) {
-        commit_lazy_pcs(ins.mle, &pool_left);
+        commit_lazy_pcs(ins.mle, pool_left);
     }
     for (auto& ins : ins_right) {
-        commit_lazy_pcs(ins.mle, &pool_right);
+        commit_lazy_pcs(ins.mle, pool_right);
     }
-    pcs_left = pool_left.commit(rho_inv);
-    pcs_right = pool_right.commit(rho_inv);
+    pcs_left = pool_left->commit(rho_inv);
+    pcs_right = pool_right->commit(rho_inv);
 
-    auto& perm_left = pool_left.get_perm(), &perm_right = pool_right.get_perm();
-    auto& order_left = pool_left.get_order(), &order_right = pool_right.get_order();
+    auto& perm_left = pool_left->get_perm(), &perm_right = pool_right->get_perm();
+    auto& order_left = pool_left->get_order(), &order_right = pool_right->get_order();
     std::vector<size_t> pos_left(ins_left.size()), pos_right(ins_right.size());
     pos_left[0] = 0, pos_right[0] = 0;
     for (size_t i = 1; i != ins_left.size(); ++i) {
@@ -90,7 +90,7 @@ mapProver lazyMapProver::commit_left_right(
         }
     }
     std::sort(map_index.begin(), map_index.end());
-    const MLE& mle_left = pool_left.get_uni_mle(), &mle_right = pool_right.get_uni_mle();
+    const MLE& mle_left = pool_left->get_uni_mle(), &mle_right = pool_right->get_uni_mle();
     // std::cout << "============Warning: lazyPermProver::commit_left_right checks map." << std::endl;
     // for (size_t i = 0; i < map_index.size(); ++i) {
     //     if (mle_left.eval_hypercube(map_index[i].first) != mle_right.eval_hypercube(map_index[i].second)) {
@@ -151,7 +151,8 @@ void lazyMapVerifier::add(
 }
 
 bool lazyMapVerifier::prove_all(lazyMapProver& prover, uint64_t rho_inv, uint64_t sec_param) {
-    lazy_pcs_pool pool_left(sec_param, use_ext), pool_right(sec_param, use_ext);
+    std::shared_ptr<lazy_pcs_pool> pool_left = lazy_pcs_pool::create(sec_param, use_ext),
+                                   pool_right = lazy_pcs_pool::create(sec_param, use_ext);
     std::shared_ptr<oracle> pcs_left, pcs_right;
     mapProver map_prover = prover.commit_left_right(pool_left, pool_right, pcs_left, pcs_right, rho_inv);
     mapVerifier map_verifier;

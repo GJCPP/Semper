@@ -66,11 +66,11 @@ VGG16::VGG16(std::string _data_dir, int epoch, int64_t scale, int64_t max_value,
     mle_label = label;
     mle_index = input_index;
 
-    pcs_dataset_input = commit_lazy_pcs(dataset_input, &pcs_pool);
-    pcs_dataset_label = commit_lazy_pcs(dataset_label, &pcs_pool);
-    pcs_input = commit_lazy_pcs(input, &pcs_pool);
-    pcs_label = commit_lazy_pcs(label, &pcs_pool);
-    pcs_index = commit_lazy_pcs(input_index, &pcs_pool);
+    pcs_dataset_input = commit_lazy_pcs(dataset_input, pcs_pool);
+    pcs_dataset_label = commit_lazy_pcs(dataset_label, pcs_pool);
+    pcs_input = commit_lazy_pcs(input, pcs_pool);
+    pcs_label = commit_lazy_pcs(label, pcs_pool);
+    pcs_index = commit_lazy_pcs(input_index, pcs_pool);
 
     std::vector<std::vector<int>> conv_layers = {{1, 2}, {3, 4}, {5, 6, 7}, {8, 9, 10}, {11, 12, 13}};
     int ind_pool = 1;

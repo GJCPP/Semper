@@ -783,7 +783,7 @@ bool test_sign_check() {
 
 bool test_pre_sign_check() {
     for (int cnt = 0; cnt < CNT_TEST; ++cnt) {
-        lazy_pcs_pool pool(32);
+        std::shared_ptr<lazy_pcs_pool> pool = lazy_pcs_pool::create(32);
         srand(cnt);
         bool strict = rand() % 2 == 0;
         int64_t denom = (1ull << (rand() % 10 + 1));
@@ -802,8 +802,8 @@ bool test_pre_sign_check() {
         signProver prover(num, sign, denom, max_val, strict, 2, nullptr);
         ligeropcs_base pcs_num = ligero_commit_base(num, 2);
         ligeropcs_base pcs_sign = ligero_commit_base(sign, 2);
-        auto res = signVerifier::pre_execute_sign_check(prover, &pool, nullptr);
-        auto uni_pcs = pool.commit(2);
+        auto res = signVerifier::pre_execute_sign_check(prover, pool, nullptr);
+        auto uni_pcs = pool->commit(2);
         if (!signVerifier::execute_sign_check(
             prover,
             std::make_shared<ligeropcs_base>(pcs_num),
@@ -814,7 +814,7 @@ bool test_pre_sign_check() {
             std::cout << __LINE__ << ": Failed at execute_sign_check." << std::endl;
             return false;
         }
-        if (!pool.prove_open(uni_pcs, random_ext())) {
+        if (!pool->prove_open(uni_pcs, random_ext())) {
             std::cout << __LINE__ << ": Failed at lazy_pcs_pool::check_all." << std::endl;
             return false;
         }
@@ -1217,12 +1217,12 @@ bool test_lazy_pcs() {
         for (size_t i = 0; i != sz; ++i) {
             mleA[i] = A[i];
         }
-        lazy_pcs_pool pool(32);
+        std::shared_ptr<lazy_pcs_pool> pool = lazy_pcs_pool::create(32);
         std::vector<lazy_pcs> pcs;
         for (size_t i = 0; i != sz; ++i) {
-            pcs.push_back(commit_lazy_pcs(mleA[i], &pool));
+            pcs.push_back(commit_lazy_pcs(mleA[i], pool));
         }
-        auto uni_pcs = pool.commit(2);
+        auto uni_pcs = pool->commit(2);
         // random open
         for (size_t i = 0; i != sz; ++i) {
             std::vector<Goldilocks2::Element> challenge = random_vec_ext(mleA[i].get_num_vars());
@@ -1236,7 +1236,7 @@ bool test_lazy_pcs() {
         //     std::cout << __LINE__ << ": Lazy pcs open failed at " << 0 << std::endl;
         //     return false;
         // }
-        if (!pool.prove_open(uni_pcs, random_ext())) {
+        if (!pool->prove_open(uni_pcs, random_ext())) {
             std::cout << __LINE__ << ": Lazy pcs pool check failed" << std::endl;
             return false;
         }
@@ -1251,12 +1251,12 @@ bool test_lazy_pcs() {
             random_vec_u64(A[i].data(), A[i].size());
             mleA[i] = A[i];
         }
-        lazy_pcs_pool pool(32);
+        std::shared_ptr<lazy_pcs_pool> pool = lazy_pcs_pool::create(32);
         std::vector<lazy_pcs> pcs;
         for (size_t i = 0; i != sz; ++i) {
-            pcs.push_back(commit_lazy_pcs(mleA[i], &pool));
+            pcs.push_back(commit_lazy_pcs(mleA[i], pool));
         }
-        auto uni_pcs = pool.commit(2);
+        auto uni_pcs = pool->commit(2);
         // random open
         for (size_t i = 0; i != num_open; ++i) {
             int ind = rand() % sz;
@@ -1267,7 +1267,7 @@ bool test_lazy_pcs() {
                 return false;
             }
         }
-        if (!pool.prove_open(uni_pcs, random_ext())) {
+        if (!pool->prove_open(uni_pcs, random_ext())) {
             std::cout << __LINE__ << ": Lazy pcs pool check failed" << std::endl;
             return false;
         }

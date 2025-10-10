@@ -33,7 +33,7 @@ public:
         Goldilocks2::Element alpha);
 
     mapProver commit_left_right(
-        lazy_pcs_pool& pool_left, lazy_pcs_pool& pool_right, 
+        std::shared_ptr<lazy_pcs_pool> pool_left, std::shared_ptr<lazy_pcs_pool> pool_right, 
         std::shared_ptr<oracle>& pcs_left, std::shared_ptr<oracle>& pcs_right,
         uint64_t rho_inv);
 

@@ -93,7 +93,7 @@ ltnProver eProver::prove_ltn(uint64_t n) {
     return ltn_prover = ltnProver(from, Goldilocks2::fromU64(bar), scale, max_val, true, rho_inv, lazy_logup_prover);
 }
 
-lazy_pcs eProver::pre_commit_ltn(lazy_pcs_pool* pool) {
+lazy_pcs eProver::pre_commit_ltn(std::shared_ptr<lazy_pcs_pool> pool) {
     return commit_lazy_pcs(ltn_prover.get_ltn(), pool);
 }
 
@@ -106,7 +106,7 @@ ligeropcs_base eProver::commit_filtered_from() {
     return pcs_filtered_from;
 }
 
-lazy_pcs eProver::pre_commit_filtered_from(lazy_pcs_pool* pool) {
+lazy_pcs eProver::pre_commit_filtered_from(std::shared_ptr<lazy_pcs_pool> pool) {
     return commit_lazy_pcs(filtered_from, pool);
 }
 
@@ -115,7 +115,7 @@ ligeropcs_base eProver::commit_masked_from() {
     return pcs_masked_from;
 }
 
-lazy_pcs eProver::pre_commit_masked_from(lazy_pcs_pool* pool) {
+lazy_pcs eProver::pre_commit_masked_from(std::shared_ptr<lazy_pcs_pool> pool) {
     return commit_lazy_pcs(masked_from, pool);
 }
 
@@ -256,7 +256,7 @@ std::vector<size_t> eVerifier::get_exp_inv(const std::vector<size_t>& from, size
     return ret;
 }
 
-eVerifier::resource eVerifier::pre_execute_check(eProver& prover, lazyLogupVerifier* lazy_logup_verifier, lazy_pcs_pool *pool) {
+eVerifier::resource eVerifier::pre_execute_check(eProver& prover, lazyLogupVerifier* lazy_logup_verifier, std::shared_ptr<lazy_pcs_pool> pool) {
 
     resource ret;
 

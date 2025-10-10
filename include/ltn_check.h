@@ -71,7 +71,7 @@ public:
         uint64_t max_val,
         bool strict,
         lazyLogupVerifier* lazy_logup_verifier,
-        lazy_pcs_pool *pool);
+        std::shared_ptr<lazy_pcs_pool> pool);
 
         
     static bool execute_ltn_check(

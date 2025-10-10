@@ -31,16 +31,16 @@ public:
     ltnProver prove_ltn(uint64_t bar);
 
     ligeropcs_base commit_ltn();
-    lazy_pcs pre_commit_ltn(lazy_pcs_pool *pool);
+    lazy_pcs pre_commit_ltn(std::shared_ptr<lazy_pcs_pool> pool);
 
     // Map element [>= bar] to 0
     ligeropcs_base commit_filtered_from();
-    lazy_pcs pre_commit_filtered_from(lazy_pcs_pool *pool);
+    lazy_pcs pre_commit_filtered_from(std::shared_ptr<lazy_pcs_pool> pool);
     inline const std::vector<uint64_t>& get_filtered_from() const { return filtered_from; }
 
     // Map element [>= bar] to max_val - 1
     ligeropcs_base commit_masked_from();
-    lazy_pcs pre_commit_masked_from(lazy_pcs_pool *pool);
+    lazy_pcs pre_commit_masked_from(std::shared_ptr<lazy_pcs_pool> pool);
 
     LogupProver get_masked_logup_prover(
         const std::vector<uint64_t>& e_from,
@@ -76,7 +76,7 @@ public:
     static resource pre_execute_check(
         eProver& prover,
         lazyLogupVerifier* lazy_logup_verifier,
-        lazy_pcs_pool *pool);
+        std::shared_ptr<lazy_pcs_pool> pool);
 
     static bool execute_check(eProver& prover, std::shared_ptr<oracle> pcs_from, std::shared_ptr<oracle> pcs_to, size_t sec_param, lazyLogupVerifier* lazy_logup_verifier, resource& res);
 

@@ -176,7 +176,7 @@ bool lazy_pcs_pool::prove_open(std::shared_ptr<oracle> pcs, Goldilocks2::Element
     return true;
 }
 
-lazy_pcs commit_lazy_pcs(const MLE& mle, lazy_pcs_pool* pool) {
+lazy_pcs commit_lazy_pcs(const MLE& mle, std::shared_ptr<lazy_pcs_pool> pool) {
     lazy_pcs res(mle, pool);
     res.index = pool->add_mle(mle);
     return res;

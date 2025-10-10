@@ -18,7 +18,7 @@ public:
     p3Prover prove_next(const MLE_Eq& cha, ligeropcs_base& pcs_new_raw);
     p3Prover prove_next(const MLE_Eq& cha);
 
-    lazy_pcs pre_prove_next(lazy_pcs_pool *pool);
+    lazy_pcs pre_prove_next(std::shared_ptr<lazy_pcs_pool> pool);
 
 protected:
     MultilinearPolynomial raw, pro;
@@ -39,7 +39,7 @@ public:
         std::vector<lazy_pcs> pcs_raw;
     };
 
-    static resource pre_execute_prod_check(prodProver& prover, lazy_pcs_pool *pool);
+    static resource pre_execute_prod_check(prodProver& prover, std::shared_ptr<lazy_pcs_pool> pool);
 
     
     static bool execute_prod_check(

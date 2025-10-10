@@ -115,7 +115,7 @@ public:
     // return null pcs if padding is not needed
     std::vector<std::shared_ptr<oracle>> commit_pad_f1(uint64_t rho_inv);
 
-    void forward_commit_pad_f1(lazy_pcs_pool* pool);
+    void forward_commit_pad_f1(std::shared_ptr<lazy_pcs_pool> pool);
 
 setProver get_set_prover(const MLE& id_perm, const MLE& perm);
 
@@ -150,7 +150,7 @@ public:
     int get_pad_num_vars() const { return pad_num_vars; }
     
     std::vector<std::shared_ptr<oracle>> commit_right(uint64_t rho_inv) const;
-    std::vector<std::shared_ptr<oracle>> commit_right(lazy_pcs_pool *pool) const;
+    std::vector<std::shared_ptr<oracle>> commit_right(std::shared_ptr<lazy_pcs_pool> pool) const;
 
     // get_pad_right;
 

@@ -109,7 +109,7 @@ ltnVerifier::resource ltnVerifier::pre_execute_ltn_check(
     uint64_t max_val,
     bool strict,
     lazyLogupVerifier* lazy_logup_verifier,
-    lazy_pcs_pool *pool) {
+    std::shared_ptr<lazy_pcs_pool> pool) {
 
     resource ret;
     size_t num = prover.get_num();

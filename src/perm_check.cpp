@@ -225,7 +225,7 @@ std::vector<std::shared_ptr<oracle>> permProver::commit_pad_f1(uint64_t rho_inv)
 }
 
 
-void permProver::forward_commit_pad_f1(lazy_pcs_pool *pool) {
+void permProver::forward_commit_pad_f1(std::shared_ptr<lazy_pcs_pool> pool) {
     const size_t n1 = (1 << f1[0]->get_num_vars()), n2 = (1 << f2[0]->get_num_vars());
     const size_t len = f1.size();
     if (n1 == n2) {
@@ -372,7 +372,7 @@ std::vector<std::shared_ptr<oracle>> mapProver::commit_right(uint64_t rho_inv) c
     return right_pcs;
 }
 
-std::vector<std::shared_ptr<oracle>> mapProver::commit_right(lazy_pcs_pool *pool) const {
+std::vector<std::shared_ptr<oracle>> mapProver::commit_right(std::shared_ptr<lazy_pcs_pool> pool) const {
     if (ext != pool->is_ext()) {
         throw std::invalid_argument("mapProver::commit_right : ext mismatch.");
     }
@@ -426,17 +426,17 @@ bool mapVerifier::execute_check(mapProver& prover, uint64_t rho_inv, uint64_t se
     // std::cout << "Skipping mapVerifier::execute_check" << std::endl;
     // return true;
     startCounter counter("map_proof");
-    lazy_pcs_pool pool(sec_param, prover.use_ext());
+    std::shared_ptr<lazy_pcs_pool> pool = lazy_pcs_pool::create(sec_param, prover.use_ext());
     // 1. Commit/Check padded right
     size_t len = pcs_left.size();
     int right_num_vars = prover.get_right_num_vars(), pad_num_vars = prover.get_pad_num_vars();
-    auto pcs_pad_right = prover.commit_right(&pool);
+    auto pcs_pad_right = prover.commit_right(pool);
 
     permProver perm_prover = prover.get_perm_prover();
     permVerifier perm_verifier;
-    perm_prover.forward_commit_pad_f1(&pool);
+    perm_prover.forward_commit_pad_f1(pool);
 
-    auto pcs_pool = pool.commit(rho_inv);
+    auto pcs_pool = pool->commit(rho_inv);
 
     auto cha = random_vec_ext(right_num_vars);
     std::vector<Goldilocks2::Element> small_cha(cha.begin() + pad_num_vars, cha.end());
@@ -459,6 +459,6 @@ bool mapVerifier::execute_check(mapProver& prover, uint64_t rho_inv, uint64_t se
         std::cerr << "mapVerifier::execute_check : perm check fails" << std::endl;
         return false;
     }
-    pool.prove_open(pcs_pool, random_ext());
+    pool->prove_open(pcs_pool, random_ext());
     return true;
 }

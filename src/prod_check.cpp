@@ -43,7 +43,7 @@ p3Prover prodProver::prove_next(const MLE_Eq& cha) {
     return p3Prover(cha, raw_0, raw_1);
 }
 
-lazy_pcs prodProver::pre_prove_next(lazy_pcs_pool* pool) {
+lazy_pcs prodProver::pre_prove_next(std::shared_ptr<lazy_pcs_pool> pool) {
     MultilinearPolynomial new_raw = raw.prod_over_lowbits(1);
     MultilinearPolynomial raw_0 = raw, raw_1 = raw;
     raw_0.fix(num_vars - 1, Goldilocks2::zero());
@@ -85,7 +85,7 @@ bool prodVerifier::execute_prod_check(prodProver& prover, open_param raw, open_p
     return pcs_raw.open(cha, sec_param) == pro.parse_all(cha).open(sec_param);
 }
 
-prodVerifier::resource prodVerifier::pre_execute_prod_check(prodProver& prover, lazy_pcs_pool* pool) {
+prodVerifier::resource prodVerifier::pre_execute_prod_check(prodProver& prover, std::shared_ptr<lazy_pcs_pool> pool) {
     resource ret;
     ret.pcs_raw.resize(prover.suffix_len);
     for (int rnd = prover.suffix_len - 1; rnd >= 0; --rnd) {

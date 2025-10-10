@@ -10,7 +10,7 @@
 
 
 CNN::CNN(std::string _model_name, std::string _data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv, uint64_t sec_param)
-    : model_name(_model_name), data_dir(_data_dir), epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * scale), rho_inv(rho_inv), sec_param(sec_param), pcs_pool(sec_param), lazy_map_prover(true), lazy_map_verifier(true) {
+    : model_name(_model_name), data_dir(_data_dir), epoch(epoch), scale(scale), max_val(max_value), sqr_val(max_value * scale), rho_inv(rho_inv), sec_param(sec_param), pcs_pool(lazy_pcs_pool::create(sec_param)), lazy_map_prover(true), lazy_map_verifier(true) {
     ;
 }
 
@@ -302,7 +302,7 @@ void CNN::pre_prove(size_t sec_param) {
         switch (layer.type) {
             case layer_type::conv:
                 set_timer("preprove conv");
-                layer.wit = pre_prove_conv_layer(layer, conv_wit(data_dir, epoch, layer.id), &pcs_pool);
+                layer.wit = pre_prove_conv_layer(layer, conv_wit(data_dir, epoch, layer.id), pcs_pool);
                 pause_timer("preprove conv");
                 break;
 
@@ -317,19 +317,19 @@ void CNN::pre_prove(size_t sec_param) {
 
             case layer_type::relu:
                 set_timer("preprove relu");
-                layer.wit = pre_prove_relu_layer(layer, scale, max_val, sqr_val, rho_inv, &lazy_logup_prover, &lazy_logup_verifier, &pcs_pool);
+                layer.wit = pre_prove_relu_layer(layer, scale, max_val, sqr_val, rho_inv, &lazy_logup_prover, &lazy_logup_verifier, pcs_pool);
                 pause_timer("preprove relu");
                 break;
 
             case layer_type::pool:
                 set_timer("preprove pool");
-                layer.wit = pre_prove_pool_layer(layer, scale, max_val, rho_inv, &lazy_logup_prover, &lazy_logup_verifier, &pcs_pool);
+                layer.wit = pre_prove_pool_layer(layer, scale, max_val, rho_inv, &lazy_logup_prover, &lazy_logup_verifier, pcs_pool);
                 pause_timer("preprove pool");
                 break;
 
             case layer_type::softmax:
                 set_timer("preprove softmax");
-                layer.wit = pre_prove_softmax(layer, scale, max_val, rho_inv, &lazy_logup_prover, &lazy_logup_verifier, &pcs_pool);
+                layer.wit = pre_prove_softmax(layer, scale, max_val, rho_inv, &lazy_logup_prover, &lazy_logup_verifier, pcs_pool);
                 pause_timer("preprove softmax");
                 break;
 
@@ -471,15 +471,15 @@ bool CNN::prove(size_t sec_param) {
     end_proof("final logup");
 
     std::cout << "======================Warning: skip final map." << std::endl;
-    // std::cout << "Proving final map..." << std::endl;
-    // set_timer("final map");
-    // start_proof("final map");
-    // if (!lazy_map_verifier.prove_all(lazy_map_prover, rho_inv, sec_param)) {
-    //     std::cout << "❌ Final lazy map proof failed." << std::endl;
-    //     return false;
-    // }
-    // pause_timer("final map");
-    // end_proof("final map");
+    std::cout << "Proving final map..." << std::endl;
+    set_timer("final map");
+    start_proof("final map");
+    if (!lazy_map_verifier.prove_all(lazy_map_prover, rho_inv, sec_param)) {
+        std::cout << "❌ Final lazy map proof failed." << std::endl;
+        return false;
+    }
+    pause_timer("final map");
+    end_proof("final map");
 
     // std::cout << "===================Warning: skip protoque." << std::endl;
     std::cout << "Proving protoque..." << std::endl;
@@ -652,7 +652,7 @@ void CNN::add_layer(layer_type type, int id,
         auto& pcs = this->pcs[key];
         pcs.resize(minibatch);
         for (int i = 0; i < minibatch; ++i) {
-            pcs[i] = commit_lazy_pcs(*mle[i], &pcs_pool);
+            pcs[i] = commit_lazy_pcs(*mle[i], pcs_pool);
         }
     };
     if (pcs.find(input) == pcs.end()) init_pcs(input);

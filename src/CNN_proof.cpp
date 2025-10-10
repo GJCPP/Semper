@@ -58,7 +58,7 @@ void pre_prove_conv(
     const array_view<Goldilocks2::Element>& W, // [OC, IC, m, m]
     const array_view<Goldilocks2::Element>& Y, // [N, OC, on, on]
     bool pad_right_bottom,
-    CNN::layer_res& res, lazy_pcs_pool *pool, const std::string& prename) {
+    CNN::layer_res& res, std::shared_ptr<lazy_pcs_pool> pool, const std::string& prename) {
 
     std::map<std::string, array<Goldilocks2::Element>> witness;
     if (wit.empty()) {
@@ -336,7 +336,7 @@ bool prove_conv(
     return true;
 }
 
-bool pre_prove_conv_forward(const CNN::layer_info& layer, CNN::conv_wit wit, int padding, CNN::layer_res& res, lazy_pcs_pool* pool) {
+bool pre_prove_conv_forward(const CNN::layer_info& layer, CNN::conv_wit wit, int padding, CNN::layer_res& res, std::shared_ptr<lazy_pcs_pool> pool) {
     int bat = int(layer.input.shape(0));
 
     // // #pragma omp parallel for
@@ -383,7 +383,7 @@ bool prove_conv_forward(
 }
 
 
-bool pre_prove_conv_backward_dW(const CNN::layer_info& layer, CNN::conv_wit _wit, int padding, CNN::layer_res& res, lazy_pcs_pool* pool) {
+bool pre_prove_conv_backward_dW(const CNN::layer_info& layer, CNN::conv_wit _wit, int padding, CNN::layer_res& res, std::shared_ptr<lazy_pcs_pool> pool) {
     int bat = int(layer.input.shape(0));
 
     // // #pragma omp parallel for
@@ -436,7 +436,7 @@ bool prove_conv_backward_dW(
     return true;
 }
 
-bool pre_prove_conv_backward_dX(const CNN::layer_info& layer, CNN::conv_wit _wit, int padding, CNN::layer_res& res, lazy_pcs_pool* pool) {
+bool pre_prove_conv_backward_dX(const CNN::layer_info& layer, CNN::conv_wit _wit, int padding, CNN::layer_res& res, std::shared_ptr<lazy_pcs_pool> pool) {
     int bat = int(layer.input.shape(0));
 
     // #pragma omp parallel for
@@ -489,7 +489,7 @@ bool prove_conv_backward_dX(
     return true;
 }
 
-CNN::layer_res pre_prove_conv_layer(const CNN::layer_info& layer, CNN::conv_wit wit, lazy_pcs_pool* pool) {
+CNN::layer_res pre_prove_conv_layer(const CNN::layer_info& layer, CNN::conv_wit wit, std::shared_ptr<lazy_pcs_pool> pool) {
     const int padding = 1;
 
     assert(layer.type == CNN::layer_type::conv);
@@ -657,7 +657,7 @@ CNN::layer_res pre_prove_relu_layer(
     size_t rho_inv,
     lazyLogupProver* lazy_logup_prover,
     lazyLogupVerifier* lazy_logup_verifier,
-    lazy_pcs_pool* pool) {
+    std::shared_ptr<lazy_pcs_pool> pool) {
 
     CNN::layer_res ret;
 
@@ -892,7 +892,7 @@ CNN::layer_res pre_prove_pool_layer(const CNN::layer_info& layer,
     size_t rho_inv, 
     lazyLogupProver* lazy_logup_prover,
     lazyLogupVerifier* lazy_logup_verifier,
-    lazy_pcs_pool* pool)  {
+    std::shared_ptr<lazy_pcs_pool> pool)  {
     
     CNN::layer_res ret;
     startCounter counter("pool_proof");
@@ -1230,7 +1230,7 @@ CNN::layer_res pre_prove_softmax(const CNN::layer_info& layer,
     size_t rho_inv, 
     lazyLogupProver* lazy_logup_prover,
     lazyLogupVerifier *lazy_logup_verifier,
-    lazy_pcs_pool* pool)  {
+    std::shared_ptr<lazy_pcs_pool> pool)  {
     
     CNN::layer_res ret;
     

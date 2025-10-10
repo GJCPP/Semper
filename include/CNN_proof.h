@@ -3,7 +3,7 @@
 #include "CNN.h"
 
 
-CNN::layer_res pre_prove_conv_layer(const CNN::layer_info& layer, CNN::conv_wit wit, lazy_pcs_pool *pool);
+CNN::layer_res pre_prove_conv_layer(const CNN::layer_info& layer, CNN::conv_wit wit, std::shared_ptr<lazy_pcs_pool> pool);
 
 bool prove_conv_layer(
     const CNN::layer_info& layer, 
@@ -17,7 +17,7 @@ CNN::layer_res pre_prove_relu_layer(
     size_t rho_inv,
     lazyLogupProver* lazy_logup_prover,
     lazyLogupVerifier* lazy_logup_verifier,
-    lazy_pcs_pool* pool);
+    std::shared_ptr<lazy_pcs_pool> pool);
 
 bool prove_relu_layer(const CNN::layer_info& layer,
     size_t scale, size_t max_val, size_t sqr_val,
@@ -30,7 +30,7 @@ CNN::layer_res pre_prove_pool_layer(
     size_t rho_inv, 
     lazyLogupProver* lazy_logup_prover,
     lazyLogupVerifier* lazy_logup_verifier,
-    lazy_pcs_pool* pool);
+    std::shared_ptr<lazy_pcs_pool> pool);
 
 bool prove_pool_layer(const CNN::layer_info& layer,
     size_t scale, size_t max_val,
@@ -44,7 +44,7 @@ CNN::layer_res pre_prove_softmax(
     size_t scale, size_t max_val, size_t rho_inv, 
     lazyLogupProver* lazy_logup_prover, 
     lazyLogupVerifier* lazy_logup_verifier, 
-    lazy_pcs_pool* pool);
+    std::shared_ptr<lazy_pcs_pool> pool);
 
 bool prove_softmax(const CNN::layer_info& layer,
     size_t scale, size_t max_val,

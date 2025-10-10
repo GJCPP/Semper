@@ -136,7 +136,7 @@ LogupDef::pcs_base LogupProver::commit_c(const uint64_t& rho_inv) {
     return pr.commit();
 }
 
-std::shared_ptr<lazy_pcs> LogupProver::commit_c(lazy_pcs_pool *pool_c) {
+std::shared_ptr<lazy_pcs> LogupProver::commit_c(std::shared_ptr<lazy_pcs_pool> pool_c) {
     return std::make_shared<lazy_pcs>(commit_lazy_pcs(c, pool_c));
 }
 
@@ -147,7 +147,7 @@ std::array<LogupDef::pcs_ext, 2> LogupProver::commit_gh(const uint64_t& rho_inv)
     return { prg.commit(), prh.commit() };
 }
 
-std::array<std::shared_ptr<lazy_pcs>, 2> LogupProver::commit_gh(lazy_pcs_pool *pool) {
+std::array<std::shared_ptr<lazy_pcs>, 2> LogupProver::commit_gh(std::shared_ptr<lazy_pcs_pool> pool) {
     return { std::make_shared<lazy_pcs>(commit_lazy_pcs(g, pool)),
              std::make_shared<lazy_pcs>(commit_lazy_pcs(h, pool)) };
 }
@@ -287,7 +287,7 @@ bool LogupVerifier::execute_logup_first_part(
     std::shared_ptr<oracle> f1, std::shared_ptr<oracle> f2, 
     std::shared_ptr<oracle> t1, std::shared_ptr<oracle> t2, 
     const uint64_t& rho_inv, const size_t& sec_param,
-    lazy_pcs_pool *pool_c) {
+    std::shared_ptr<lazy_pcs_pool> pool_c) {
     
     if (pool_c->is_ext()) {
         throw std::invalid_argument("LogupVerifier::execute_logup_first_part: pool_c should use base field.");
@@ -313,7 +313,7 @@ bool LogupVerifier::execute_logup_second_part(
     std::shared_ptr<oracle> f1, std::shared_ptr<oracle> f2, 
     std::shared_ptr<oracle> t1, std::shared_ptr<oracle> t2, 
     const uint64_t& rho_inv, const size_t& sec_param, 
-    lazy_pcs_pool* pool_gh) {
+    std::shared_ptr<lazy_pcs_pool> pool_gh) {
 
     if (!pool_gh->is_ext()) {
         throw std::invalid_argument("LogupVerifier::execute_logup_first_part: pool_gh should use ext field.");

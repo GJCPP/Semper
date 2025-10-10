@@ -189,7 +189,7 @@ public:
         set_timer("final open");
         if (pcs_all)
             std::cout << "Final open: num_vars = " << pcs_all->get_num_vars() << std::endl;
-        bool ret = pcs_pool.prove_open(pcs_all, lambda);
+        bool ret = pcs_pool->prove_open(pcs_all, lambda);
         pause_timer("final open");
         return ret;
     }
@@ -206,7 +206,7 @@ public:
 
     void finish_pre_prove() {
         set_timer("commit all");
-        pcs_all = pcs_pool.commit(rho_inv);
+        pcs_all = pcs_pool->commit(rho_inv);
         pause_timer("commit all");
     }
 
@@ -230,7 +230,7 @@ protected:
     array_view<Goldilocks2::Element> dataset_input, dataset_label, input, label, input_index;
 
     std::vector<layer_info> layers;
-    lazy_pcs_pool pcs_pool;
+    std::shared_ptr<lazy_pcs_pool> pcs_pool;
     std::shared_ptr<oracle> pcs_all;
 
     lazyLogupProver lazy_logup_prover;

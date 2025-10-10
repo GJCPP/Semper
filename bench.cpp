@@ -105,7 +105,7 @@ void bench_transpose() {
 
 void bench_commit() {
     clear_all_timers();
-    for (int i = 10; i <= 20; ++i) {
+    for (int i = 30; i <= 30; ++i) {
         std::cout << "i = " << i << std::endl;
         set_timer("allocation");
         std::vector<Goldilocks2::Element> vec(1ull << i);
@@ -118,17 +118,19 @@ void bench_commit() {
         clear_all_timers();
         std::cout << std::endl;
 
-        start_proof("commit/open");
-        set_timer("commit/open");
+        set_timer("commit");
         auto pcs = ligero_commit_base(mle, 2);
-        pcs.open(random_vec_ext(i), 32);
-        end_proof("commit/open");
-        pause_timer("commit/open");
-        print_all_proof_size(Counter::B);
+        pause_timer("commit");
+
         print_all_timers();
-        std::cout << std::endl;
         clear_all_timers();
-        clear_proof();
+
+        set_timer("open");
+        pcs.open(random_vec_ext(i), 32);
+        pause_timer("open");
+        
+        print_all_timers();
+        clear_all_timers();
     }
 }
 

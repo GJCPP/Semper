@@ -47,7 +47,7 @@ public:
 
     void start_prove();
 
-    std::pair<lazy_pcs, lazy_pcs> commit_sort_f(size_t id, const std::vector<size_t>& order, lazy_pcs_pool *pool);
+    std::pair<lazy_pcs, lazy_pcs> commit_sort_f(size_t id, const std::vector<size_t>& order, std::shared_ptr<lazy_pcs_pool> pool);
 
     LogupProver get_logup_prover(size_t id);
 
