@@ -62,24 +62,72 @@ inline Goldilocks2::Element p3Prover::lincomb(const Goldilocks2::Element& e1, co
 std::array<Goldilocks2::Element, 4> p3Prover::send_message(const size_t& round, const std::vector<Goldilocks2::Element>& rands) {
     std::array<Goldilocks2::Element, 4> s = { 0, 0, 0, 0 };
 
-    // notation referce: Libra(https://eprint.iacr.org/2019/317.pdf) Algorithm 1
     uint64_t offset = 1ull << (nrnd - round);
+
 
     if (round > 1) {
         // namely r_{i-1}
         shrinkTable(rands.back());
     }
 
-    /*
-     * sending f(0), f(1), f(2), f(3), where f = g_1 x g_2 x g_3
-     * Note that g_i is linear, so g(2) = 2 * g(1) - g(0), etc.
-     */ 
-    for (uint64_t b = 0; b < offset; ++b) {
-        s[0] += p1[b] * p2[b] * p3[b];
-        s[1] += p1[b + offset] * p2[b + offset] * p3[b + offset];
-        s[2] += lincomb(p1[b + offset], p1[b], 2) * lincomb(p2[b + offset], p2[b], 2) * lincomb(p3[b + offset], p3[b], 2);
-        s[3] += lincomb(p1[b + offset], p1[b], 3) * lincomb(p2[b + offset], p2[b], 3) * lincomb(p3[b + offset], p3[b], 3);
+    int num_threads = 1;
+#ifdef _OPENMP
+    num_threads = omp_get_max_threads(); // or omp_get_num_procs()
+#endif
+
+    std::vector<Goldilocks2::Element> s_local(4 * num_threads);
+
+    #pragma omp parallel
+    {
+#ifdef _OPENMP
+        int tid = omp_get_thread_num();
+#else
+        int tid = 0;
+#endif
+        Goldilocks2::Element* loc = &s_local[4 * tid];
+
+        // Manual blocking for better cache locality
+        const uint64_t block_size = 4096; // tune this (e.g., 1024–16384)
+        #pragma omp for schedule(static)
+        for (uint64_t base = 0; base < offset; base += block_size) {
+            uint64_t end = std::min(base + block_size, offset);
+
+            // Local accumulators stay in registers (faster than s_local writes)
+            Goldilocks2::Element acc0 = Goldilocks2::zero();
+            Goldilocks2::Element acc1 = Goldilocks2::zero();
+            Goldilocks2::Element acc2 = Goldilocks2::zero();
+            Goldilocks2::Element acc3 = Goldilocks2::zero();
+
+
+            for (uint64_t b = base; b < end; ++b) {
+                Goldilocks2::Element v11 = p1.eval_hypercube(b);
+                Goldilocks2::Element v12 = p1.eval_hypercube(b | offset);
+                Goldilocks2::Element v21 = p2.eval_hypercube(b);
+                Goldilocks2::Element v22 = p2.eval_hypercube(b | offset);
+                Goldilocks2::Element v31 = p3.eval_hypercube(b);
+                Goldilocks2::Element v32 = p3.eval_hypercube(b | offset);
+
+                acc0 += v11 * v21 * v31;
+                acc1 += v12 * v22 * v32;
+                acc2 += lincomb(v12, v11, 2) * lincomb(v22, v21, 2) * lincomb(v32, v31, 2);
+                acc3 += lincomb(v12, v11, 3) * lincomb(v22, v21, 3) * lincomb(v32, v31, 3);
+            }
+
+            loc[0] += acc0;
+            loc[1] += acc1;
+            loc[2] += acc2;
+            loc[3] += acc3;
+        }
     }
+
+    // final reduction
+    for (int t = 0; t < num_threads; ++t) {
+        s[0] += s_local[4 * t + 0];
+        s[1] += s_local[4 * t + 1];
+        s[2] += s_local[4 * t + 2];
+        s[3] += s_local[4 * t + 3];
+    }
+
     return s;
 }
 

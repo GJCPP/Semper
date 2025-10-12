@@ -265,8 +265,9 @@ bool CNN::check(size_t n_samples) const {
     return true;
 }
 
-// #define LAYER_TYPE layer_type::softmax
-// #define LAYER_NAME "softmax"
+// #define LAYER_TYPE layer_type::conv
+// #define LAYER_NAME "conv"
+// #define ONLY_NAME "conv_1"
 
 void CNN::pre_prove(size_t sec_param) {
     // set_timer(std::format("prove {} total", model_name));
@@ -287,10 +288,12 @@ void CNN::pre_prove(size_t sec_param) {
             continue;
         }
 #endif
-        // if (layer.name != "conv_1"){
-        //     std::cout << "Skipping layer " << layer.name << " (not conv_1)" << std::endl;
-        //     continue;
-        // }
+#ifdef ONLY_NAME
+        if (layer.name != ONLY_NAME){
+            std::cout << "Skipping layer " << layer.name << " (not " << ONLY_NAME << ")" << std::endl;
+            continue;
+        }
+#endif
         
         // if (layer.type != layer_type::softmax) {
         //     std::cout << "=================Skipping layer " << layer.name << " (not softmax)" << std::endl;
@@ -390,10 +393,12 @@ bool CNN::prove(size_t sec_param) {
             continue;
         }
 #endif
-        // if (layer.name != "conv_1"){
-        //     std::cout << "Skipping layer " << layer.name << " (not conv_1)" << std::endl;
-        //     continue;
-        // }
+#ifdef ONLY_NAME
+        if (layer.name != ONLY_NAME){
+            std::cout << "Skipping layer " << layer.name << " (not " << ONLY_NAME << ")" << std::endl;
+            continue;
+        }
+#endif
         // if (layer.type != layer_type::softmax) {
         //     std::cout << "=================Skipping layer " << layer.name << " (not softmax)" << std::endl;
         //     continue;
@@ -470,7 +475,7 @@ bool CNN::prove(size_t sec_param) {
     pause_timer("final logup");
     end_proof("final logup");
 
-    std::cout << "======================Warning: skip final map." << std::endl;
+    // std::cout << "======================Warning: skip final map." << std::endl;
     std::cout << "Proving final map..." << std::endl;
     set_timer("final map");
     start_proof("final map");

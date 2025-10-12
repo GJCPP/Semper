@@ -25,16 +25,57 @@ std::array<Goldilocks2::Element, 2> sProver::send_message(const size_t& round, c
     std::array<Goldilocks2::Element, 2> s = { 0, 0 };
 
     // notation referce: Libra(https://eprint.iacr.org/2019/317.pdf) Algorithm 1
+
     uint64_t offset = 1ull << (nrnd - round);
+
 
     if (round > 1) {
         // namely r_{i-1}
         g.fix(0, rands.back());
     }
-    for (uint64_t b = 0; b < offset; ++b) {
-        s[0] += g[b];
-        s[1] += g[b + offset];
+
+    int num_threads = 1;
+#ifdef _OPENMP
+    num_threads = omp_get_max_threads(); // or omp_get_num_procs()
+#endif
+
+    std::vector<Goldilocks2::Element> s_local(2 * num_threads);
+
+    #pragma omp parallel
+    {
+#ifdef _OPENMP
+        int tid = omp_get_thread_num();
+#else
+        int tid = 0;
+#endif
+        Goldilocks2::Element* loc = &s_local[2 * tid];
+
+        // Manual blocking for better cache locality
+        const uint64_t block_size = 4096; // tune this (e.g., 1024–16384)
+        #pragma omp for schedule(static)
+        for (uint64_t base = 0; base < offset; base += block_size) {
+            uint64_t end = std::min(base + block_size, offset);
+
+            // Local accumulators stay in registers (faster than s_local writes)
+            Goldilocks2::Element acc0 = Goldilocks2::zero();
+            Goldilocks2::Element acc1 = Goldilocks2::zero();
+
+            for (uint64_t b = base; b < end; ++b) {
+                acc0 += g.eval_hypercube(b);
+                acc1 += g.eval_hypercube(b + offset);
+            }
+
+            loc[0] += acc0;
+            loc[1] += acc1;
+        }
     }
+
+    // final reduction
+    for (int t = 0; t < num_threads; ++t) {
+        s[0] += s_local[2 * t + 0];
+        s[1] += s_local[2 * t + 1];
+    }
+
     return s;
 }
 

@@ -476,7 +476,10 @@ bool convVerifier::execute_convcheck_2d(
         X.pcs, W.pcs, &flat_Y
     };
     auto claim = execute_convcheck(prover, ora_1d, sec_param);
-    if (!claim) return false;
+    if (!claim) {
+        std::cerr << __LINE__ << ": convVerifier::execute_convcheck_2d : conv check fail" << std::endl;
+        return false;
+    }
     
     pause_timer("conv2d_prove_conv");
     
@@ -485,6 +488,7 @@ bool convVerifier::execute_convcheck_2d(
     start_proof("conv2d_openW");
     auto aux_info = prover.triple.W->process_challenges(claim->at(1).challenges);
     if (W.parse_all(aux_info.r).open(sec_param) * aux_info.comp != claim->at(1).claim) {
+        std::cerr << __LINE__ << ": convVerifier::execute_convcheck_2d : open W fail" << std::endl;
         return false;
     }
     end_proof("conv2d_openW");
@@ -495,7 +499,11 @@ bool convVerifier::execute_convcheck_2d(
     start_proof("conv2d_openX");
     if (prover.triple.padding == false) { // No padding
         pause_timer("conv2d_openX");
-        return X.parse_all(claim->at(0).challenges).open(sec_param) == claim->at(0).claim;
+        bool ret = X.parse_all(claim->at(0).challenges).open(sec_param) == claim->at(0).claim;
+        if (ret == false) {
+            std::cerr << __LINE__ << ": convVerifier::execute_convcheck_2d : open X fail" << std::endl;
+        }
+        return ret;
     }
     end_proof("conv2d_openX");
 
@@ -547,6 +555,7 @@ bool convVerifier::execute_convcheck_2d(
     }
     pause_timer("conv2d_openX");
     if (res != claim->at(0).claim) {
+        std::cerr << __LINE__ << ": convVerifier::execute_convcheck_2d : open X fail" << std::endl;
         return false;
     }
     return true;
@@ -566,10 +575,14 @@ std::optional<std::array<challenge_claim, 2>> convVerifier::execute_convcheck(
     Goldilocks2::Element rhs = rhs_prover.get_sum();
     MLE_Pow rhs_beta(beta, prover.triple.logNK1, prover.triple.N + prover.triple.K - 2);
     std::optional<challenge_claim> claim = p2Verifier::partial_sumcheck(rhs_prover, rhs, sec_param);
-    if (!claim) return std::nullopt;
+    if (!claim) {
+        std::cerr << __LINE__ << ": convVerifier::execute_convcheck p2sumcheck fail" << std::endl;
+        return std::nullopt;
+    }
     auto query_Y = combine_challenges(r_D, claim->challenges);
 
     if (claim->claim != oracle[2]->open(query_Y, sec_param) * rhs_beta.evaluate(claim->challenges)) {
+        std::cerr << __LINE__ << ": convVerifier::execute_convcheck p2sumcheck claim fail" << std::endl;
         return std::nullopt;
     }
 
@@ -577,7 +590,10 @@ std::optional<std::array<challenge_claim, 2>> convVerifier::execute_convcheck(
     // Step 3.1: Prove \sum_c X'(c) * W'(c), end with r_C
     auto lhs_prover = prover.shrink_XW();
     auto claim_xw = p2Verifier::partial_sumcheck(lhs_prover, rhs, sec_param);
-    if (!claim_xw) return std::nullopt;
+    if (!claim_xw) {
+        std::cerr << __LINE__ << ": convVerifier::execute_convcheck p2sumcheck fail" << std::endl;
+        return std::nullopt;
+    }
     auto r_C = std::move(claim_xw->challenges);
 
     // Step 3.2: Prover claims x and w, proves separately X'(r_C) = \sum_n X(r_C, n) \beta^n
@@ -585,13 +601,20 @@ std::optional<std::array<challenge_claim, 2>> convVerifier::execute_convcheck(
     auto [X_prover, W_prover] = prover.fix_r_C(r_C);
     Goldilocks2::Element x_val = X_prover.get_sum(), w_val = W_prover.get_sum();
     if (x_val * w_val != claim_xw->claim) {
+        std::cerr << __LINE__ << ": convVerifier::execute_convcheck p2sumcheck claim fail" << std::endl;
         return std::nullopt;
     }
     auto claim_x = p2Verifier::partial_sumcheck(X_prover, x_val, sec_param);
-    if (!claim_x) return std::nullopt;
+    if (!claim_x) {
+        std::cerr << __LINE__ << ": convVerifier::execute_convcheck p2sumcheck fail" << std::endl;
+        return std::nullopt;
+    }
     auto& r_N = claim_x->challenges;
     auto claim_w = p2Verifier::partial_sumcheck(W_prover, w_val, sec_param);
-    if (!claim_w) return std::nullopt;
+    if (!claim_w) {
+        std::cerr << __LINE__ << ": convVerifier::execute_convcheck p2sumcheck fail" << std::endl;
+        return std::nullopt;
+    }
     auto& r_K = claim_w->challenges;
 
     // Step 4: Query the oracle

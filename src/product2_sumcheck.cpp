@@ -26,9 +26,29 @@ void p2Prover::initialize() {
     uint64_t tsize = 1ull << p1->get_num_vars();
 
     sum = Goldilocks2::zero();
+#ifdef _OPENMP
+
+    int num_threads = omp_get_max_threads();
+    std::vector<Goldilocks2::Element> partial(num_threads, Goldilocks2::zero());
+
+#pragma omp parallel
+    {
+        int tid = omp_get_thread_num();
+        Goldilocks2::Element local_sum = Goldilocks2::zero();
+
+#pragma omp for
+        for (uint64_t mask = 0; mask < tsize; ++mask) {
+            local_sum += p1->eval_hypercube(mask) * p2->eval_hypercube(mask);
+        }
+
+        partial[tid] = local_sum;
+    }
+    for (const auto& v : partial) sum += v;
+#else
     for (uint64_t mask = 0; mask < tsize; ++mask) {
         sum += p1->eval_hypercube(mask) * p2->eval_hypercube(mask);
     }
+#endif
     // std::cout << Goldilocks2::toString(sum) << '\n';
 }
 
@@ -53,28 +73,97 @@ std::array<Goldilocks2::Element, 3> p2Prover::send_message(const size_t& round, 
 
     uint64_t offset = 1ull << (nrnd - round);
 
+
+    set_timer("shrink_" + std::to_string(round));
     if (round > 1) {
         // namely r_{i-1}
         shrinkTable(rands.back());
     }
+    pause_timer("shrink_" + std::to_string(round));
+    set_timer("merge_" + std::to_string(round));
 
+    int num_threads = 1;
+#ifdef _OPENMP
+    num_threads = omp_get_max_threads(); // or omp_get_num_procs()
+#endif
 
-    // for (uint64_t b = 0; b < offset; ++b) {
-    //     s[0] += p1->eval_hypercube(b) * p2->eval_hypercube(b);
-    //     s[1] += p1->eval_hypercube(b + offset) * p2->eval_hypercube(b + offset);
-    //     s[2] += lincomb(p1->eval_hypercube(b + offset), p1->eval_hypercube(b), 2) * lincomb(p2->eval_hypercube(b + offset), p2->eval_hypercube(b), 2);
-    // }
+    std::vector<Goldilocks2::Element> s_local(3 * num_threads);
 
-    p1->iterate_nonzero([&](size_t b) {
-        Goldilocks2::Element p1e0 = p1->eval_hypercube(b), p1e1 = p1->eval_hypercube(b + offset);
-        Goldilocks2::Element p2e0 = p2->eval_hypercube(b), p2e1 = p2->eval_hypercube(b + offset);
-        s[0] += p1e0 * p2e0;
-        s[1] += p1e1 * p2e1;
-        s[2] += lincomb(p1e1, p1e0, 2) * lincomb(p2e1, p2e0, 2);
-    }, offset);
+    #pragma omp parallel
+    {
+#ifdef _OPENMP
+        int tid = omp_get_thread_num();
+#else
+        int tid = 0;
+#endif
+        Goldilocks2::Element* loc = &s_local[3 * tid];
+
+        // Manual blocking for better cache locality
+        const uint64_t block_size = 4096; // tune this (e.g., 1024–16384)
+        #pragma omp for schedule(static)
+        for (uint64_t base = 0; base < offset; base += block_size) {
+            uint64_t end = std::min(base + block_size, offset);
+
+            // Local accumulators stay in registers (faster than s_local writes)
+            Goldilocks2::Element acc0 = Goldilocks2::zero();
+            Goldilocks2::Element acc1 = Goldilocks2::zero();
+            Goldilocks2::Element acc2 = Goldilocks2::zero();
+
+            for (uint64_t b = base; b < end; ++b) {
+                Goldilocks2::Element p1e0 = p1->eval_hypercube(b);
+                Goldilocks2::Element p1e1 = p1->eval_hypercube(b | offset);
+                Goldilocks2::Element p2e0 = p2->eval_hypercube(b);
+                Goldilocks2::Element p2e1 = p2->eval_hypercube(b | offset);
+
+                acc0 += p1e0 * p2e0;
+                acc1 += p1e1 * p2e1;
+                acc2 += lincomb(p1e1, p1e0, 2) * lincomb(p2e1, p2e0, 2);
+            }
+
+            loc[0] += acc0;
+            loc[1] += acc1;
+            loc[2] += acc2;
+        }
+    }
+
+    // final reduction
+    for (int t = 0; t < num_threads; ++t) {
+        s[0] += s_local[3 * t + 0];
+        s[1] += s_local[3 * t + 1];
+        s[2] += s_local[3 * t + 2];
+    }
+
+    pause_timer("merge_" + std::to_string(round));
+
     return s;
 }
 
+// std::array<Goldilocks2::Element, 3> p2Prover::send_message(const size_t& round, const std::vector<Goldilocks2::Element>& rands) {
+//     std::array<Goldilocks2::Element, 3> s = { 0, 0, 0 };
+
+//     uint64_t offset = 1ull << (nrnd - round);
+
+//     if (round > 1) {
+//         // namely r_{i-1}
+//         shrinkTable(rands.back());
+//     }
+
+
+//     // for (uint64_t b = 0; b < offset; ++b) {
+//     //     s[0] += p1->eval_hypercube(b) * p2->eval_hypercube(b);
+//     //     s[1] += p1->eval_hypercube(b + offset) * p2->eval_hypercube(b + offset);
+//     //     s[2] += lincomb(p1->eval_hypercube(b + offset), p1->eval_hypercube(b), 2) * lincomb(p2->eval_hypercube(b + offset), p2->eval_hypercube(b), 2);
+//     // }
+
+//     p1->iterate_nonzero([&](size_t b) {
+//         Goldilocks2::Element p1e0 = p1->eval_hypercube(b), p1e1 = p1->eval_hypercube(b + offset);
+//         Goldilocks2::Element p2e0 = p2->eval_hypercube(b), p2e1 = p2->eval_hypercube(b + offset);
+//         s[0] += p1e0 * p2e0;
+//         s[1] += p1e1 * p2e1;
+//         s[2] += lincomb(p1e1, p1e0, 2) * lincomb(p2e1, p2e0, 2);
+//     }, offset);
+//     return s;
+// }
 
 /*
 evaluate f(r) given f(0,1,2) when f(x) = a * x^2 + b * x + c
@@ -108,7 +197,7 @@ bool p2Verifier::execute_sumcheck(p2Prover& pr, const std::array<const oracle*, 
         std::array<Goldilocks2::Element, 3> si;
         si = pr.send_message(round, challenges);
         add_proof_size(sizeof(si));
-        
+
         // s(0) + s(1)
         Goldilocks2::Element ss = si[0] + si[1];
         if (round == 1) {
@@ -183,7 +272,7 @@ std::optional<challenge_claim> p2Verifier::partial_sumcheck(p2Prover& pr, Goldil
                 Goldilocks2::Element slrl;
                 Goldilocks2::Element rl = challenges[round - 1];
                 interpolate_2(slrl, rl, si[0], si[1], si[2]);
-                return challenge_claim{challenges, slrl};
+                return challenge_claim{ challenges, slrl };
             }
         }
 
@@ -194,7 +283,7 @@ std::optional<challenge_claim> p2Verifier::partial_sumcheck(p2Prover& pr, Goldil
     Goldilocks2::Element slrl;
     Goldilocks2::Element rl = challenges[nrnd - 1];
     interpolate_2(slrl, rl, si1[0], si1[1], si1[2]);
-    return challenge_claim{challenges, slrl};
+    return challenge_claim{ challenges, slrl };
 }
 
 // we use goldilocks 2-extension, so no bother specifying the field

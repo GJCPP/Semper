@@ -145,34 +145,83 @@ bool lazy_pcs_pool::prove_open(std::shared_ptr<oracle> pcs, Goldilocks2::Element
     for (size_t i = 1; i < base.size(); ++i) {
         base[i] = base[i - 1] * lambda;
     }
-    #pragma omp parallel for
-    for (size_t i = 0; i != open_eqs.size(); ++i) {
-        int pre_len = prefix[open_ind[i]].size();
-        size_t offset = 0;
-        for (int j = 0; j != pre_len; ++j) {
-            offset = open_eqs[i][j] == Goldilocks2::one() ? ((offset << 1) | 1) : (offset << 1);
-        }
-        offset <<= (num_vars - pre_len);
-        auto eqt = eq_table(num_vars - pre_len, &open_eqs[i][pre_len]);
-        for (size_t k = 0; k != (1ull << (num_vars - pre_len)); ++k) {
-            eqt[k] *= base[i];
-        }
-        #pragma omp critical
-        {
-            for (size_t k = 0; k != (1ull << (num_vars - pre_len)); ++k) {
-                table[k + offset] += eqt[k];
+    #pragma omp parallel
+    {
+        oracle_sum local_eq_sum_oracle;
+        Goldilocks2::Element local_claim = Goldilocks2::zero();
+
+        #pragma omp for schedule(dynamic)
+        for (size_t i = 0; i < open_eqs.size(); ++i) {
+            int pre_len = prefix[open_ind[i]].size();
+            size_t offset = 0;
+            for (int j = 0; j < pre_len; ++j) {
+                offset = (offset << 1) | (open_eqs[i][j] == Goldilocks2::one());
             }
-            eq_sum_oracle.add(std::make_shared<MLE_Eq_Oracle>(open_eqs[i]), base[i]);
-            claim += open_val[i] * base[i];
+            offset <<= (num_vars - pre_len);
+
+            auto eqt = eq_table(num_vars - pre_len, &open_eqs[i][pre_len]);
+            for (size_t k = 0; k < (1ull << (num_vars - pre_len)); ++k) {
+                eqt[k] *= base[i];
+            }
+
+            auto eq_oracle = std::make_shared<MLE_Eq_Oracle>(open_eqs[i]);
+            local_eq_sum_oracle.add(eq_oracle, base[i]);
+            local_claim += open_val[i] * base[i];
+
+            // Chunked update to shared table
+            size_t chunk_size = 64; // tune: larger chunk reduces locking overhead
+            for (size_t k = 0; k < (1ull << (num_vars - pre_len)); k += chunk_size) {
+                #pragma omp critical(table_update)
+                {
+                    for (size_t t = 0; t < chunk_size && k + t < (1ull << (num_vars - pre_len)); ++t) {
+                        table[k + t + offset] += eqt[k + t];
+                    }
+                }
+            }
+        }
+
+        // Merge partial results
+        #pragma omp critical(eq_sum_merge)
+        {
+            eq_sum_oracle.merge(local_eq_sum_oracle);
+            claim += local_claim;
         }
     }
-    MLE mle_sum(std::move(table));
+
+    // #pragma omp parallel for
+    // for (size_t i = 0; i != open_eqs.size(); ++i) {
+    //     int pre_len = prefix[open_ind[i]].size();
+    //     size_t offset = 0;
+    //     for (int j = 0; j != pre_len; ++j) {
+    //         offset = open_eqs[i][j] == Goldilocks2::one() ? ((offset << 1) | 1) : (offset << 1);
+    //     }
+    //     offset <<= (num_vars - pre_len);
+    //     auto eqt = eq_table(num_vars - pre_len, &open_eqs[i][pre_len]);
+    //     for (size_t k = 0; k != (1ull << (num_vars - pre_len)); ++k) {
+    //         eqt[k] *= base[i];
+    //     }
+    //     auto eq_oracle = std::make_shared<MLE_Eq_Oracle>(open_eqs[i]);  
+    //     #pragma omp critical
+    //     {
+    //         for (size_t k = 0; k != (1ull << (num_vars - pre_len)); ++k) {
+    //             table[k + offset] += eqt[k];
+    //         }
+    //         eq_sum_oracle.add(eq_oracle, base[i]);
+    //         claim += open_val[i] * base[i];
+    //     }
+    // }
     pause_timer("lazy pcs open gen");
-    p2Prover prover(mle_sum.clone(), uni_mle.clone());
+    set_timer("lazy pcs create p2Prover");
+    std::unique_ptr<MLE> mle_sum = std::make_unique<MLE>(std::move(table));
+    std::unique_ptr<MLE> ptr_uni_mle = std::make_unique<MLE>(std::move(uni_mle));
+    p2Prover prover(std::move(mle_sum), std::move(ptr_uni_mle));
+    pause_timer("lazy pcs create p2Prover");
+    set_timer("lazy pcs p2exe");
     if (!p2Verifier::execute_sumcheck(prover, {&eq_sum_oracle, pcs.get()}, claim, sec_param)) {
         std::cerr << __LINE__ << ": lazy_pcs_pool::prove_open: sumcheck failed" << std::endl;
         return false;
     }
+    pause_timer("lazy pcs p2exe");
     return true;
 }
 

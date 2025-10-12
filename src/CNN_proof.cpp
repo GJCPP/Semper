@@ -331,7 +331,7 @@ bool prove_conv(
         iY,
         mapfrom, mapto,
         rho_inv, sec_param,
-        lazy_map_prover, lazy_map_verifier)) throw;
+        lazy_map_prover, lazy_map_verifier)) return false;
 
     return true;
 }

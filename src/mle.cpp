@@ -169,9 +169,9 @@ Goldilocks2::Element MultilinearPolynomial::open(const std::vector<Goldilocks2::
 
 MultilinearPolynomial MultilinearPolynomial::operator+(const MultilinearPolynomial& g) const {
     assert(num_vars == g.get_num_vars());
-    std::vector<Goldilocks2::Element> evs(evaluations.size());
+    std::vector<Goldilocks2::Element> evs(1ull << num_vars);
     #pragma omp parallel for
-    for (size_t i = 0;i < evaluations.size(); ++i) {
+    for (size_t i = 0;i < (1ull << num_vars); ++i) {
         evs[i] = evaluations[i] + g.evaluations[i];
     }
     return MultilinearPolynomial(evs);
@@ -180,9 +180,9 @@ MultilinearPolynomial MultilinearPolynomial::operator+(const MultilinearPolynomi
 
 MultilinearPolynomial MultilinearPolynomial::operator-(const MultilinearPolynomial& g) const {
     assert(num_vars == g.get_num_vars());
-    std::vector<Goldilocks2::Element> evs(evaluations.size());
+    std::vector<Goldilocks2::Element> evs(1ull << num_vars);
     #pragma omp parallel for
-    for (size_t i = 0;i < evaluations.size(); ++i) {
+    for (size_t i = 0; i < (1ull << num_vars); ++i) {
         evs[i] = evaluations[i] - g.evaluations[i];
     }
     return MultilinearPolynomial(evs);
@@ -192,18 +192,18 @@ MultilinearPolynomial MultilinearPolynomial::operator*(const MultilinearPolynomi
     if (num_vars != g.get_num_vars()) {
         throw std::invalid_argument("MultilinearPolynomial::operation *: polynomials must have same number of variables");
     }
-    std::vector<Goldilocks2::Element> evs(evaluations.size());
+    std::vector<Goldilocks2::Element> evs(1ull << num_vars);
     #pragma omp parallel for
-    for (size_t i = 0;i < evaluations.size(); ++i) {
+    for (size_t i = 0;i < (1ull << num_vars); ++i) {
         evs[i] = evaluations[i] * g.evaluations[i];
     }
     return MultilinearPolynomial(evs);
 }
 
 MultilinearPolynomial MultilinearPolynomial::operator*(size_t scale) const {
-    std::vector<Goldilocks2::Element> evs(evaluations.size());
+    std::vector<Goldilocks2::Element> evs(1ull << num_vars);
     #pragma omp parallel for
-    for (size_t i = 0;i < evaluations.size(); ++i) {
+    for (size_t i = 0;i < (1ull << num_vars); ++i) {
         evs[i] = evaluations[i] * Goldilocks2::fromU64(scale);
     }
     return MultilinearPolynomial(evs);
@@ -223,19 +223,66 @@ void MultilinearPolynomial::iterate_nonzero(const std::function<void(size_t)> f,
     }
 }
 
+// void MultilinearPolynomial::fix(size_t pos, const Goldilocks2::Element& val) {
+//     std::cerr << __LINE__ << "======= Warning: use old fix" << std::endl;
+//     assert(pos >= 0 && pos < num_vars);
+//     pos = num_vars - pos - 1; // reverse the pos, now pos = 0 -> LSB
+//     std::vector<Goldilocks2::Element> new_evs(1ull << (num_vars - 1));
+//     Goldilocks2::Element one_minus_val = Goldilocks2::one() - val;
+//     // #pragma omp parallel for if(num_vars >= 10) schedule(static)
+//     for (size_t i = 0; i < (1ull << (num_vars - 1)); ++i) {
+//         size_t ind = (i & ((1ull << pos) - 1)) | ((i >> pos) << (pos + 1));
+//         new_evs[i] = evaluations[ind] * one_minus_val + evaluations[ind | (1 << pos)] * val;
+//     }
+//     evaluations = std::move(new_evs);
+//     --num_vars;
+// }
+
 void MultilinearPolynomial::fix(size_t pos, const Goldilocks2::Element& val) {
-    assert(pos >= 0 && pos < num_vars);
-    pos = num_vars - pos - 1; // reverse the pos, now pos = 0 -> LSB
-    std::vector<Goldilocks2::Element> new_evs(1ull << (num_vars - 1));
-    Goldilocks2::Element one_minus_val = Goldilocks2::one() - val;
-    // #pragma omp parallel for if(num_vars >= 10) schedule(static)
-    for (size_t i = 0; i < (1ull << (num_vars - 1)); ++i) {
-        size_t ind = (i & ((1ull << pos) - 1)) | ((i >> pos) << (pos + 1));
-        new_evs[i] = evaluations[ind] * one_minus_val + evaluations[ind | (1 << pos)] * val;
+    assert(pos < num_vars);
+
+    pos = num_vars - pos - 1; // reverse bit order, LSB-first
+
+    const size_t old_size = 1ull << num_vars;
+    const size_t new_size = old_size >> 1;
+    const size_t stride = 1ull << pos;
+    const Goldilocks2::Element one_minus_val = Goldilocks2::one() - val;
+    
+    if (pos == num_vars - 1) {
+        #pragma omp parallel for
+        for (size_t i = 0; i < new_size; ++i) {
+            evaluations[i] = evaluations[i] * one_minus_val + evaluations[i | stride] * val;
+        }
+        evaluations.resize(new_size);
+        --num_vars;
+        return;
     }
-    evaluations = std::move(new_evs);
+
+    std::vector<Goldilocks2::Element> new_evs(new_size);
+
+    #pragma omp parallel
+    {
+        const size_t tid = omp_get_thread_num();
+        const size_t nthreads = omp_get_num_threads();
+        const size_t chunk = (new_size + nthreads - 1) / nthreads;
+        const size_t start = tid * chunk;
+        const size_t end = std::min(start + chunk, new_size);
+
+        for (size_t i = start; i < end; ++i) {
+            // Efficient index computation: merge bits around pos
+            size_t low = i & (stride - 1);
+            size_t high = i >> pos;
+            size_t ind = (high << (pos + 1)) | low;
+
+            new_evs[i] = evaluations[ind] * one_minus_val
+                       + evaluations[ind | stride] * val;
+        }
+    }
+
+    evaluations.swap(new_evs);
     --num_vars;
 }
+
 
 void MultilinearPolynomial::fix(size_t pos, const std::vector<Goldilocks2::Element>& val) {
     assert(pos >= 0 && pos + val.size() <= size_t(num_vars));

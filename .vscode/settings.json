@@ -96,7 +96,8 @@
         "semaphore": "cpp",
         "filesystem": "cpp",
         "*.inc": "cpp",
-        "*.def": "cpp"
+        "*.def": "cpp",
+        "__bit_reference": "cpp"
     },
     "C_Cpp.default.compilerPath": "/usr/bin/clang++-14"
 }

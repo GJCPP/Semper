@@ -26,13 +26,23 @@ public:
         }
         oracles.push_back(o);
         coeffs.push_back(coeff);
+        mul.push_back({});
         use_coeff.push_back(true);
     }
 
     void add(std::shared_ptr<oracle> o1, std::shared_ptr<oracle> o2) {
         oracles.push_back(o1);
         mul.push_back(o2);
+        coeffs.push_back({});
         use_coeff.push_back(false);
+    }
+
+    void merge(const oracle_sum& other) {
+        oracles.insert(oracles.end(), other.oracles.begin(), other.oracles.end());
+        coeffs.insert(coeffs.end(), other.coeffs.begin(), other.coeffs.end());
+        mul.insert(mul.end(), other.mul.begin(), other.mul.end());
+        use_coeff.insert(use_coeff.end(), other.use_coeff.begin(), other.use_coeff.end());
+        constant += other.constant;
     }
 
     void add_const(Goldilocks2::Element c) {

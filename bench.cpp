@@ -8,11 +8,13 @@
 
 #include <omp.h>
 
+#include "mle_sumcheck.h"
 #include "timer.h"
 #include "test.h"
 #include "VGG16.h"
 #include "VGG11.h"
 #include "counter.h"
+#include "product2_sumcheck.h"
 
 void bench_VGG16() {
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
@@ -134,12 +136,56 @@ void bench_commit() {
     }
 }
 
+void bench_p2_sumcheck() {
+    size_t num_vars = 30;
+    size_t n = 1ull << num_vars;
+    set_timer("allocate");
+    std::vector<Goldilocks2::Element> v1(n), v2(n);
+    auto p1 = std::make_unique<MultilinearPolynomial>(v1);
+    auto p2 = std::make_unique<MultilinearPolynomial>(v2);
+
+    pause_timer("allocate");
+    print_all_timers();
+    clear_all_timers();
+
+    // set_timer("commit");
+    // auto oracle1 = std::make_shared<ligeropcs_base>(ligero_commit_base(v1, 2));
+    // auto oracle2 = std::make_shared<ligeropcs_base>(ligero_commit_base(v2, 2));
+    // pause_timer("commit");
+
+    MLE mle1 = v1, mle2 = v2;
+
+    // print_all_timers();
+    // clear_all_timers();
+
+    p2Prover prover(std::move(p1), std::move(p2));
+
+    size_t sec_param = 32;
+    
+    set_timer("execute partial sumcheck");
+    auto result = p2Verifier::partial_sumcheck(prover, sec_param);
+    // auto result = p2Verifier::execute_sumcheck(prover, {&mle1, &mle2}, sec_param);
+    pause_timer("execute partial sumcheck");
+
+    print_all_timers();
+    clear_all_timers();
+
+    if (result) {
+        if (result->claim == mle1.open(result->challenges, 32) * mle2.open(result->challenges, 32)) {
+            std::cout << "partial_sumcheck succeeded." << std::endl;
+            return;
+        }
+    }
+    std::cout << "partial_sumcheck failed." << std::endl;
+}
+
 int main() {
     // if (!run_test()) return 0;
     // find_parameter();
     omp_set_num_threads(NUM_THREADS);
     // omp_set_nested(true);
     bench_VGG11();
+    // bench_p2_sumcheck();
     // bench_commit();
     // bench_transpose();
     // bench_VGG16();
