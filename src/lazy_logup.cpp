@@ -150,7 +150,8 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, protoque& que, uint64
     prover.start_prove();
 
     set_timer("lazy logup 1");
-    #pragma omp parallel for
+    set_timer("lazy logup 1 pre");
+    // #pragma omp parallel for
     for (size_t id = 0; id < batch; id++) { // table id
         // 0. preprocess
         size_t sz = 0;
@@ -172,11 +173,14 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, protoque& que, uint64
         pcs_f2_all[id] = std::make_shared<lazy_pcs>(std::move(pcs_f2));
         // std::cout << "logup id = " << id << ": f_size = " << (1ull << pcs_f1.get_num_vars()) << ", table size = " << t1.size() << std::endl;
     }
+    pause_timer("lazy logup 1 pre");
+    set_timer("lazy logup 1 commit");
     auto pcs_pool = pool->commit(rho_inv);
     std::vector<LogupProver> logup_prover(batch);
     std::vector<LogupVerifier> logup_verifier(batch);
     std::vector<std::shared_ptr<MLE>> mle_t1(batch), mle_t2(batch);
 
+    pause_timer("lazy logup 1 commit");
     pause_timer("lazy logup 1");
 
     set_timer("lazy logup 2");
@@ -250,7 +254,7 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, protoque& que, uint64
     pause_timer("lazy logup 2");
 
     set_timer("lazy logup 3");
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (size_t id = 0; id < batch; id++) { // table id
         // 0. preprocess
         size_t sz = 0;
@@ -271,7 +275,9 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, protoque& que, uint64
             // throw std::runtime_error("lazy logup fail at " + std::to_string(__LINE__));
         }
     }
+    set_timer("lazy logup 3 commit");
     auto pcs_pool_gh = pool_gh->commit(rho_inv);
+    pause_timer("lazy logup 3 commit");
     pause_timer("lazy logup 3");
 
 
@@ -318,8 +324,9 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, protoque& que, uint64
 
 std::vector<size_t> lazyLogupVerifier::sort_f(std::vector<logupInstance>& instances) {
     std::vector<std::pair<logupInstance, size_t>> vec;
+    vec.resize(instances.size());
     for (size_t i = 0; i < instances.size(); i++) {
-        vec.push_back({instances[i], i});
+        vec[i] = {instances[i], i};
     }
     std::sort(vec.begin(), vec.end(),
                 [](const auto& a, const auto& b) {

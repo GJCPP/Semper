@@ -74,13 +74,13 @@ std::array<Goldilocks2::Element, 3> p2Prover::send_message(const size_t& round, 
     uint64_t offset = 1ull << (nrnd - round);
 
 
-    set_timer("shrink_" + std::to_string(round));
+    // set_timer("shrink_" + std::to_string(round));
     if (round > 1) {
         // namely r_{i-1}
         shrinkTable(rands.back());
     }
-    pause_timer("shrink_" + std::to_string(round));
-    set_timer("merge_" + std::to_string(round));
+    // pause_timer("shrink_" + std::to_string(round));
+    // set_timer("merge_" + std::to_string(round));
 
     int num_threads = 1;
 #ifdef _OPENMP
@@ -133,7 +133,7 @@ std::array<Goldilocks2::Element, 3> p2Prover::send_message(const size_t& round, 
         s[2] += s_local[3 * t + 2];
     }
 
-    pause_timer("merge_" + std::to_string(round));
+    // pause_timer("merge_" + std::to_string(round));
 
     return s;
 }

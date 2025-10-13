@@ -44,11 +44,12 @@ public:
         if (round >= num_vars) {
             throw std::runtime_error("pdProver::get_next_sumcheck: all rounds have been completed");
         }
-        std::vector<Goldilocks2::Element> g0, g1;
         size_t offset = (1ull << round);
+        std::vector<Goldilocks2::Element> g0(offset), g1(offset);
+        #pragma omp parallel for
         for (size_t i = 0; i != offset; ++i) {
-            g0.push_back(g[round + 1][i << 1]);
-            g1.push_back(g[round + 1][(i << 1) | 1]);
+            g0[i] = g[round + 1][i << 1];
+            g1[i] = g[round + 1][(i << 1) | 1];
         }
         mle_g0 = g0;
         mle_g1 = g1;
@@ -143,6 +144,7 @@ protected:
 class mapProver {
 public:
     mapProver(const std::vector<size_t>& from, const std::vector<size_t>& to, bool ext);
+    mapProver(std::vector<size_t>&& from, std::vector<size_t>&& to, bool ext);
 
     void add_mle(const MLE *mle_from, const MLE *mle_to);
     

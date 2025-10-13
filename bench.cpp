@@ -107,7 +107,7 @@ void bench_transpose() {
 
 void bench_commit() {
     clear_all_timers();
-    for (int i = 30; i <= 30; ++i) {
+    for (int i = 28; i <= 28; ++i) {
         std::cout << "i = " << i << std::endl;
         set_timer("allocation");
         std::vector<Goldilocks2::Element> vec(1ull << i);
@@ -179,6 +179,27 @@ void bench_p2_sumcheck() {
     std::cout << "partial_sumcheck failed." << std::endl;
 }
 
+void bench_lazypcs() {
+    const int n = 2;
+    std::array<MLE, n> mles;
+    std::array<lazy_pcs, n> pcss;
+    auto pcs_pool = lazy_pcs_pool::create(32, false);
+    for (int i = 0; i != n; ++i) {
+        std::vector<Goldilocks2::Element> vec(1 << (rand() % 10 + 4));
+        random_vec_u64(vec.data(), vec.size());
+        mles[i] = vec;
+        pcss[i] = commit_lazy_pcs(mles[i], pcs_pool);
+    }
+    auto uni_pcs = pcs_pool->commit(2);
+    for (int i = 0; i != 100; ++i) {
+        int ind = rand() % n;
+        int num_vars = mles[ind].get_num_vars();
+        pcss[ind].open(random_vec_ext(num_vars), 32);
+    }
+    pcs_pool->prove_open(uni_pcs, random_ext());
+    
+}
+
 int main() {
     // if (!run_test()) return 0;
     // find_parameter();
@@ -186,6 +207,7 @@ int main() {
     // omp_set_nested(true);
     bench_VGG11();
     // bench_p2_sumcheck();
+    // bench_lazypcs();
     // bench_commit();
     // bench_transpose();
     // bench_VGG16();

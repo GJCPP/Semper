@@ -79,6 +79,7 @@ void LogupProver::calculate_gh(const Goldilocks2::Element& gamma, const Goldiloc
     // set_timer("calculate g and h");
 
     h.resize(c.size());
+    #pragma omp parallel for
     for (size_t i = 0; i < c.size(); ++i) {
         h[i] = { c[i], Goldilocks::zero() };
     }
@@ -86,7 +87,9 @@ void LogupProver::calculate_gh(const Goldilocks2::Element& gamma, const Goldiloc
     denomg.resize(g.size());
     denomh.resize(h.size());
     table_ext inv(std::max(g.size(), h.size())); // store inverse of denomg and denomh
+    
 
+    #pragma omp parallel for
     for (size_t i = 0; i < f1.size(); ++i) {
         Goldilocks2::Element tmp;
         Goldilocks2::mul(tmp, lambda, f2[i]);
@@ -95,11 +98,13 @@ void LogupProver::calculate_gh(const Goldilocks2::Element& gamma, const Goldiloc
         // Goldilocks2::div(g[i], g[i], denomg[i]);
     }
     batch_inverse(inv, denomg);
+    #pragma omp parallel for
     for (size_t i = 0; i < f1.size(); ++i) {
         Goldilocks2::mul(g[i], g[i], inv[i]);
     }
+    
 
-
+    #pragma omp parallel for
     for (size_t i = 0; i < t1.size(); ++i) {
         Goldilocks2::Element tmp;
         Goldilocks2::mul(tmp, lambda, t2[i]);
@@ -108,10 +113,10 @@ void LogupProver::calculate_gh(const Goldilocks2::Element& gamma, const Goldiloc
         // Goldilocks2::div(h[i], h[i], denomh[i]);
     }
     batch_inverse(inv, denomh);
+    #pragma omp parallel for
     for (size_t i = 0; i < t1.size(); ++i) {
         Goldilocks2::mul(h[i], h[i], inv[i]);
     }
-
 
     polyg = MultilinearPolynomial(g);
     polyh = MultilinearPolynomial(h);
@@ -323,9 +328,14 @@ bool LogupVerifier::execute_logup_second_part(
 
     gamma = randnum();
     lambda = randnum();
+    
+    set_timer("lazy logup 3 cal_gh");
     lpr.calculate_gh(gamma, lambda);
+    pause_timer("lazy logup 3 cal_gh");
 
+    set_timer("lazy logup 3 commit_gh");
     auto gh = lpr.commit_gh(pool_gh);
+    pause_timer("lazy logup 3 commit_gh");
     
     lazy_pcs_g = gh[0];
     lazy_pcs_h = gh[1];

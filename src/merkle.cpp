@@ -120,7 +120,7 @@ MerkleTree_base::MerkleTree_base(const Goldilocks::Element *data, size_t _num_ro
     //         cols[i][j] = data[j][i];
     //     }
     // }
-    const size_t BLOCK = 128; // tune for cache line size
+    const size_t BLOCK = 1024; // tune for cache line size
     num_rows = _num_rows;
     num_cols = _num_cols;
     cols.resize(num_cols * num_rows);
@@ -198,12 +198,14 @@ bool MerkleTree_base::MerkleVerify(const MerkleDef::Digest& root, const MTPayloa
 // construct the merkle hash tree from a matrix
 MerkleTree_ext::MerkleTree_ext(const std::vector<col_t>& data) {
     size_t num_cols = data[0].size();
+    size_t num_rows = data.size();
+    cols.resize(num_cols, std::vector<Goldilocks2::Element>(num_rows));
+    #pragma omp parallel for
     for (size_t i = 0; i < num_cols; ++i) {
-        col_t col(data.size());
+        col_t& col = cols[i];
         for (size_t j = 0; j < data.size(); ++j) {
             col[j] = data[j][i];
         }
-        cols.push_back(col);
     } // cols[i][j] <- data[j][i]
 
     // for clearer binary tree structure, index starts from 1 (T[0] is not used)
@@ -211,11 +213,13 @@ MerkleTree_ext::MerkleTree_ext(const std::vector<col_t>& data) {
     // MTtree mt_t(num_cols << 1);
     size_t loopN = find_ceiling_log2(num_cols);
     leaf_offset = 1ul << loopN;
+    #pragma omp parallel for
     for (size_t j = 0; j < leaf_offset; ++j) {
         T[leaf_offset + j] = hash_column(cols[j]);
     }
     for (size_t i = loopN; i > 0; --i) {
         size_t offset = 1ul << (i - 1);
+        #pragma omp parallel for
         for (size_t j = 0; j < offset; ++j) {
             size_t idx = offset + j;
             T[idx] = hash_node(T[2 * idx], T[2 * idx + 1]);

@@ -246,6 +246,7 @@ void permProver::forward_commit_pad_f1(std::shared_ptr<lazy_pcs_pool> pool) {
     for (size_t i = 0; i < n1; ++i) {
         vis[perm[i]] = true;
     }
+    #pragma omp parallel for
     for (size_t i = 0; i < len; ++i) {
         memcpy(new_evs[i].data(), evs1[i]->data(), sizeof(Goldilocks2::Element) * n1);
     }
@@ -259,12 +260,12 @@ void permProver::forward_commit_pad_f1(std::shared_ptr<lazy_pcs_pool> pool) {
         perm[i] = next;
         ++next;
     }
-    std::vector<std::shared_ptr<oracle>> ret;
-    pad_f1.reserve(len);
-    ret.reserve(len);
+    std::vector<std::shared_ptr<oracle>> ret(len);
+    pad_f1.resize(len);
+    #pragma omp parallel for
     for (size_t i = 0; i < len; ++i) {
-        pad_f1.emplace_back(new_evs[i]);
-        ret.push_back(std::make_shared<lazy_pcs>(commit_lazy_pcs(pad_f1.back(), pool)));
+        pad_f1[i] = std::move(new_evs[i]);
+        ret[i] = std::make_shared<lazy_pcs>(commit_lazy_pcs(pad_f1[i], pool));
     }
     pcs_pad_f1 = ret;
 }
@@ -331,6 +332,13 @@ void permVerifier::add_pcs(std::shared_ptr<oracle> new_pcs_f1, std::shared_ptr<o
 
 mapProver::mapProver(const std::vector<size_t>& _map_from, const std::vector<size_t>& _map_to, bool _ext) 
     : ext(_ext), map_from(_map_from), map_to(_map_to) {
+    if (!std::is_sorted(map_from.begin(), map_from.end())) {
+        throw std::invalid_argument("mapProver::mapProver : map_from must be sorted");
+    }
+}
+
+mapProver::mapProver(std::vector<size_t>&& _map_from, std::vector<size_t>&& _map_to, bool _ext)
+    : ext(_ext), map_from(std::move(_map_from)), map_to(std::move(_map_to)) {
     if (!std::is_sorted(map_from.begin(), map_from.end())) {
         throw std::invalid_argument("mapProver::mapProver : map_from must be sorted");
     }
@@ -443,12 +451,16 @@ bool mapVerifier::execute_check(mapProver& prover, uint64_t rho_inv, uint64_t se
     for (int i = 0; i != pad_num_vars; ++i) cha[i] = Goldilocks2::zero();
 
     start_proof("map_proof_check_pad");
-    for (size_t i = 0; i != len; ++i) {
-        startCounter c("map_proof_check_pad");
-        if (pcs_right[i]->open(small_cha, sec_param) != pcs_pad_right[i]->open(cha, sec_param)) {
-            std::cerr << "mapVerifier::execute_check : pcs_right and pcs_pad_right do not match" << std::endl;
-            return false;
+    {
+        bool ret = true;
+        #pragma omp parallel for
+        for (size_t i = 0; i != len; ++i) {
+            if (pcs_right[i]->open(small_cha, sec_param) != pcs_pad_right[i]->open(cha, sec_param)) {
+                std::cerr << "mapVerifier::execute_check : pcs_right and pcs_pad_right do not match" << std::endl;
+                ret = false;
+            }
         }
+        if (!ret) return false;
     }
     end_proof("map_proof_check_pad");
     // 2. Perform perm check.

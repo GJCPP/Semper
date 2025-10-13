@@ -97,14 +97,13 @@ mapProver lazyMapProver::commit_left_right(
     //         throw std::invalid_argument("lazyPermProver::commit_left_right: evaluation tables do not match");
     //     }
     // }
-    std::vector<size_t> map_from, map_to;
-    map_from.reserve(map_index.size());
-    map_to.reserve(map_index.size());
-    for (const auto& p : map_index) {
-        map_from.push_back(p.first);
-        map_to.push_back(p.second);
+    std::vector<size_t> map_from(map_index.size()), map_to(map_index.size());
+    #pragma omp parallel for
+    for (size_t i = 0; i != map_index.size(); ++i) {
+        map_from[i] = map_index[i].first;
+        map_to[i] = map_index[i].second;
     }
-    mapProver prover(map_from, map_to, use_ext);
+    mapProver prover(std::move(map_from), std::move(map_to), use_ext);
     prover.add_mle(&mle_left, &mle_right);
     return prover;
 }
@@ -154,12 +153,16 @@ bool lazyMapVerifier::prove_all(lazyMapProver& prover, uint64_t rho_inv, uint64_
     std::shared_ptr<lazy_pcs_pool> pool_left = lazy_pcs_pool::create(sec_param, use_ext),
                                    pool_right = lazy_pcs_pool::create(sec_param, use_ext);
     std::shared_ptr<oracle> pcs_left, pcs_right;
+    set_timer("lazy_map commit");
     mapProver map_prover = prover.commit_left_right(pool_left, pool_right, pcs_left, pcs_right, rho_inv);
+    pause_timer("lazy_map commit");
     mapVerifier map_verifier;
     map_verifier.add_pcs(pcs_left, pcs_right);
+    set_timer("lazy_map exe");
     if (!map_verifier.execute_check(map_prover, rho_inv, sec_param)) {
         std::cerr << "lazyMapVerifier::prove_all: map check failed." << std::endl;
         return false;
     }
+    pause_timer("lazy_map exe");
     return true;
 }

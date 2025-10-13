@@ -9,11 +9,6 @@
 // #define OMIT_PCS
 
 std::shared_ptr<oracle> lazy_pcs_pool::commit(uint64_t rho_inv) {
-#ifdef OMIT_PCS
-    std::cout << "====== warning: lazy_pcs_pool::commit skipped." << std::endl;
-    committed = true;
-    return {};
-#endif
 
     if (committed) {
         throw std::runtime_error("lazy_pcs_pool::commit: already committed");
@@ -26,22 +21,31 @@ std::shared_ptr<oracle> lazy_pcs_pool::commit(uint64_t rho_inv) {
         int num_vars;
     };
     std::vector<sortIns> elements;
+    elements.reserve(mles.size());
     for (size_t i = 0; i < mles.size(); i++) {
         elements.push_back({i, mles[i].first.get_num_vars()});
     }
+    set_timer("lazy_pcs_pool sort");
     std::sort(elements.begin(), elements.end(), [](const auto& a, const auto& b) {
         return a.num_vars > b.num_vars;
     }); // sort in descending order
-    std::vector<std::pair<MLE, size_t>> sorted_mles;
+    pause_timer("lazy_pcs_pool sort");
+
+    
+    set_timer("lazy_pcs_pool reorder");
+    std::vector<std::pair<MLE, size_t>> sorted_mles(elements.size());
     order.resize(mles.size());
     perm.resize(mles.size());
+    #pragma omp parallel for
     for (size_t i = 0; i != elements.size(); ++i) {
-        sorted_mles.push_back(mles[elements[i].ind]);
+        sorted_mles[i] = std::move(mles[elements[i].ind]);
         order[elements[i].ind] = i;
         perm[i] = elements[i].ind;
     }
     mles = std::move(sorted_mles);
+    pause_timer("lazy_pcs_pool reorder");
 
+    set_timer("lazy_pcs_pool mle");
     size_t ind = 0;
     size_t total = 0;
     for (auto& mle : mles) {
@@ -72,15 +76,28 @@ std::shared_ptr<oracle> lazy_pcs_pool::commit(uint64_t rho_inv) {
     }
     all_vals.resize(total);
     uni_mle = all_vals;
+    pause_timer("lazy_pcs_pool mle");
     
     // std::cout << "================Warning: skip lazy_pcs commit" << std::endl;
     // return std::make_shared<MLE>(uni_mle);
     // std::cout << "Committing lazy pcs with num_vars = " << num_vars << "...\n";
     // std::cout << "use_ext = " << use_ext << std::endl;
+
+    
+#ifdef OMIT_PCS
+    std::cout << "====== warning: lazy_pcs_pool::commit skipped." << std::endl;
+    return {};
+#endif
+
+    set_timer("lazy_pcs_pool commit");
     if (use_ext) {
-        return std::make_shared<ligeropcs_ext>(ligero_commit_ext(uni_mle, rho_inv));
+        auto r = std::make_shared<ligeropcs_ext>(ligero_commit_ext(uni_mle, rho_inv));
+        pause_timer("lazy_pcs_pool commit");
+        return r;
     } else {
-        return std::make_shared<ligeropcs_base>(ligero_commit_base(uni_mle, rho_inv));
+        auto r = std::make_shared<ligeropcs_base>(ligero_commit_base(uni_mle, rho_inv));
+        pause_timer("lazy_pcs_pool commit");
+        return r;
     }
 }
 

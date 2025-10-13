@@ -27,6 +27,7 @@ void p3Prover::initialize() {
     uint64_t tsize = 1ull << p1.get_num_vars();
 
     sum = Goldilocks2::zero();
+    #pragma omp parallel for
     for (uint64_t mask = 0; mask < tsize; ++mask) {
         sum += p1[mask] * p2[mask] * p3[mask];
     }

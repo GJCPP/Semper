@@ -63,8 +63,7 @@ std::vector<Goldilocks2::Element> eq_table(const size_t& num_var, const std::vec
     }
     for (uint64_t i = 0; i < num_var; ++i) {
         // Goldilocks2::sub(one_minus_r[i], Goldilocks2::one(), r[i]);
-        // #pragma omp parallel for
-        // #pragma omp parallel for if(i >= 12) schedule(static)
+        #pragma omp parallel for
         for (uint64_t j = 0; j < (1ull << i); ++j) {
             // for r: low index corresponds with high bit
             Goldilocks2::mul(evaluations[j + (1ull << i)], evaluations[j], r[num_var - i - 1]);

@@ -28,7 +28,6 @@ public:
         startTimer timer("prove protoque");
         bool ret = true;
 
-        #pragma omp parallel for
         for (auto& p : protocols) {
             if (!p->execute()) ret = false;
         }
