@@ -7,6 +7,9 @@
 
 #define PRINT_INFO false
 
+
+#define VERIFIER_TIMER "verifier"
+
 class Timer {
 public:
     static Timer& getInstance() {

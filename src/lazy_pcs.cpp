@@ -6,7 +6,7 @@
 #include "ligero.h"
 #include "counter.h"
 
-#define OMIT_PCS
+// #define OMIT_PCS
 
 std::shared_ptr<oracle> lazy_pcs_pool::commit(uint64_t rho_inv) {
 #ifdef OMIT_PCS
@@ -75,7 +75,7 @@ std::shared_ptr<oracle> lazy_pcs_pool::commit(uint64_t rho_inv) {
     
     // std::cout << "================Warning: skip lazy_pcs commit" << std::endl;
     // return std::make_shared<MLE>(uni_mle);
-    // std::cout << "Committing lazy pcs with num_vars = " << num_vars << "...\n";
+    std::cout << "lazy_pcs_pool::commit: total size = " << (1ull << num_vars) << std::endl;
     if (use_ext) {
         return std::make_shared<ligeropcs_ext>(ligero_commit_ext(uni_mle, rho_inv));
     } else {

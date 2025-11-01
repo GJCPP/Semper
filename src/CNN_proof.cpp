@@ -974,7 +974,6 @@ CNN::layer_res pre_prove_pool_layer(const CNN::layer_info& layer,
         }
         auto pcs_sel_d_input = commit_lazy_pcs(sel_d_input.view, pool);
         ret.pcs["pcs_sel_d_input" + _i] = pcs_sel_d_input;
-        // auto pcs_sel_d_input = ligero_commit_base(sel_d_input.view, rho_inv);
 
         // III.3 Prover proves 0 = d_input * rev_sel
 
@@ -1043,8 +1042,6 @@ bool prove_pool_layer(const CNN::layer_info& layer,
         }
         MultilinearPolynomial mle_sel(sel.view), mle_rev_sel(rev_sel.view);
         auto pcs_sel = wit.pcs.at("pcs_sel" + _i), pcs_rev_sel = wit.pcs.at("pcs_rev_sel" + _i);
-        // auto pcs_sel = ligero_commit_base(mle_sel, rho_inv);
-        // auto pcs_rev_sel = ligero_commit_base(mle_rev_sel, rho_inv);
         // TODO 1. Check pcs_sel = pcs_rev_sel
 
         // I.2 Prove sel is boolean
@@ -1165,7 +1162,6 @@ bool prove_pool_layer(const CNN::layer_info& layer,
             }
         }
         auto pcs_sel_d_input = wit.pcs.at("pcs_sel_d_input" + _i);
-        // auto pcs_sel_d_input = ligero_commit_base(sel_d_input.view, rho_inv);
         MultilinearPolynomial mle_sel_d_input(sel_d_input.view);
         if (!prove_mle_product(mle_sel_d_input, mle_sel, d_input,
             pcs_sel_d_input, pcs_sel, pcs_d_input, sec_param)) {
@@ -1233,8 +1229,6 @@ CNN::layer_res pre_prove_softmax(const CNN::layer_info& layer,
         input.copy_to(input_copy.data(), new_shape);
         auto [quo, rem] = get_quo_rem(input_copy, scale, true);
         MultilinearPolynomial mle_quo(quo);
-        // auto pcs_quo = ligero_commit_base(mle_quo, rho_inv);
-        // auto pcs_rem = ligero_commit_base(rem, rho_inv);
         ret.pcs["pcs_quo" + _i] =  commit_lazy_pcs(mle_quo, pool); // warm up
         ret.pcs["pcs_rem" + _i] = commit_lazy_pcs(rem, pool);
 
@@ -1246,7 +1240,6 @@ CNN::layer_res pre_prove_softmax(const CNN::layer_info& layer,
             }
         }
         MultilinearPolynomial mle_mask(mask.view);
-        // auto pcs_mask = ligero_commit_base(mle_mask, rho_inv);
         ret.pcs["pcs_mask" + _i] = commit_lazy_pcs(mle_mask, pool);
 
         // 3. Commit onehot selector
@@ -1276,7 +1269,7 @@ CNN::layer_res pre_prove_softmax(const CNN::layer_info& layer,
         ret.pcs["pcs_prod_sel" + _i] = commit_lazy_pcs(mle_prod_sel, pool);
         // 3.2 Prove max = shrink(sel * quo)
         MultilinearPolynomial mle_sel_quo = mle_sel * mle_quo;
-        auto pcs_sel_quo = ligero_commit_base(mle_sel_quo, rho_inv);
+        
         ret.pcs["pcs_sel_quo" + _i] = commit_lazy_pcs(mle_sel_quo, pool);
         // 4. Commit/Prove diff_masked = mask * (max - quo)
         array<Goldilocks2::Element> diff(new_shape), diff_masked(new_shape);
@@ -1293,7 +1286,7 @@ CNN::layer_res pre_prove_softmax(const CNN::layer_info& layer,
         // 5. Prove diff_masked >= 0
         std::vector<Goldilocks2::Element> ones(diff_masked.data.size(), Goldilocks2::one());
         MLE mle_ones = MLE(ones);
-        // auto pcs_ones = ligero_commit_base(ones, rho_inv);
+
         // TODO: Check pcs_ones = 1
         signProver sign_prover_diff_masked(diff_masked.data, ones, scale, 2 * max_val, false, rho_inv, lazy_logup_prover);
         auto sign_diff_masked_res = signVerifier::pre_execute_sign_check(sign_prover_diff_masked, pool, lazy_logup_verifier);
@@ -1347,7 +1340,7 @@ CNN::layer_res pre_prove_softmax(const CNN::layer_info& layer,
             }
         }
         MultilinearPolynomial mle_expand_sum(expand_sum.view);
-        // auto pcs_expand_sum = ligero_commit_base(mle_expand_sum, rho_inv);
+        
         ret.pcs["pcs_expand_sum" + _i] = commit_lazy_pcs(mle_expand_sum, pool);
         // 9. Prove d_quo = exp_diff_masked * scale / expand_sum
         array<Goldilocks2::Element> d_quo(new_shape), d_rem(new_shape);
@@ -1359,19 +1352,18 @@ CNN::layer_res pre_prove_softmax(const CNN::layer_info& layer,
             }
         }
         MultilinearPolynomial mle_d_quo(d_quo.view), mle_d_rem(d_rem.view);
-        // auto pcs_d_quo = ligero_commit_base(mle_d_quo, rho_inv);
-        // auto pcs_d_rem = ligero_commit_base(mle_d_rem, rho_inv);
+        
         ret.pcs["pcs_d_quo" + _i] = commit_lazy_pcs(mle_d_quo, pool);
         ret.pcs["pcs_d_rem" + _i] = commit_lazy_pcs(mle_d_rem, pool);
         MultilinearPolynomial mle_prod = mle_d_quo * mle_expand_sum;
-        // auto pcs_prod = ligero_commit_base(mle_prod, rho_inv);
+        
         ret.pcs["pcs_prod" + _i] = commit_lazy_pcs(mle_prod, pool);
 
 
         // 9.2 d_rem - sum < 0
         MultilinearPolynomial mle_d_rem_sum = mle_d_rem - mle_expand_sum;
         std::vector<Goldilocks2::Element> input_zeros(img * (1 << logn));
-        // auto pcs_d_rem_sum = ligero_commit_base(mle_d_rem_sum, rho_inv);
+        
         ret.pcs["pcs_d_rem_sum" + _i] = commit_lazy_pcs(mle_d_rem_sum, pool);
         
         
@@ -1380,10 +1372,10 @@ CNN::layer_res pre_prove_softmax(const CNN::layer_info& layer,
         ret.res["sign_d_rem_sum_res" + _i] = std::make_shared<signVerifier::resource>(sign_d_rem_sum_res);
         // 10. Prove d_input = (d_quo - label * scale) / img
         MultilinearPolynomial mle_d_delta = mle_d_quo - mle_label * scale;
-        // auto pcs_d_delta = ligero_commit_base(mle_d_delta, rho_inv);
+        
         ret.pcs["pcs_d_delta" + _i] = commit_lazy_pcs(mle_d_delta, pool);
         auto d_input_rem = get_rem(mle_d_delta.get_eval_table(), img, mle_d_input.get_eval_table(), true);
-        // auto pcs_d_input_rem = ligero_commit_base(d_input_rem, rho_inv);
+        
         ret.pcs["pcs_d_input_rem" + _i] = commit_lazy_pcs(d_input_rem, pool);
     }
     return ret;
@@ -1428,8 +1420,6 @@ bool prove_softmax(const CNN::layer_info& layer,
         input.copy_to(input_copy.data(), new_shape);
         auto [quo, rem] = get_quo_rem(input_copy, scale, true);
         MultilinearPolynomial mle_quo(quo);
-        // auto pcs_quo = ligero_commit_base(mle_quo, rho_inv);
-        // auto pcs_rem = ligero_commit_base(rem, rho_inv);
         auto pcs_quo = wit.pcs.at("pcs_quo" + _i);
         auto pcs_rem = wit.pcs.at("pcs_rem" + _i);
         divProver div_prover(input_copy, quo, rem, scale, true, rho_inv, lazy_logup_prover);
@@ -1450,7 +1440,6 @@ bool prove_softmax(const CNN::layer_info& layer,
             }
         }
         MultilinearPolynomial mle_mask(mask.view);
-        // auto pcs_mask = ligero_commit_base(mle_mask, rho_inv);
         auto pcs_mask = wit.pcs.at("pcs_mask" + _i);
         std::vector<Goldilocks2::Element> mask_cha(logimg + logn);
         std::vector<Goldilocks2::Element> first_cha(mask_cha.begin(), mask_cha.begin() + logimg);
@@ -1481,9 +1470,6 @@ bool prove_softmax(const CNN::layer_info& layer,
             }
         }
         MultilinearPolynomial mle_max(max), mle_sel(sel), mle_rev_sel(rev_sel);
-        // auto pcs_max = ligero_commit_base(mle_max, rho_inv);
-        // auto pcs_sel = ligero_commit_base(mle_sel, rho_inv);
-        // auto pcs_rev_sel = ligero_commit_base(mle_rev_sel, rho_inv);
         auto pcs_max = wit.pcs.at("pcs_max" + _i);
         auto pcs_sel = wit.pcs.at("pcs_sel" + _i);
         auto pcs_rev_sel = wit.pcs.at("pcs_rev_sel" + _i);
@@ -1491,7 +1477,6 @@ bool prove_softmax(const CNN::layer_info& layer,
         // 3.1 Check sel is one-hot
         auto sel_cha = random_vec_ext(logimg + logn);
         MultilinearPolynomial mle_prod_sel = mle_sel * mle_rev_sel;
-        // auto pcs_prod_sel = ligero_commit_base(mle_prod_sel, rho_inv);
         auto pcs_prod_sel = wit.pcs.at("pcs_prod_sel" + _i);
         if (pcs_sel.open(sel_cha, sec_param) != Goldilocks2::one() - pcs_rev_sel.open(sel_cha, sec_param)) {
             std::cout << "❌ Proving softmax sel + rev_sel = 1 failed." << std::endl;
@@ -1509,7 +1494,6 @@ bool prove_softmax(const CNN::layer_info& layer,
 
         // 3.2 Prove max = shrink(sel * quo)
         MultilinearPolynomial mle_sel_quo = mle_sel * mle_quo;
-        // auto pcs_sel_quo = ligero_commit_base(mle_sel_quo, rho_inv);
         auto pcs_sel_quo = wit.pcs.at("pcs_sel_quo" + _i);
         if (!prove_mle_product(mle_sel_quo, mle_sel, mle_quo, pcs_sel_quo, pcs_sel, pcs_quo, sec_param)) {
             std::cout << "❌ Proving softmax sel_quo = sel * quo failed." << std::endl;
@@ -1535,8 +1519,6 @@ bool prove_softmax(const CNN::layer_info& layer,
             }
         }
         MultilinearPolynomial mle_diff(diff.view), mle_diff_masked(diff_masked.view);
-        // auto pcs_diff = ligero_commit_base(mle_diff, rho_inv);
-        // auto pcs_diff_masked = ligero_commit_base(mle_diff_masked, rho_inv);
         auto pcs_diff = wit.pcs.at("pcs_diff" + _i);
         auto pcs_diff_masked = std::make_shared<lazy_pcs>(wit.pcs.at("pcs_diff_masked" + _i));
         auto diff_cha = random_vec_ext(logimg + logn);
@@ -1560,7 +1542,6 @@ bool prove_softmax(const CNN::layer_info& layer,
         // 5. Prove diff_masked >= 0
         std::vector<Goldilocks2::Element> ones(diff_masked.data.size(), Goldilocks2::one());
         MLE mle_ones = MLE(ones);
-        // auto pcs_ones = ligero_commit_base(ones, rho_inv);
         // TODO: Check pcs_ones = 1
         auto sign_res = *reinterpret_cast<signVerifier::resource*>(wit.res.at("sign_diff_masked_res" + _i).get());
         signProver sign_prover_diff_masked(diff_masked.data, ones, scale, 2 * max_val, false, rho_inv, lazy_logup_prover);
@@ -1582,7 +1563,6 @@ bool prove_softmax(const CNN::layer_info& layer,
         // 6. Prove diff_masked contains zero
         std::vector<Goldilocks2::Element> zeros(img, Goldilocks2::zero());
         std::shared_ptr<MLE> mle_zeros = std::make_shared<MLE>(zeros);
-        // auto pcs_zeros = ligero_commit_base(mle_zeros, rho_inv);
         // TODO: Check pcs_zeros = 0
         prodProver prod_prover(mle_diff_masked, *mle_zeros, logn, rho_inv);
         auto prod_res = *reinterpret_cast<prodVerifier::resource*>(wit.res.at("prod_res" + _i).get());
@@ -1603,7 +1583,6 @@ bool prove_softmax(const CNN::layer_info& layer,
         }
         exp_diff = eVerifier::get_exp_inv(diff_masked_vec, scale, rho_inv);
         MultilinearPolynomial mle_exp_diff(exp_diff);
-        // auto pcs_exp_diff = ligero_commit_base(mle_exp_diff, rho_inv);
         auto pcs_exp_diff = std::make_shared<lazy_pcs>(wit.pcs.at("pcs_exp_diff" + _i));
         eProver e_prover(diff_masked_vec, exp_diff, scale, max_val, rho_inv, lazy_logup_prover);
         eVerifier::resource e_res = *reinterpret_cast<eVerifier::resource*>(wit.res.at("e_res" + _i).get());
@@ -1623,7 +1602,6 @@ bool prove_softmax(const CNN::layer_info& layer,
             }
         }
         MultilinearPolynomial mle_exp_diff_masked(exp_diff_masked.view);
-        // auto pcs_exp_diff_masked = ligero_commit_base(mle_exp_diff_masked, rho_inv);
         auto pcs_exp_diff_masked = wit.pcs.at("pcs_exp_diff_masked" + _i);
         if (!prove_mle_product(mle_exp_diff_masked, mle_mask, mle_exp_diff,
             pcs_exp_diff_masked, pcs_mask, *pcs_exp_diff, sec_param)) {
@@ -1638,7 +1616,6 @@ bool prove_softmax(const CNN::layer_info& layer,
             }
         }
         MultilinearPolynomial mle_sum(sum);
-        // auto pcs_sum = ligero_commit_base(mle_sum, rho_inv);
         auto pcs_sum = wit.pcs.at("pcs_sum" + _i);
         std::vector<Goldilocks2::Element> sum_cha = random_vec_ext(logimg);
         auto mle_exp_diff_masked_fixed = mle_exp_diff_masked;
@@ -1657,7 +1634,6 @@ bool prove_softmax(const CNN::layer_info& layer,
             }
         }
         MultilinearPolynomial mle_expand_sum(expand_sum.view);
-        // auto pcs_expand_sum = ligero_commit_base(mle_expand_sum, rho_inv);
         auto pcs_expand_sum = wit.pcs.at("pcs_expand_sum" + _i);
         sum_cha = random_vec_ext(logimg);
         auto extra_cha = random_vec_ext(logn);
@@ -1682,12 +1658,9 @@ bool prove_softmax(const CNN::layer_info& layer,
             }
         }
         MultilinearPolynomial mle_d_quo(d_quo.view), mle_d_rem(d_rem.view);
-        // auto pcs_d_quo = ligero_commit_base(mle_d_quo, rho_inv);
-        // auto pcs_d_rem = ligero_commit_base(mle_d_rem, rho_inv);
         auto pcs_d_quo = wit.pcs.at("pcs_d_quo" + _i);
         auto pcs_d_rem = wit.pcs.at("pcs_d_rem" + _i);
         MultilinearPolynomial mle_prod = mle_d_quo * mle_expand_sum;
-        // auto pcs_prod = ligero_commit_base(mle_prod, rho_inv);
         auto pcs_prod = wit.pcs.at("pcs_prod" + _i);
         if (!prove_mle_product(mle_prod, mle_d_quo, mle_expand_sum,
             pcs_prod, pcs_d_quo, pcs_expand_sum, sec_param)) {
@@ -1706,7 +1679,6 @@ bool prove_softmax(const CNN::layer_info& layer,
 
         // 9.2 d_rem - sum < 0
         MultilinearPolynomial mle_d_rem_sum = mle_d_rem - mle_expand_sum;
-        // auto pcs_d_rem_sum = ligero_commit_base(mle_d_rem_sum, rho_inv);
         auto pcs_d_rem_sum = wit.pcs.at("pcs_d_rem_sum" + _i);
         auto d_rem_sum_cha = random_vec_ext(logimg + logn);
         if (pcs_d_rem_sum.open(d_rem_sum_cha, sec_param) != pcs_d_rem.open(d_rem_sum_cha, sec_param) - pcs_expand_sum.open(d_rem_sum_cha, sec_param)) {
@@ -1733,7 +1705,6 @@ bool prove_softmax(const CNN::layer_info& layer,
 
         // 10. Prove d_input = (d_quo - label * scale) / img
         MultilinearPolynomial mle_d_delta = mle_d_quo - mle_label * scale;
-        // auto pcs_d_delta = ligero_commit_base(mle_d_delta, rho_inv);
         auto pcs_d_delta = wit.pcs.at("pcs_d_delta" + _i);
         auto delta_cha = random_vec_ext(logimg + logn);
         if (pcs_d_delta.open(delta_cha, sec_param) != pcs_d_quo.open(delta_cha, sec_param) - Goldilocks2::fromU64(scale) * pcs_label.open(delta_cha, sec_param)) {
@@ -1741,7 +1712,6 @@ bool prove_softmax(const CNN::layer_info& layer,
             return false;
         }
         auto d_input_rem = get_rem(mle_d_delta.get_eval_table(), img, mle_d_input.get_eval_table(), true);
-        // auto pcs_d_input_rem = ligero_commit_base(d_input_rem, rho_inv);
         auto pcs_d_input_rem = wit.pcs.at("pcs_d_input_rem" + _i);
         divProver div_prover_d_input(mle_d_delta.get_eval_table(), mle_d_input.get_eval_table(), d_input_rem, img, true, rho_inv, lazy_logup_prover);
         if (!divVerifier::execute_div_check(div_prover_d_input, 
