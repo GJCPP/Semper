@@ -74,13 +74,13 @@ public:
     // num of rows, columns;
     size_t a, b;
     // original vector
-    std::vector<Goldilocks::Element> M;
+    std::shared_ptr<std::vector<Goldilocks::Element>> M;
     // encoded matrix
     // std::vector<std::vector<Goldilocks::Element>> codewords;
     // number of variables
     int num_vars;
     // merkle hash tree of codewords
-    MerkleTree_base mt_t;
+    std::shared_ptr<MerkleTree_base> mt_t;
 };
 
 class ligeroProver_ext {

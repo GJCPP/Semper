@@ -9,19 +9,20 @@ import copy
 
 save_cache_to_file = True
 
-class ManualVGG11:
+class ManualAlexNet:
     def __init__(self):
         torch.backends.cudnn.deterministic = True
         self.W = {}
 
         # Conv layers (no bias), Kaiming init
         conv_shapes = [
-            (64, 3, 3, 3),        # Block 1
-            (128, 64, 3, 3),      # Block 2
-            (256, 128, 3, 3), (256, 256, 3, 3),  # Block 3
-            (512, 256, 3, 3), (512, 512, 3, 3),  # Block 4
-            (512, 512, 3, 3), (512, 512, 3, 3)   # Block 5
+            (64, 3, 3, 3),       # conv1
+            (192, 64, 3, 3),     # conv2
+            (384, 192, 3, 3),    # conv3
+            (256, 384, 3, 3),    # conv4
+            (256, 256, 3, 3)     # conv5
         ]
+
         self.scale=2**14
         for i, shape in enumerate(conv_shapes):
             self.W[f'conv{i+1}'] = torch.randn(*shape) * (2.0 / (shape[1]*shape[2]*shape[3]))**0.5
@@ -29,9 +30,9 @@ class ManualVGG11:
             self.W[f'conv_q{i+1}']=torch.round(self.W[f'conv{i+1}']*self.scale).to(torch.int64)
 
         # FC layers
-        self.W['fc1'] = torch.randn(512, 512) * (2.0 / 512)**0.5
-        self.W['fc2'] = torch.randn(512, 512) * (2.0 / 512)**0.5
-        self.W['fc3'] = torch.randn(512, 10) * (2.0 / 512)**0.5
+        self.W['fc1'] = torch.randn(256, 256) * (2.0 / 256)**0.5
+        self.W['fc2'] = torch.randn(256, 256) * (2.0 / 256)**0.5
+        self.W['fc3'] = torch.randn(256, 10) * (2.0 / 256)**0.5
         self.W['fc1_q']=torch.round(self.W['fc1']*self.scale).to(torch.int64)
         self.W['fc2_q']=torch.round(self.W['fc2']*self.scale).to(torch.int64)
         self.W['fc3_q']=torch.round(self.W['fc3']*self.scale).to(torch.int64)
@@ -59,7 +60,7 @@ class ManualVGG11:
         one_hot_y = F.one_hot(y, num_classes=10)
         self.save_to_cache('a_q0_label', one_hot_y)
 
-        for block, layers in enumerate([(1, ), (2, ), (3, 4), (5, 6), (7, 8)], start=1):
+        for block, layers in enumerate([(1,), (2,), (3,), (4,), (5,)], start=1):
             #for lid in layers:
             #    x = F.conv2d(x, self.W[f'conv{lid}'], padding=1)
             #    self.cache[f'z{lid}'] = x
@@ -220,7 +221,7 @@ class ManualVGG11:
         # backward through conv blocks
         for block in reversed(range(1, 6)):
             #pooled_out, indices = c[f'pool{block}']
-            first_lid = [1, 2, 3, 5, 7][block - 1]
+            first_lid = [1, 2, 3, 4, 5][block - 1]
 
             pooled_out_q = c[f'pool_q{block}'][-1]
             indices_q = c[f'pool_idx_q{block}'][-1]
@@ -237,11 +238,11 @@ class ManualVGG11:
             elif block == 2:
                 conv_ids = [2]
             elif block == 3:
-                conv_ids = [3, 4]
+                conv_ids = [3]
             elif block == 4:
-                conv_ids = [5, 6]
+                conv_ids = [4]
             elif block == 5:
-                conv_ids = [7, 8]
+                conv_ids = [5]
 
 
             for lid in reversed(conv_ids):
@@ -332,18 +333,18 @@ def train_manual():
         ])
     dataset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
     loader = DataLoader(dataset , batch_size=16, shuffle=True)
-    subset = Subset(dataset, indices=range(128))
+    subset = Subset(dataset, indices=range(16))
     indexed_subset = IndexedDataset(subset)  # Wrap to include indices
     loader = DataLoader(indexed_subset, batch_size=16, shuffle=True)
-    model = ManualVGG11()
+    model = ManualAlexNet()
     lr=0.01
     S=[]
 
     # Create directory for saving data
-    os.makedirs('training_trace/VGG11', exist_ok=True)
+    os.makedirs('training_trace/AlexNet', exist_ok=True)
     # Save dataset before training
     np.savez(
-        'training_trace/VGG11/dataset.npz',
+        'training_trace/AlexNet/dataset.npz',
         dataset_inputs=np.stack([
             (subset[i][0] * model.scale).to(torch.int64).numpy()
             for i in range(len(subset))
@@ -394,7 +395,7 @@ def train_manual():
             # print(value[0][0, 0])
         
         if save_cache_to_file:
-            np.savez(f'training_trace/VGG11/epoch_{epoch}.npz', **model.cache)
+            np.savez(f'training_trace/AlexNet/epoch_{epoch}.npz', **model.cache)
 
         # print(epoch_data)
 
@@ -406,4 +407,4 @@ if __name__ == "__main__":
     torch.manual_seed(0)
     random.seed(0)
     train_manual()
-    pad_conv.pad_VGG11()
+    pad_conv.pad_AlexNet()

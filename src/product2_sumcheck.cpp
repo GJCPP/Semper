@@ -246,12 +246,18 @@ std::optional<challenge_claim> p2Verifier::partial_sumcheck(p2Prover& pr, Goldil
     size_t nrnd = pr.get_rounds();
     std::vector<Goldilocks2::Element> challenges;
 
+    set_timer(VERIFIER_TIMER);
+    set_timer("verifier p2_partial_sumcheck");
     // s_{i - 1}
     std::array<Goldilocks2::Element, 3> si1;
     for (size_t round = 1; round <= nrnd; ++round) {
         // s_i
         std::array<Goldilocks2::Element, 3> si;
+        pause_timer(VERIFIER_TIMER);
+        pause_timer("verifier p2_partial_sumcheck");
         si = pr.send_message(round, challenges);
+        set_timer(VERIFIER_TIMER);
+        set_timer("verifier p2_partial_sumcheck");
         // s(0) + s(1)
         Goldilocks2::Element ss = si[0] + si[1];
         if (round == 1) {
@@ -272,6 +278,8 @@ std::optional<challenge_claim> p2Verifier::partial_sumcheck(p2Prover& pr, Goldil
                 Goldilocks2::Element slrl;
                 Goldilocks2::Element rl = challenges[round - 1];
                 interpolate_2(slrl, rl, si[0], si[1], si[2]);
+                pause_timer(VERIFIER_TIMER);
+                pause_timer("verifier p2_partial_sumcheck");
                 return challenge_claim{ challenges, slrl };
             }
         }
@@ -283,6 +291,8 @@ std::optional<challenge_claim> p2Verifier::partial_sumcheck(p2Prover& pr, Goldil
     Goldilocks2::Element slrl;
     Goldilocks2::Element rl = challenges[nrnd - 1];
     interpolate_2(slrl, rl, si1[0], si1[1], si1[2]);
+    pause_timer(VERIFIER_TIMER);
+    pause_timer("verifier p2_partial_sumcheck");
     return challenge_claim{ challenges, slrl };
 }
 

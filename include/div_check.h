@@ -82,7 +82,7 @@ public:
 
 
 protected:
-    bool allow_neg_rem;
+    bool allow_neg_rem = false;
     uint64_t denom;
     uint64_t rho_inv;
     int num_vars;

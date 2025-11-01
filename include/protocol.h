@@ -12,6 +12,7 @@ class protocol {
 public:
     protocol(uint64_t _sec_param) : sec_param(_sec_param) {}
     virtual bool execute() = 0;
+    virtual ~protocol() = default;
 protected:
     uint64_t sec_param;
 };

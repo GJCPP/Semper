@@ -46,7 +46,7 @@ public:
     // customized sumcheck for \Sigma eq * frac * (gamma - p1 - lambda * p2)
     static bool execute_logup_sumcheck(
         p3Prover& pr,
-        const MLE_Eq& eqr,
+        const MLE_Eq_Oracle& eqr,
         const oracle& frac,
         const oracle& p1,
         const oracle& p2,
@@ -91,7 +91,7 @@ private:
 class logup_sum_proto : public protocol {
 public:
     logup_sum_proto(p3Prover&& _prover, 
-                const MLE_Eq& _eqr,
+                const MLE_Eq_Oracle& _eqr,
                 std::shared_ptr<oracle> _frac,
                 std::shared_ptr<oracle> _p1,
                 std::shared_ptr<oracle> _p2,
@@ -108,7 +108,7 @@ public:
     
 private:
     p3Prover prover;
-    MLE_Eq eqr;
+    MLE_Eq_Oracle eqr;
     std::shared_ptr<oracle> frac;
     std::shared_ptr<oracle> p1;
     std::shared_ptr<oracle> p2;

@@ -371,6 +371,38 @@ public:
         init(shape);
     }
 
+    // copy ctor
+    array(const array& o) : data(o.data) {
+        view = o.view;
+        view.data = data.data();
+    }
+
+    // move ctor
+    array(array&& o) noexcept : data(std::move(o.data)) {
+        view = o.view;
+        view.data = data.data();
+    }
+
+    // copy assign
+    array& operator=(const array& o) {
+        if (this != &o) {
+            data = o.data;
+            view = o.view;
+            view.data = data.data();
+        }
+        return *this;
+    }
+
+    // move assign
+    array& operator=(array&& o) noexcept {
+        if (this != &o) {
+            data = std::move(o.data);
+            view = o.view;
+            view.data = data.data();
+        }
+        return *this;
+    }
+
     void init(const std::vector<size_t>& shape) {
         size_t data_size = 1;
         for (size_t i = 0; i < shape.size(); ++i) {

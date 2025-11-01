@@ -36,7 +36,7 @@ std::shared_ptr<oracle> lazy_pcs_pool::commit(uint64_t rho_inv) {
     std::vector<std::pair<MLE, size_t>> sorted_mles(elements.size());
     order.resize(mles.size());
     perm.resize(mles.size());
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (size_t i = 0; i != elements.size(); ++i) {
         sorted_mles[i] = std::move(mles[elements[i].ind]);
         order[elements[i].ind] = i;
@@ -75,7 +75,7 @@ std::shared_ptr<oracle> lazy_pcs_pool::commit(uint64_t rho_inv) {
         ind += mle.first.get_eval_table().size();
     }
     all_vals.resize(total);
-    uni_mle = all_vals;
+    uni_mle = MLE(std::move(all_vals));
     pause_timer("lazy_pcs_pool mle");
     
     // std::cout << "================Warning: skip lazy_pcs commit" << std::endl;

@@ -41,8 +41,8 @@ target_sources(bench PRIVATE ${SOURCES})
 
 # --- Build type specific flags ---
 target_compile_options(bench PRIVATE
-    $<$<CONFIG:Release>:-Wall -O3 -mavx2 -mfma>
-    $<$<CONFIG:Debug>:-Wall -g -O0 -DDEBUG -mavx2 -mfma -fno-omit-frame-pointer -fsanitize=address,undefined -fopenmp>
+    $<$<CONFIG:Release>:-Wall -O3 -march=native -fopenmp>
+    $<$<CONFIG:Debug>:-Wall -g -O1 -march=native -fno-omit-frame-pointer -fsanitize=address,undefined -fopenmp>
 )
 
 # Use "cmake -DCMAKE_CXX_COMPILER=g++-13 -DCMAKE_BUILD_TYPE=Debug .." to build in debug mode

@@ -20,8 +20,6 @@ public:
     MultilinearPolynomial(const std::vector<uint64_t>& val_table);
     MultilinearPolynomial(const array_view<Goldilocks2::Element>& evaluations);
 
-    virtual ~MultilinearPolynomial() = default;
-
     inline int get_num_vars() const override { return num_vars; }
 
     virtual std::unique_ptr<MultilinearPolynomial> clone() const {

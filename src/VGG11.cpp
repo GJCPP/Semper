@@ -33,7 +33,6 @@ VGG11::VGG11(std::string _data_dir, int epoch, int64_t scale, int64_t max_value,
         data_shape[key] = {};
         data_view[key] = {};
     }
-    #pragma omp parallel for
     for (size_t i = 0; i < keys.size(); ++i) {
         std::string key = keys[i];
         cnpy::NpyArray *value = values[i];

@@ -120,7 +120,7 @@ MerkleTree_base::MerkleTree_base(const Goldilocks::Element *data, size_t _num_ro
     //         cols[i][j] = data[j][i];
     //     }
     // }
-    const size_t BLOCK = 1024; // tune for cache line size
+    const size_t BLOCK = 16; // tune for cache line size
     num_rows = _num_rows;
     num_cols = _num_cols;
     cols.resize(num_cols * num_rows);

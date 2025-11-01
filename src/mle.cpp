@@ -21,7 +21,6 @@ MultilinearPolynomial::MultilinearPolynomial(const std::vector<Goldilocks2::Elem
     evaluations.resize(1ull << num_vars);
     size_t sz = e.size();
 
-    #pragma omp parallel for schedule(static)
     for (size_t i = 0; i < sz; ++i) {
         evaluations[i] = e[i];
     }
@@ -32,7 +31,6 @@ MultilinearPolynomial::MultilinearPolynomial(const std::vector<std::vector<Goldi
     num_vars = log1 + log2;
     evaluations.resize(1ull << num_vars);
 
-    #pragma omp parallel for schedule(static)
     for (size_t i = 0; i < x.size(); ++i) {
         for (size_t j = 0; j < x[i].size(); ++j) {
             evaluations[(i << log2) + j] = x[i][j];
@@ -45,7 +43,6 @@ MultilinearPolynomial::MultilinearPolynomial(const std::vector<std::vector<std::
     num_vars = log1 + log2 + log3;
     evaluations.resize(1ull << num_vars);
 
-    #pragma omp parallel for schedule(static)
     for (size_t i = 0; i < x.size(); ++i) {
         for (size_t j = 0; j < x[i].size(); ++j) {
             for (size_t k = 0; k < x[i][j].size(); ++k) {
@@ -61,7 +58,7 @@ MultilinearPolynomial::MultilinearPolynomial(const std::vector<uint64_t>& val_ta
     num_vars = r;
     evaluations.resize(1ull << num_vars);
     size_t sz = val_table.size();
-    #pragma omp parallel for schedule(static)
+
     for (size_t i = 0;i < sz; ++i) {
         evaluations[i] = Goldilocks2::fromU64(val_table[i]);
     }
@@ -95,7 +92,6 @@ MultilinearPolynomial::MultilinearPolynomial(const array_view<Goldilocks2::Eleme
     // Index vector for iteration
     std::vector<size_t> ind(dim, 0);
 
-    // #pragma omp parallel for schedule(static)
     for (size_t i = 0; i < total_output_size; ++i) {
         bool in_bounds = true;
         // size_t input_offset = 0;

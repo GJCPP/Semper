@@ -142,13 +142,19 @@ bool sVerifier::execute_sumcheck(sProver& pr, const oracle& oracle, const size_t
 bool sVerifier::partial_sumcheck(sProver& pr, std::vector<Goldilocks2::Element>& challenges, Goldilocks2::Element& claim, const size_t& sec_param) {
     // if(!ligeroVerifier::check_commit(oracle, sec_param)) return false;
     size_t nrnd = pr.get_rounds();
+    set_timer(VERIFIER_TIMER);
+    set_timer("verifier partial_sumcheck");
 
     // s_{i - 1}
     std::array<Goldilocks2::Element, 2> si1;
     for (size_t round = 1; round <= nrnd; ++round) {
         // s_i
         std::array<Goldilocks2::Element, 2> si;
+        pause_timer(VERIFIER_TIMER);
+        pause_timer("verifier partial_sumcheck");
         si = pr.send_message(round, challenges);
+        set_timer(VERIFIER_TIMER);
+        set_timer("verifier partial_sumcheck");
         // s(0) + s(1)
         Goldilocks2::Element ss;
         Goldilocks2::add(ss, si[0], si[1]);
@@ -180,6 +186,8 @@ bool sVerifier::partial_sumcheck(sProver& pr, std::vector<Goldilocks2::Element>&
                 Goldilocks2::mul(D, si[1], rl);
                 Goldilocks2::add(newclaim, C, D);
                 claim = newclaim;
+                pause_timer(VERIFIER_TIMER);
+                pause_timer("verifier partial_sumcheck");
                 return true;
             }
         }
@@ -192,6 +200,8 @@ bool sVerifier::partial_sumcheck(sProver& pr, std::vector<Goldilocks2::Element>&
     // si1[1] = a + b
     // claim = (1 - r) * b + r * (a + b)
     claim = (Goldilocks2::one() - challenges.back()) * si1[0] + challenges.back() * si1[1];
+    pause_timer(VERIFIER_TIMER);
+    pause_timer("verifier partial_sumcheck");
     return true;
 }
 

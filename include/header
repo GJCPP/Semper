@@ -1,7 +1,7 @@
 #pragma once
 
 // #define DEBUG
-#define NUM_THREADS 4
+#define NUM_THREADS 8
 
 #include "goldilocks_base_field.hpp"
 #include "goldilocks_quadratic_ext.h"

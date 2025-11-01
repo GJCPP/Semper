@@ -66,21 +66,21 @@ ligeroProver_base::ligeroProver_base(const MultilinearPolynomial& w, const uint6
     // 2^l = a * b
     get_ab(num_vars, loga, a, b);
 
-    // set_timer("ligero_commit_allocate");
+    set_timer("ligero_commit_allocate");
 
-    M.resize(1ull << num_vars, Goldilocks::zero());
+    M = std::make_shared<std::vector<Goldilocks::Element>>(1ull << num_vars);
     codelen = b * rho_inv;
     size_t sz = evals.size();
 
-    // pause_timer("ligero_commit_allocate");
+    pause_timer("ligero_commit_allocate");
 
-    // set_timer("ligero_commit_copy");
-    // #pragma omp parallel for schedule(static)
+    set_timer("ligero_commit_copy");
+    #pragma omp parallel for schedule(static)
     for (size_t i = 0; i < sz; ++i) {
-        M[i] = evals[i][0];
+        (*M)[i] = evals[i][0];
     }
-    // pause_timer("ligero_commit_copy");
-    // set_timer("ligero_commit_rsencode");
+    pause_timer("ligero_commit_copy");
+    set_timer("ligero_commit_rsencode");
 
     codelen = b * rho_inv;
     std::vector<Goldilocks::Element> codewords;
@@ -89,25 +89,25 @@ ligeroProver_base::ligeroProver_base(const MultilinearPolynomial& w, const uint6
     #pragma omp parallel for schedule(static)
     for (size_t i = 0; i < a; ++i) {
         std::vector<Goldilocks::Element> dataline(b);
-        std::memcpy(dataline.data(), &M[i * b], b * sizeof(Goldilocks::Element));
+        std::memcpy(dataline.data(), &(*M)[i * b], b * sizeof(Goldilocks::Element));
         auto vec = rsencode(dataline, rho_inv);
         std::memcpy(&codewords[i * codelen], vec.data(), codelen * sizeof(Goldilocks::Element));
     }
-    // pause_timer("ligero_commit_rsencode");
-    // set_timer("ligero_commit_merkle");
-    mt_t = MerkleTree_base(codewords.data(), a, codelen);
-    // pause_timer("ligero_commit_merkle");
+    pause_timer("ligero_commit_rsencode");
+    set_timer("ligero_commit_merkle");
+    mt_t = std::make_shared<MerkleTree_base>(codewords.data(), a, codelen);
+    pause_timer("ligero_commit_merkle");
 }
 
 
-ligeroProver_base::ligeroProver_base(const std::vector<Goldilocks::Element>& w, const uint64_t& rho_inv, int loga) :rho_inv(rho_inv), M(w) {
+ligeroProver_base::ligeroProver_base(const std::vector<Goldilocks::Element>& w, const uint64_t& rho_inv, int loga) :rho_inv(rho_inv) {
     // stevals = w.get_eval_table();
     num_vars = find_ceiling_log2(w.size());
 
     // 2^l = a * b
     get_ab(num_vars, loga, a, b);
 
-    M.resize(1ull << num_vars, Goldilocks::zero());
+    M = std::make_shared<std::vector<Goldilocks::Element>>(1ull << num_vars);
     codelen = b * rho_inv;
     std::vector<Goldilocks::Element> codewords;
     codewords.resize(a * codelen);
@@ -115,14 +115,14 @@ ligeroProver_base::ligeroProver_base(const std::vector<Goldilocks::Element>& w, 
     for (size_t i = 0; i < a; ++i) {
         std::vector<Goldilocks::Element> dataline(b);
         for (size_t j = 0; j < b; ++j) {
-            dataline[j] = M[i * b + j];
+            dataline[j] = (*M)[i * b + j];
         }
         auto vec = rsencode(dataline, rho_inv);
         std::copy(vec.begin(), vec.end(), &codewords[i * codelen]);
     }
     // pause_timer("ligero_commit_rsencode");
     // set_timer("ligero_commit_merkle");
-    mt_t = MerkleTree_base(codewords.data(), a, codelen);
+    mt_t = std::make_shared<MerkleTree_base>(codewords.data(), a, codelen);
     // pause_timer("ligero_commit_merkle");
 }
 
@@ -137,10 +137,11 @@ ligeroProver_base::ligeroProver_base(const std::vector<uint64_t>& w, const uint6
 
 
     // set_timer("make matrix");
-    M.resize(1ull << num_vars, Goldilocks::zero());
+    M = std::make_shared<std::vector<Goldilocks::Element>>(1ull << num_vars);
     codelen = b * rho_inv;
+    #pragma omp parallel for
     for (size_t i = 0; i < w.size(); ++i) {
-        M[i] = Goldilocks::fromU64(w[i]);
+        (*M)[i] = Goldilocks::fromU64(w[i]);
     }
     codelen = b * rho_inv;
     std::vector<Goldilocks::Element> codewords;
@@ -150,14 +151,14 @@ ligeroProver_base::ligeroProver_base(const std::vector<uint64_t>& w, const uint6
     for (size_t i = 0; i < a; ++i) {
         std::vector<Goldilocks::Element> dataline(b);
         for (size_t j = 0; j < b; ++j) {
-            dataline[j] = M[i * b + j];
+            dataline[j] = (*M)[i * b + j];
         }
         auto vec = rsencode(dataline, rho_inv);
         std::copy(vec.begin(), vec.end(), &codewords[i * codelen]);
     }
     // pause_timer("ligero_commit_rsencode");
     // set_timer("ligero_commit_merkle");
-    mt_t = MerkleTree_base(codewords.data(), a, codelen);
+    mt_t = std::make_shared<MerkleTree_base>(codewords.data(), a, codelen);
     // pause_timer("ligero_commit_merkle");
 }
 
@@ -169,7 +170,7 @@ std::vector<Goldilocks2::Element> ligeroProver_base::lincomb(const std::vector<G
     for (size_t i = 0; i < b; ++i) {
         // Goldilocks2::Element tmp;
         for (size_t j = 0; j < a; ++j) {
-            v[i] += r[j] * M[i + j * b];
+            v[i] += r[j] * (*M)[i + j * b];
             // Goldilocks2::mul(tmp, r[j], M[offset + i]);
             // Goldilocks2::add(v[i], v[i], tmp);
         }
@@ -180,13 +181,13 @@ std::vector<Goldilocks2::Element> ligeroProver_base::lincomb(const std::vector<G
 std::vector<MerkleTree_base::MTPayload> ligeroProver_base::open_cols(const std::vector<size_t>& indexes) const {
     std::vector<MerkleTree_base::MTPayload> payloads;
     for (size_t e : indexes) {
-        payloads.push_back(mt_t.MerkleOpen(e));
+        payloads.push_back(mt_t->MerkleOpen(e));
     }
     return payloads;
 }
 
 ligeropcs_base ligeroProver_base::commit() const {
-    auto merk = mt_t.MerkleCommit();
+    auto merk = mt_t->MerkleCommit();
     add_proof_size(sizeof(merk));
     return { merk, std::make_shared<ligeroProver_base>(*this), a, b };
 }
@@ -287,6 +288,10 @@ bool ligeroVerifier::check_lincomb(const ligeropcs_base& pcs, const std::vector<
     // std::vector<size_t> indexes = {7, 7, 7, 7, 7};
 
     auto openings = prover.open_cols(indexes);
+
+    set_timer(VERIFIER_TIMER);
+    set_timer("verifier ligero open");
+
     add_proof_size(openings[0].sz_col * openings.size() * sizeof(Goldilocks2::Element));
     for (auto opening : openings) {
         // check if this opening is right
@@ -307,7 +312,8 @@ bool ligeroVerifier::check_lincomb(const ligeropcs_base& pcs, const std::vector<
         }
         if (entry != comb[idx]) ret = false;
     }
-
+    pause_timer(VERIFIER_TIMER);
+    pause_timer("verifier ligero open");
     return ret;
 }
 
@@ -317,6 +323,9 @@ bool ligeroVerifier::check_lincomb(const ligeropcs_ext& pcs, const std::vector<G
     // std::vector<size_t> indexes = {7, 7, 7, 7, 7};
 
     auto openings = prover.open_cols(indexes);
+
+    set_timer(VERIFIER_TIMER);
+    set_timer("verifier ligero open");
     // std::cout << openings[0].column.size() << ", " << openings.size() << ", " << sizeof(Goldilocks2::Element) << std::endl;
     add_proof_size(openings[0].column.size() * openings.size() * sizeof(Goldilocks2::Element));
 
@@ -337,6 +346,8 @@ bool ligeroVerifier::check_lincomb(const ligeropcs_ext& pcs, const std::vector<G
         if (entry != comb[idx]) return false;
     }
 
+    pause_timer(VERIFIER_TIMER);
+    pause_timer("verifier ligero open");
     return true;
 }
 

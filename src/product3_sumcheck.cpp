@@ -223,7 +223,7 @@ std::optional<challenge_claim> p3Verifier::partial_sumcheck(p3Prover& pr, Goldil
 
 bool p3Verifier::execute_logup_sumcheck(
     p3Prover& pr,
-    const MLE_Eq& eqr,
+    const MLE_Eq_Oracle& eqr,
     const oracle& frac,
     const oracle& p1,
     const oracle& p2,
@@ -236,12 +236,19 @@ bool p3Verifier::execute_logup_sumcheck(
     std::vector<Goldilocks2::Element> challenges;
     startCounter counter("logup_sumcheck");
 
+    set_timer(VERIFIER_TIMER);
+    set_timer("verifier p3_partial_sumcheck");
+
     // s_{i - 1}
     std::array<Goldilocks2::Element, 4> si1;
     for (size_t round = 1; round <= nrnd; ++round) {
         // s_i
         std::array<Goldilocks2::Element, 4> si;
+        pause_timer(VERIFIER_TIMER);
+        pause_timer("verifier p3_partial_sumcheck");
         si = pr.send_message(round, challenges);
+        set_timer(VERIFIER_TIMER);
+        set_timer("verifier p3_partial_sumcheck");
         add_proof_size(sizeof(si));
         // s(0) + s(1)
         Goldilocks2::Element ss;
@@ -260,12 +267,21 @@ bool p3Verifier::execute_logup_sumcheck(
                 challenges.push_back(challenge());
 
                 // f(r) from the oracle and the information hold by the verifier
+                pause_timer(VERIFIER_TIMER);
+                pause_timer("verifier p3_partial_sumcheck");
+
+                // oracle open will record verifier time
+                auto p2_open = p2.open(challenges, sec_param);
+                auto p1_open = p1.open(challenges, sec_param);
+                auto eqr_open = eqr.open(challenges, sec_param);
+                auto frac_open = frac.open(challenges, sec_param);
+
+                set_timer(VERIFIER_TIMER);
+                set_timer("verifier p3_partial_sumcheck");
+
                 Goldilocks2::Element third_term;
-                Goldilocks2::Element tmp;
-                Goldilocks2::mul(tmp, labmda, p2.open(challenges, sec_param));
-                Goldilocks2::sub(third_term, gamma, p1.open(challenges, sec_param));
-                Goldilocks2::sub(third_term, third_term, tmp);
-                Goldilocks2::Element f_r = eqr.evaluate(challenges) * frac.open(challenges, sec_param) * third_term;
+                third_term = (gamma - p1_open) - (labmda * p2_open);
+                Goldilocks2::Element f_r = eqr_open * frac_open * third_term;
 
 
                 // f(r) from the previous rounds
@@ -280,6 +296,8 @@ bool p3Verifier::execute_logup_sumcheck(
         // goto next round
         si1 = si;
     }
+    pause_timer(VERIFIER_TIMER);
+    pause_timer("verifier p3_partial_sumcheck");
     return true;
 }
 

@@ -67,7 +67,8 @@ void pre_prove_conv(
     }
     witness = wit.get_conv_wit();
 
-    res.pcs[prename + "Y_flat"] = commit_lazy_pcs(MLE(witness["Y"]), pool);
+    MLE mle_Y = witness["Y"].view;
+    res.pcs[prename + "Y_flat"] = commit_lazy_pcs(mle_Y, pool);
     res.res[prename + "X"] = std::make_shared<array<Goldilocks2::Element>>(std::move(witness["X"]));
     res.res[prename + "W"] = std::make_shared<array<Goldilocks2::Element>>(std::move(witness["W"]));
     res.res[prename + "Y"] = std::make_shared<array<Goldilocks2::Element>>(std::move(witness["Y"]));
@@ -259,11 +260,15 @@ bool prove_conv(
     
     std::map<std::string, array<Goldilocks2::Element>> witness;
     if (!res.res.empty()) {
-        witness["W"] = std::move(*reinterpret_cast<array<Goldilocks2::Element>*>(res.res.at(prename + "W").get()));
+        witness["W"] = *reinterpret_cast<array<Goldilocks2::Element>*>(res.res.at(prename + "W").get());
         auto& oriX = *reinterpret_cast<array<Goldilocks2::Element>*>(res.res.at(prename + "X").get()),
             & oriY = *reinterpret_cast<array<Goldilocks2::Element>*>(res.res.at(prename + "Y").get());
         auto& rX = witness["X"] = {};
         auto& rY = witness["Y"] = {};
+
+        assert(oriX.view.get_dims() == 3);
+        assert(oriY.view.get_dims() == 3);
+
         size_t flat_in = oriX.view.shape(2), flat_on = oriY.view.shape(2);
         rX.init({size_t(IC), flat_in});
         rY.init({size_t(OC), flat_on});
@@ -339,7 +344,6 @@ bool prove_conv(
 bool pre_prove_conv_forward(const CNN::layer_info& layer, CNN::conv_wit wit, int padding, CNN::layer_res& res, std::shared_ptr<lazy_pcs_pool> pool) {
     int bat = int(layer.input.shape(0));
 
-    // // #pragma omp parallel for
     for (int i = 0; i < bat; ++i) {
         auto wit_copy = wit;
         wit_copy.set_forward();
@@ -386,7 +390,6 @@ bool prove_conv_forward(
 bool pre_prove_conv_backward_dW(const CNN::layer_info& layer, CNN::conv_wit _wit, int padding, CNN::layer_res& res, std::shared_ptr<lazy_pcs_pool> pool) {
     int bat = int(layer.input.shape(0));
 
-    // // #pragma omp parallel for
     for (int i = 0; i < bat; ++i) {
         auto wit = _wit;
         wit.set_dW();
@@ -439,7 +442,6 @@ bool prove_conv_backward_dW(
 bool pre_prove_conv_backward_dX(const CNN::layer_info& layer, CNN::conv_wit _wit, int padding, CNN::layer_res& res, std::shared_ptr<lazy_pcs_pool> pool) {
     int bat = int(layer.input.shape(0));
 
-    // #pragma omp parallel for
     for (int i = 0; i < bat; ++i) {
         auto wit = _wit;
         wit.set_dX();
@@ -601,7 +603,6 @@ bool prove_full_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_p
     }
 
     // Prove backward dW = X^T * dY
-    // #pragma omp parallel for
     for (int i = 0; i < batch; ++i) {
         auto pcs_input = layer.get_pcs_input(i);
         auto pcs_d_weight = layer.get_pcs_d_weight(i);
@@ -625,7 +626,7 @@ bool prove_full_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_p
     }
 
     // Prove backward dX = dY * W^T
-    // #pragma omp parallel for
+    
     for (int i = 0; i < batch; ++i) {
         auto pcs_d_output = layer.get_pcs_d_output(i);
         auto pcs_weight = layer.get_pcs_weight(i);
@@ -664,7 +665,6 @@ CNN::layer_res pre_prove_relu_layer(
 
     const int batch = int(layer.input.shape(0));
 
-    // // #pragma omp parallel for
     for (int i = 0; i != batch; ++i) {
         std::string _i = "_" + std::to_string(i);
         // Prove forward
@@ -743,7 +743,6 @@ bool prove_relu_layer(const CNN::layer_info& layer,
 
     const int batch = int(layer.input.shape(0));
 
-    // #pragma omp parallel for
     for (int i = 0; i != batch; ++i) {
         std::string _i = "_" + std::to_string(i);
         // Prove forward
@@ -905,7 +904,6 @@ CNN::layer_res pre_prove_pool_layer(const CNN::layer_info& layer,
     // layer.input : [batch, img, C, N, N]
     // layer.output: [batch, img, C, N/2, N/2]
 
-    // // #pragma omp parallel for
     for (int i = 0; i < batch; ++i) {
         std::string _i = "_" + std::to_string(i);
         auto input = layer.input[i]; // [img, C, N, N]

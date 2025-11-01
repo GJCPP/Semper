@@ -3,6 +3,7 @@
 
 #include "mle.h"
 #include "util.h"
+#include "timer.h"
 
 /*
  * eq_r(x) = \prod_{i=0}^{num_var-1} ( r_i*x_i + (1-r_i)*(1-x_i) )
@@ -45,6 +46,7 @@ public:
         : r(begin, end) {}
 
     Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const override {
+        startTimer _timer(VERIFIER_TIMER);
         return compute_eq(r, z);
     }
 

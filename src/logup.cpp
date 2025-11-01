@@ -176,9 +176,8 @@ std::array<p3Prover, 2> LogupProver::secondProvers(const std::vector<Goldilocks2
     MLE_Eq eqh(rh);
     p3Prover prg(eqg, polyg, polydenomg);
     p3Prover prh(eqh, polyh, polydenomh);
-    std::array<p3Prover, 2> provers = { prg, prh };
     // end_timer("initialize sumcheck provers for the product sumcheck");
-    return provers;
+    return { prg, prh };
 }
 
 
@@ -259,8 +258,8 @@ bool LogupVerifier::execute_logup(LogupProver& lpr,
     assert(secondProvers[1].get_sum() == ligeroVerifier::open(c, rh, sec_param));
 
     // set_timer("calculate eq");
-    MLE_Eq eqg(rg);
-    MLE_Eq eqh(rh);
+    MLE_Eq_Oracle eqg(rg);
+    MLE_Eq_Oracle eqh(rh);
     // end_timer("calculate eq");
     auto pcsf1 = ft[0], pcsf2 = ft[1], pcst1 = ft[2], pcst2 = ft[3];
 
@@ -370,8 +369,8 @@ bool LogupVerifier::execute_logup_third_part(
     // assert(secondProvers[1].get_sum() == ligeroVerifier::open(c, rh, sec_param));
 
     // set_timer("calculate eq");
-    MLE_Eq eqg(rg);
-    MLE_Eq eqh(rh);
+    MLE_Eq_Oracle eqg(rg);
+    MLE_Eq_Oracle eqh(rh);
     // end_timer("calculate eq");
     auto pcsf1 = ft[0], pcsf2 = ft[1], pcst1 = ft[2], pcst2 = ft[3];
     que.push_back(std::make_unique<logup_sum_proto>(std::move(secondProvers[0]), std::move(eqg), pcsg, pcsf1, pcsf2, gamma, lambda, sec_param));
