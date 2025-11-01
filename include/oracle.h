@@ -12,6 +12,8 @@ class oracle {
 public:
     virtual Goldilocks2::Element open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const = 0;
     virtual int get_num_vars() const = 0;
+
+    virtual ~oracle() = default;
 };
 
 class oracle_sum : public oracle {
