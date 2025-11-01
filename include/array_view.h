@@ -359,7 +359,7 @@ std::ostream& operator<<(std::ostream& os, const array_view<T>& arr) {
 template <typename T>
 class array {
 public:
-    array() {}
+    array() = default;
 
     array(const array_view<T>& view) {
         size_t sz = view.size();
@@ -369,6 +369,38 @@ public:
 
     array(const std::vector<size_t>& shape) {
         init(shape);
+    }
+
+    // copy ctor
+    array(const array& o) : data(o.data) {
+        view = o.view;
+        view.data = data.data();
+    }
+
+    // move ctor
+    array(array&& o) noexcept : data(std::move(o.data)) {
+        view = o.view;
+        view.data = data.data();
+    }
+
+    // copy assign
+    array& operator=(const array& o) {
+        if (this != &o) {
+            data = o.data;
+            view = o.view;
+            view.data = data.data();
+        }
+        return *this;
+    }
+
+    // move assign
+    array& operator=(array&& o) noexcept {
+        if (this != &o) {
+            data = std::move(o.data);
+            view = o.view;
+            view.data = data.data();
+        }
+        return *this;
     }
 
     void init(const std::vector<size_t>& shape) {

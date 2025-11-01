@@ -450,27 +450,27 @@ bool CNN::prove(size_t sec_param) {
     pause_timer("final logup");
     end_proof("final logup");
 
-    std::cout << "======================Warning: skip final map." << std::endl;
-    // std::cout << "Proving final map..." << std::endl;
-    // set_timer("final map");
-    // start_proof("final map");
-    // if (!lazy_map_verifier.prove_all(lazy_map_prover, rho_inv, sec_param)) {
-    //     std::cout << "❌ Final lazy map proof failed." << std::endl;
-    //     return false;
-    // }
-    // pause_timer("final map");
-    // end_proof("final map");
+    // std::cout << "======================Warning: skip final map." << std::endl;
+    std::cout << "Proving final map..." << std::endl;
+    set_timer("final map");
+    start_proof("final map");
+    if (!lazy_map_verifier.prove_all(lazy_map_prover, rho_inv, sec_param)) {
+        std::cout << "❌ Final lazy map proof failed." << std::endl;
+        return false;
+    }
+    pause_timer("final map");
+    end_proof("final map");
 
     // clear_all_timers();
 
-    std::cout << "===================Warning: skip final opening." << std::endl;
-    // std::cout << "Proving final opening..." << std::endl;
-    // start_proof("final open");
-    // if (!prove_final_open(random_ext())) {
-    //     std::cout << "❌ Final opening proof failed." << std::endl;
-    //     return false;
-    // }
-    // end_proof("final open");
+    // std::cout << "===================Warning: skip final opening." << std::endl;
+    std::cout << "Proving final opening..." << std::endl;
+    start_proof("final open");
+    if (!prove_final_open(random_ext())) {
+        std::cout << "❌ Final opening proof failed." << std::endl;
+        return false;
+    }
+    end_proof("final open");
 
     pause_timer(std::format("prove {} total", model_name));
     print_all_timers();
