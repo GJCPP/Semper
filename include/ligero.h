@@ -60,7 +60,7 @@ public:
 public:
     ligeroProver_base(const MultilinearPolynomial& w, const uint64_t& rho_inv, int a = -1);
     ligeroProver_base(const std::vector<uint64_t>& w, const uint64_t& rho_inv, int a = -1);
-    ligeroProver_base(const std::vector<Goldilocks::Element>& w, const uint64_t& rho_inv, int a = -1);
+    // ligeroProver_base(const std::vector<Goldilocks::Element>& w, const uint64_t& rho_inv, int a = -1);
     ligeropcs_base commit() const;
     std::vector<Goldilocks2::Element> lincomb(const std::vector<Goldilocks2::Element>& r) const;
     std::vector<MerkleTree_base::MTPayload> open_cols(const std::vector<size_t>& indexes) const;
@@ -103,7 +103,7 @@ public:
     // num of rows, columns;
     size_t a, b;
     // original vector
-    std::vector<Goldilocks2::Element> M;
+    std::shared_ptr<std::vector<Goldilocks2::Element>> M;
     // encoded matrix
     std::vector<std::vector<Goldilocks2::Element>> codewords;
     // number of variables
@@ -142,6 +142,7 @@ private:
 std::vector<Goldilocks2::Element> rsencode(const std::vector<Goldilocks2::Element>& data, const uint64_t& rho_inv);
 std::vector<Goldilocks::Element> rsencode(const std::vector<Goldilocks::Element>& data, const uint64_t& rho_inv);
 void rsencode(const std::vector<Goldilocks::Element>& data, const uint64_t& rho_inv, Goldilocks::Element *output);
+void rsencode(const Goldilocks::Element* data, size_t N, const uint64_t& rho_inv, Goldilocks::Element* output);
 
 ligeropcs_base ligero_commit_base(const MultilinearPolynomial& w, const uint64_t& rho_inv, int loga = -1);
 ligeropcs_ext ligero_commit_ext(const MultilinearPolynomial& w, const uint64_t& rho_inv);

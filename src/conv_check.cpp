@@ -22,20 +22,24 @@ void convProver::init_ori_Y(const MultilinearPolynomial& Y) {
 
 bool convTriple::check() const {
     bool ret = true;
-#pragma omp parallel for
-    for (size_t d = 0; d < D; ++d) {
+    #pragma omp parallel
+    {
         std::vector<Goldilocks2::Element> res(N + K - 1);
-        for (size_t c = 0; c < C; ++c) {
-            for (size_t n = 0; n < N; ++n) {
-                for (size_t k = 0; k < K; ++k) {
-                    res[n + k] += X->eval_hypercube((c << logN) | n) *
-                        W->eval_hypercube((c << (logD + logK)) | (d << logK) | k);
+        #pragma omp parallel for
+        for (size_t d = 0; d < D; ++d) {
+            for (size_t c = 0; c < C; ++c) {
+                for (size_t n = 0; n < N; ++n) {
+                    for (size_t k = 0; k < K; ++k) {
+                        res[n + k] += X->eval_hypercube((c << logN) | n) *
+                            W->eval_hypercube((c << (logD + logK)) | (d << logK) | k);
+                    }
                 }
             }
-        }
-        for (size_t n = 0; n < N + K - 1; ++n) {
-            if (res[n] != Y->eval_hypercube((d << logNK1) | n)) {
-                ret = false;
+            for (size_t n = 0; n < N + K - 1; ++n) {
+                if (res[n] != Y->eval_hypercube((d << logNK1) | n)) {
+                    ret = false;
+                }
+                res[n] = Goldilocks2::zero();
             }
         }
     }

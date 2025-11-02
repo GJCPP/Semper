@@ -111,7 +111,7 @@ MerkleDef::Digest hash_node(const std::array<uint8_t, SHA256_DIGEST_LENGTH>& l, 
 
 // construct the merkle hash tree from a matrix
 MerkleTree_base::MerkleTree_base(const Goldilocks::Element *data, size_t _num_rows, size_t _num_cols) {
-    set_timer("merkle_commit_col");
+    // set_timer("merkle_commit_col");
     // cols.resize(num_cols);
     // #pragma omp parallel for
     // for (size_t i = 0; i < num_cols; ++i) {
@@ -139,7 +139,7 @@ MerkleTree_base::MerkleTree_base(const Goldilocks::Element *data, size_t _num_ro
         }
     }
 
-    pause_timer("merkle_commit_col");
+    // pause_timer("merkle_commit_col");
 
     // for clearer binary tree structure, index starts from 1 (T[0] is not used)
     T = MerkleDef::MTtree(num_cols << 1);
@@ -147,13 +147,13 @@ MerkleTree_base::MerkleTree_base(const Goldilocks::Element *data, size_t _num_ro
     size_t loopN = find_ceiling_log2(num_cols);
     leaf_offset = 1ul << loopN;
 
-    set_timer("merkle_commit_hash");
+    // set_timer("merkle_commit_hash");
     #pragma omp parallel for
     for (size_t j = 0; j < leaf_offset; ++j) {
         T[leaf_offset + j] = hash_column(&cols[j * num_rows], num_rows);
     }
-    pause_timer("merkle_commit_hash");
-    set_timer("merkle_commit_T");
+    // pause_timer("merkle_commit_hash");
+    // set_timer("merkle_commit_T");
     for (size_t i = loopN; i > 0; --i) {
         size_t offset = 1ul << (i - 1);
         #pragma omp parallel for
@@ -162,7 +162,7 @@ MerkleTree_base::MerkleTree_base(const Goldilocks::Element *data, size_t _num_ro
             T[idx] = hash_node(T[2 * idx], T[2 * idx + 1]);
         }
     }
-    pause_timer("merkle_commit_T");
+    // pause_timer("merkle_commit_T");
 }
 
 MerkleTree_base::MTPayload MerkleTree_base::MerkleOpen(const size_t& idx) const {

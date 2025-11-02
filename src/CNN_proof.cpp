@@ -68,7 +68,7 @@ void pre_prove_conv(
     witness = wit.get_conv_wit();
 
     MLE mle_Y = witness["Y"].view;
-    res.pcs[prename + "Y_flat"] = commit_lazy_pcs(mle_Y, pool);
+    res.pcs[prename + "Y_flat"] = commit_lazy_pcs(std::move(mle_Y), pool);
     res.res[prename + "X"] = std::make_shared<array<Goldilocks2::Element>>(std::move(witness["X"]));
     res.res[prename + "W"] = std::make_shared<array<Goldilocks2::Element>>(std::move(witness["W"]));
     res.res[prename + "Y"] = std::make_shared<array<Goldilocks2::Element>>(std::move(witness["Y"]));

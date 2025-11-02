@@ -15,6 +15,7 @@ public:
     MultilinearPolynomial() : num_vars(0) {}
     MultilinearPolynomial(int num_vars, bool init=true);
     MultilinearPolynomial(const std::vector<Goldilocks2::Element>& evaluations);
+    MultilinearPolynomial(std::vector<Goldilocks2::Element>&& evaluations);
     MultilinearPolynomial(const std::vector<std::vector<Goldilocks2::Element>>& evaluations);
     MultilinearPolynomial(const std::vector<std::vector<std::vector<Goldilocks2::Element>>>& evaluations);
     MultilinearPolynomial(const std::vector<uint64_t>& val_table);

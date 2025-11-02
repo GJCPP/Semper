@@ -102,6 +102,7 @@ std::vector<Goldilocks::Element> eval_with_ntt(std::vector<Goldilocks::Element> 
 std::vector<Goldilocks2::Element> eval_with_ntt(std::vector<Goldilocks2::Element> f, const size_t& N);
 
 void eval_with_ntt(const std::vector<Goldilocks::Element>& f, const size_t& N, Goldilocks::Element* output);
+void eval_with_ntt(const Goldilocks::Element f[], size_t b, size_t rho_inv, Goldilocks::Element* output);
 
 // returns vec on base field
 std::vector<Goldilocks::Element> eval_with_ntt_base(std::vector<Goldilocks2::Element> f, const size_t& N);

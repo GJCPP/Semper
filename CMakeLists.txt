@@ -30,7 +30,7 @@ include_directories(${CNPY_SOURCE_DIR})
 # --- goldilocks library ---
 file(GLOB DEP_SOURCES goldilocks/src/*.cpp)
 add_library(goldilocks STATIC ${DEP_SOURCES})
-target_compile_options(goldilocks PRIVATE -O3 -march=native -MMD -MP -pthread)
+target_compile_options(goldilocks PRIVATE -O3 -march=native -mavx2 -mfma -fno-omit-frame-pointer -MMD -MP -pthread)
 find_package(OpenMP REQUIRED)
 target_link_libraries(goldilocks PRIVATE OpenMP::OpenMP_CXX pthread)
 
@@ -41,7 +41,7 @@ target_sources(bench PRIVATE ${SOURCES})
 
 # --- Build type specific flags ---
 target_compile_options(bench PRIVATE
-    $<$<CONFIG:Release>:-Wall -O3 -march=native -fopenmp>
+    $<$<CONFIG:Release>:-Wall -O3 -march=native -mavx2 -mfma -fno-omit-frame-pointer -fopenmp>
     $<$<CONFIG:Debug>:-Wall -g -O1 -march=native -fno-omit-frame-pointer -fsanitize=address,undefined -fopenmp>
 )
 

@@ -151,7 +151,7 @@ bool lazyLogupVerifier::prove_all(lazyLogupProver& prover, protoque& que, uint64
 
     set_timer("lazy logup 1");
     set_timer("lazy logup 1 pre");
-    // #pragma omp parallel for
+    #pragma omp parallel for
     for (size_t id = 0; id < batch; id++) { // table id
         // 0. preprocess
         size_t sz = 0;

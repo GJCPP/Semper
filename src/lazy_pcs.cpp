@@ -23,7 +23,7 @@ std::shared_ptr<oracle> lazy_pcs_pool::commit(uint64_t rho_inv) {
     std::vector<sortIns> elements;
     elements.reserve(mles.size());
     for (size_t i = 0; i < mles.size(); i++) {
-        elements.push_back({i, mles[i].first.get_num_vars()});
+        elements.push_back({i, mles[i].first->get_num_vars()});
     }
     set_timer("lazy_pcs_pool sort");
     std::sort(elements.begin(), elements.end(), [](const auto& a, const auto& b) {
@@ -33,9 +33,10 @@ std::shared_ptr<oracle> lazy_pcs_pool::commit(uint64_t rho_inv) {
 
     
     set_timer("lazy_pcs_pool reorder");
-    std::vector<std::pair<MLE, size_t>> sorted_mles(elements.size());
+    std::vector<std::pair<std::shared_ptr<MLE>, size_t>> sorted_mles(elements.size());
     order.resize(mles.size());
     perm.resize(mles.size());
+    
     // #pragma omp parallel for
     for (size_t i = 0; i != elements.size(); ++i) {
         sorted_mles[i] = std::move(mles[elements[i].ind]);
@@ -46,23 +47,27 @@ std::shared_ptr<oracle> lazy_pcs_pool::commit(uint64_t rho_inv) {
     pause_timer("lazy_pcs_pool reorder");
 
     set_timer("lazy_pcs_pool mle");
-    size_t ind = 0;
+    std::vector<size_t> ind(mles.size() + 1, 0);
     size_t total = 0;
     for (auto& mle : mles) {
-        total += (1ull << mle.first.get_num_vars());
+        total += (1ull << mle.first->get_num_vars());
     }
     num_vars = find_ceiling_log2(total);
     total = (1ull << num_vars);
     prefix.resize(mles.size());
-    std::vector<Goldilocks2::Element> all_vals;
-    all_vals.reserve(total);
-    for (auto& mle : mles) {
+    std::vector<Goldilocks2::Element> all_vals(total);
+    for (size_t i = 0; i < mles.size(); ++i) {
+        ind[i + 1] = ind[i] + mles[i].first->get_eval_table().size();
+
+    }
+    #pragma omp parallel for
+    for (size_t i = 0; i < mles.size(); ++i) {
         std::vector<Goldilocks2::Element> pre;
-        size_t len = (1ull << mle.first.get_num_vars());
+        size_t len = (1ull << mles[i].first->get_num_vars());
         size_t left = 0, right = total;
         while (right - left != len) {
             size_t mid = (left + right) / 2;
-            if (ind < mid) {
+            if (ind[i] < mid) {
                 right = mid;
                 pre.push_back(Goldilocks2::zero());
             } else {
@@ -70,11 +75,10 @@ std::shared_ptr<oracle> lazy_pcs_pool::commit(uint64_t rho_inv) {
                 pre.push_back(Goldilocks2::one());
             }
         }
-        prefix[mle.second] = pre;
-        all_vals.insert(all_vals.end(), mle.first.get_eval_table().begin(), mle.first.get_eval_table().end());
-        ind += mle.first.get_eval_table().size();
+        prefix[mles[i].second] = std::move(pre);
+        memcpy(&all_vals[ind[i]], mles[i].first->get_eval_table().data(), mles[i].first->get_eval_table().size() * sizeof(Goldilocks2::Element));
+        // all_vals.insert(all_vals.end(), mles[i].first->get_eval_table().begin(), mles[i].first->get_eval_table().end());
     }
-    all_vals.resize(total);
     uni_mle = MLE(std::move(all_vals));
     pause_timer("lazy_pcs_pool mle");
     
@@ -244,7 +248,13 @@ bool lazy_pcs_pool::prove_open(std::shared_ptr<oracle> pcs, Goldilocks2::Element
 
 lazy_pcs commit_lazy_pcs(const MLE& mle, std::shared_ptr<lazy_pcs_pool> pool) {
     lazy_pcs res(mle, pool);
-    res.index = pool->add_mle(mle);
+    res.index = pool->add_mle(res.mle);
+    return res;
+}
+
+lazy_pcs commit_lazy_pcs(MLE&& mle, std::shared_ptr<lazy_pcs_pool> pool) {
+    lazy_pcs res(std::move(mle), pool);
+    res.index = pool->add_mle(res.mle);
     return res;
 }
 

@@ -453,7 +453,6 @@ bool mapVerifier::execute_check(mapProver& prover, uint64_t rho_inv, uint64_t se
     start_proof("map_proof_check_pad");
     {
         bool ret = true;
-        #pragma omp parallel for
         for (size_t i = 0; i != len; ++i) {
             if (pcs_right[i]->open(small_cha, sec_param) != pcs_pad_right[i]->open(cha, sec_param)) {
                 std::cerr << "mapVerifier::execute_check : pcs_right and pcs_pad_right do not match" << std::endl;

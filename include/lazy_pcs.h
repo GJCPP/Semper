@@ -15,11 +15,13 @@ class lazy_pcs;
 class lazy_pcs_pool;
 
 lazy_pcs commit_lazy_pcs(const MLE& mle, std::shared_ptr<lazy_pcs_pool> pool);
+lazy_pcs commit_lazy_pcs(MLE&& mle, std::shared_ptr<lazy_pcs_pool> pool);
 
 class lazy_pcs : public oracle {
 public:
     lazy_pcs() = default;
     friend lazy_pcs commit_lazy_pcs(const MLE& mle, std::shared_ptr<lazy_pcs_pool> pool);
+    friend lazy_pcs commit_lazy_pcs(MLE&& mle, std::shared_ptr<lazy_pcs_pool> pool);
 
     int get_num_vars() const override {
         return mle->get_num_vars();
@@ -29,6 +31,7 @@ public:
     
 protected:
     lazy_pcs(const MLE& mle, std::shared_ptr<lazy_pcs_pool> pool) : mle(std::make_shared<MLE>(mle)), pool(pool) {}
+    lazy_pcs(MLE&& mle, std::shared_ptr<lazy_pcs_pool> pool) : mle(std::make_shared<MLE>(std::move(mle))), pool(pool) {}
 
     std::shared_ptr<MLE> mle;
     size_t index;
@@ -39,6 +42,7 @@ class lazy_pcs_pool {
 public:
     friend class lazy_pcs;
     friend lazy_pcs commit_lazy_pcs(const MLE& mle, std::shared_ptr<lazy_pcs_pool> pool);
+    friend lazy_pcs commit_lazy_pcs(MLE&& mle, std::shared_ptr<lazy_pcs_pool> pool);
     
     
     std::shared_ptr<oracle> commit(uint64_t rho_inv);
@@ -65,7 +69,7 @@ protected:
     int num_vars = 0;
     size_t sec_param = 32;
     bool use_ext = false;
-    std::vector<std::pair<MLE, size_t>> mles; // (mle, add order)
+    std::vector<std::pair<std::shared_ptr<MLE>, size_t>> mles; // (mle, add order)
     std::vector<std::vector<Goldilocks2::Element>> prefix;
     std::vector<std::vector<Goldilocks2::Element>> open_eqs;
     std::vector<size_t> open_ind;
@@ -74,7 +78,7 @@ protected:
     std::vector<size_t> perm; // where the mle comes from
     MLE uni_mle;
 
-    size_t add_mle(const MLE& mle) {
+    size_t add_mle(std::shared_ptr<MLE> mle) {
         std::lock_guard<std::mutex> lock(mtx);
         mles.push_back({mle, mles.size()});
         return mles.size() - 1;

@@ -20,6 +20,7 @@ MLE_Convker::MLE_Convker(const array_view<Goldilocks2::Element>& kernel, size_t 
     evaluations.resize(1ull << (logC + logD + logm + logm), Goldilocks2::zero());
 
     size_t off_c = (1 << logD + logm + logm), off_d = (1 << logm + logm);
+    #pragma omp parallel for collapse(2) schedule(static)
     for (size_t c = 0; c < C; ++c) {
         for (size_t d = 0; d < D; ++d) {
             for (size_t i = 0; i < m; ++i) {
@@ -55,6 +56,7 @@ void MLE_Convker::fix(size_t pos, const Goldilocks2::Element& val) {
     pos = real_num_vars - pos - 1; // reverse the pos, 0 -> MSB
     std::vector<Goldilocks2::Element> new_evs(1ull << (real_num_vars - 1));
     Goldilocks2::Element one_minus_val = Goldilocks2::one() - val;
+    #pragma omp parallel for schedule(static)
     for (size_t i = 0; i < (1ull << real_num_vars); ++i) {
         size_t index = (i & ((1ull << pos) - 1)) | ((i >> (pos + 1)) << pos);
         if ((i >> (pos)) & 1) {
@@ -115,6 +117,7 @@ MultilinearPolynomial MLE_Convker::sum_over_lowbits_with_power(size_t len, Goldi
     assert(len == logn + logm);
     std::vector<Goldilocks2::Element> evs(1ull << (num_vars - len));
     Goldilocks2::Element beta_delta = pow(beta, n - m);
+    #pragma omp parallel for schedule(static)
     for (size_t i = 0; i < (1ull << (num_vars - len)); ++i) {
         Goldilocks2::Element power = Goldilocks2::one();
         for (size_t x = 0; x < m; ++x) {

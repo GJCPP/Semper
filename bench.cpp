@@ -58,29 +58,15 @@ void bench_VGG11() {
 }
 
 void bench_transpose() {
-    size_t num_rows(1ull << 13), num_cols(1ull << 19);
-
-    // Plain vector<vector<>>
-    std::vector<std::vector<Goldilocks2::Element>> all(num_rows, std::vector<Goldilocks2::Element>(num_cols));
-    set_timer("plain");
-    std::vector<std::vector<Goldilocks2::Element>> transposed(num_cols, std::vector<Goldilocks2::Element>(num_rows));
-    #pragma omp parallel for
-    for (size_t i = 0; i != num_rows; ++i) {
-        for (size_t j = 0; j != num_cols; ++j) {
-            transposed[j][i] = all[i][j];
-        }
-    }
-    pause_timer("plain");
-    std::cout << "plain done." << std::endl;
-
-    all.clear();
-    transposed.clear();
+    size_t num_rows(1ull << 12), num_cols(1ull << 18);
 
     // Flat transpose
+    set_timer("allocate");
     std::vector<Goldilocks2::Element> flat_all(num_rows * num_cols);
     std::vector<Goldilocks2::Element> flat_transposed(num_rows * num_cols);
+    pause_timer("allocate");
 
-    const size_t BLOCK = 128; // tune for cache
+    const size_t BLOCK = 16; // tune for cache
 
     set_timer("flat_blocked");
 
@@ -107,7 +93,7 @@ void bench_transpose() {
 
 void bench_commit() {
     clear_all_timers();
-    for (int i = 30; i <= 30; ++i) {
+    for (int i = 27; i <= 27; ++i) {
         std::cout << "i = " << i << std::endl;
         set_timer("allocation");
         std::vector<Goldilocks2::Element> vec(1ull << i);
@@ -200,15 +186,16 @@ void bench_lazypcs() {
     
 }
 
+#define NUM_THREADS 8
 int main() {
     // if (!run_test()) return 0;
     // find_parameter();
     omp_set_num_threads(NUM_THREADS);
     // omp_set_nested(true);
-    bench_VGG11();
+    // bench_VGG11();
     // bench_p2_sumcheck();
     // bench_lazypcs();
-    // bench_commit();
+    bench_commit();
     // bench_transpose();
     // bench_VGG16();
     // std::vector<Goldilocks2::Element> z = random_vec_ext(1 << 24);

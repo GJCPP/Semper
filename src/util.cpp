@@ -271,9 +271,7 @@ void in_place_NTT(std::vector<Goldilocks::Element>& a) {
 }
 
 void in_place_NTT(Goldilocks::Element *a, size_t n) {
-    // const size_t m = find_ceiling_log2(n);
-
-    // Bit-reverse permutation
+    // bit-reverse permutation (once, serial)
     for (size_t i = 1, j = 0; i < n; ++i) {
         size_t bit = n >> 1;
         for (; j & bit; bit >>= 1)
@@ -282,29 +280,36 @@ void in_place_NTT(Goldilocks::Element *a, size_t n) {
         if (i < j) std::swap(a[i], a[j]);
     }
 
-    // Iterative Cooley-Tukey NTT
+    // stages
     for (size_t len = 2, level = 1; len <= n; len <<= 1, ++level) {
-        size_t half = len >> 1;
-        Goldilocks::Element w_len = ROOTS[level]; // omega^(N / len)
+        const size_t half = len >> 1;
+        const Goldilocks::Element w_len = ROOTS[level];
+
+        // precompute powers of w_len
+        std::vector<Goldilocks::Element> w_pows(half);
+        w_pows[0] = Goldilocks::one();
+        for (size_t j = 1; j < half; ++j)
+            w_pows[j] = Goldilocks::mul(w_pows[j - 1], w_len);
+
+        #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < n; i += len) {
-            Goldilocks::Element w = Goldilocks::one();
             for (size_t j = 0; j < half; ++j) {
-                auto& u = a[i + j];
-                auto& v = a[i + j + half];
-                Goldilocks::Element t = Goldilocks::mul(w, v);
+                auto &u = a[i + j];
+                auto &v = a[i + j + half];
+                auto t = Goldilocks::mul(w_pows[j], v);
                 v = u - t;
                 u = u + t;
-                Goldilocks::mul(w, w, w_len);
             }
         }
     }
 }
 
-std::vector<Goldilocks::Element> NTT(const std::vector<Goldilocks::Element>& input) {
-    std::vector<Goldilocks::Element> a = input;
-    in_place_NTT(a);
-    return a;
-}
+
+// std::vector<Goldilocks::Element> NTT(const std::vector<Goldilocks::Element>& input) {
+//     std::vector<Goldilocks::Element> a = input;
+//     in_place_NTT(a);
+//     return a;
+// }
 
 // std::vector<Goldilocks::Element> NTT(const std::vector<Goldilocks::Element>& coefs){
 //     if (coefs.size() == 1) return coefs;
@@ -349,14 +354,15 @@ std::vector<Goldilocks::Element> eval_with_ntt(std::vector<Goldilocks::Element> 
     if (!is_power_of_2(N)) {
         size_t padded_N = highest_bit_mask(N) << 1;
         f.resize(padded_N, Goldilocks::zero());
-        std::vector<Goldilocks::Element> raw_output = NTT(f);
-        raw_output.resize(N);
-        return raw_output;
+        in_place_NTT(f);
+        f.resize(N);
+        return f;
     }
 
     // N is power of 2
     f.resize(N, Goldilocks::zero());
-    return NTT(f);
+    in_place_NTT(f);
+    return f;
 }
 
 
@@ -365,7 +371,23 @@ void eval_with_ntt(const std::vector<Goldilocks::Element>& f, const size_t& N, G
     for (size_t i = 0; i != f.size(); ++i) {
         output[f.size() - 1 - i] = f[i];
     }
+    for (size_t i = f.size(); i != N; ++i) {
+        output[i] = Goldilocks::zero();
+    }
     in_place_NTT(output, f.size());
+}
+
+void eval_with_ntt(const Goldilocks::Element f[], size_t b, size_t rho_inv, Goldilocks::Element* output)
+{
+    // copy reversed f to output
+    size_t N = b * rho_inv;
+    for (size_t i = 0; i != b; ++i) {
+        output[b - 1 - i] = f[i];
+    }
+    for (size_t i = b; i != N; ++i) {
+        output[i] = Goldilocks::zero();
+    }
+    in_place_NTT(output, N);
 }
 
 std::vector<Goldilocks2::Element> eval_with_ntt(std::vector<Goldilocks2::Element> f, const size_t& N) {
@@ -380,13 +402,13 @@ std::vector<Goldilocks2::Element> eval_with_ntt(std::vector<Goldilocks2::Element
         imag[i] = f[i][1];
     }
 
-    std::vector<Goldilocks::Element> real_ntt = NTT(real);
-    std::vector<Goldilocks::Element> imag_ntt = NTT(imag);
+    in_place_NTT(real);
+    in_place_NTT(imag);
 
     std::vector<Goldilocks2::Element> result(N);
     for (size_t i = 0; i < N; ++i) {
-        result[i][0] = real_ntt[i];
-        result[i][1] = imag_ntt[i];
+        result[i][0] = real[i];
+        result[i][1] = imag[i];
     }
     return result;
 }

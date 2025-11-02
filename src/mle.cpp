@@ -21,9 +21,18 @@ MultilinearPolynomial::MultilinearPolynomial(const std::vector<Goldilocks2::Elem
     evaluations.resize(1ull << num_vars);
     size_t sz = e.size();
 
+    #pragma omp parallel for schedule(static)
     for (size_t i = 0; i < sz; ++i) {
         evaluations[i] = e[i];
     }
+}
+
+MultilinearPolynomial::MultilinearPolynomial(std::vector<Goldilocks2::Element>&& _evaluations)
+    : evaluations(std::move(_evaluations))
+{
+    size_t r = find_ceiling_log2(evaluations.size());
+    num_vars = r;
+    evaluations.resize(1ull << num_vars);
 }
 
 MultilinearPolynomial::MultilinearPolynomial(const std::vector<std::vector<Goldilocks2::Element>>& x) {
@@ -31,6 +40,7 @@ MultilinearPolynomial::MultilinearPolynomial(const std::vector<std::vector<Goldi
     num_vars = log1 + log2;
     evaluations.resize(1ull << num_vars);
 
+    #pragma omp parallel for schedule(static)
     for (size_t i = 0; i < x.size(); ++i) {
         for (size_t j = 0; j < x[i].size(); ++j) {
             evaluations[(i << log2) + j] = x[i][j];
@@ -43,9 +53,13 @@ MultilinearPolynomial::MultilinearPolynomial(const std::vector<std::vector<std::
     num_vars = log1 + log2 + log3;
     evaluations.resize(1ull << num_vars);
 
+    size_t sz_j = x[0].size();
+    size_t sz_k = x[0][0].size();
+
+    #pragma omp parallel for collapse(2) schedule(static)
     for (size_t i = 0; i < x.size(); ++i) {
-        for (size_t j = 0; j < x[i].size(); ++j) {
-            for (size_t k = 0; k < x[i][j].size(); ++k) {
+        for (size_t j = 0; j < sz_j; ++j) {
+            for (size_t k = 0; k < sz_k; ++k) {
                 evaluations[(i << (log2 + log3)) + (j << log3) + k] = x[i][j][k];
             }
         }
@@ -59,6 +73,7 @@ MultilinearPolynomial::MultilinearPolynomial(const std::vector<uint64_t>& val_ta
     evaluations.resize(1ull << num_vars);
     size_t sz = val_table.size();
 
+    #pragma omp parallel for schedule(static)
     for (size_t i = 0;i < sz; ++i) {
         evaluations[i] = Goldilocks2::fromU64(val_table[i]);
     }
@@ -66,7 +81,6 @@ MultilinearPolynomial::MultilinearPolynomial(const std::vector<uint64_t>& val_ta
 
 MultilinearPolynomial::MultilinearPolynomial(const array_view<Goldilocks2::Element>& val_table)
     : num_vars(0) {
-    auto start = std::chrono::high_resolution_clock::now();
 
     const int dim = val_table.get_dims();
     std::vector<size_t> dims(dim), log_upper_dims(dim);
@@ -89,34 +103,35 @@ MultilinearPolynomial::MultilinearPolynomial(const array_view<Goldilocks2::Eleme
     // const Goldilocks2::Element* input_data = val_table.get_data();
     Goldilocks2::Element* output_data = evaluations.data();
 
-    // Index vector for iteration
-    std::vector<size_t> ind(dim, 0);
 
-    for (size_t i = 0; i < total_output_size; ++i) {
-        bool in_bounds = true;
-        // size_t input_offset = 0;
+    #pragma omp parallel
+    {
+        std::vector<size_t> ind(dim, 0);
+        #pragma omp for schedule(static)
+        for (size_t i = 0; i < total_output_size; ++i) {
+            std::vector<size_t> ind(dim, 0);
+            bool in_bounds = true;
+            // size_t input_offset = 0;
 
-        // Map flat index to multi-dimensional index (ind)
-        size_t tmp = i;
-        for (int d = dim - 1; d >= 0; --d) {
-            ind[d] = (tmp & ((1ull << log_upper_dims[d]) - 1));
-            if (ind[d] >= dims[d]) {
-                in_bounds = false;
-                break;
+            // Map flat index to multi-dimensional index (ind)
+            size_t tmp = i;
+            for (int d = dim - 1; d >= 0; --d) {
+                ind[d] = (tmp & ((1ull << log_upper_dims[d]) - 1));
+                if (ind[d] >= dims[d]) {
+                    in_bounds = false;
+                    break;
+                }
+                tmp >>= log_upper_dims[d];
             }
-            tmp >>= log_upper_dims[d];
-        }
 
-        // Copy or pad with zero
-        if (in_bounds) {
-            output_data[i] = val_table(ind);
-        } else {
-            output_data[i] = Goldilocks2::zero();
+            // Copy or pad with zero
+            if (in_bounds) {
+                output_data[i] = val_table(ind);
+            } else {
+                output_data[i] = Goldilocks2::zero();
+            }
         }
     }
-
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed = end - start;
 
     // std::cout << "MLE for shape ";
     // for (auto d : dims) std::cout << d << " ";
@@ -149,9 +164,11 @@ Goldilocks2::Element MultilinearPolynomial::evaluate(const std::vector<Goldilock
     std::vector<Goldilocks2::Element> L = eq_table(logb, zl);
     std::vector<Goldilocks2::Element> R = eq_table(loga, zh);
     std::vector<Goldilocks2::Element> v(b, Goldilocks2::zero());
+
     for (size_t j = 0; j < a; ++j) {
         Goldilocks2::Element tmp;
         size_t offset = j * b;
+        #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < b; ++i) {
             v[i] += evaluations[offset + i] * R[j];
         }
@@ -206,11 +223,22 @@ MultilinearPolynomial MultilinearPolynomial::operator*(size_t scale) const {
 }
 
 Goldilocks2::Element MultilinearPolynomial::get_sum() const {
-    Goldilocks2::Element sum = Goldilocks2::zero();
-    for (const Goldilocks2::Element& v : evaluations) {
-        Goldilocks2::add(sum, sum, v);
+    int num_threads = omp_get_max_threads();
+    std::vector<Goldilocks2::Element> sum(num_threads);
+
+    #pragma omp parallel
+    {
+        int tid = omp_get_thread_num();
+        #pragma omp for schedule(static)
+        for (const Goldilocks2::Element& v : evaluations) {
+            sum[tid] += v;
+        }
     }
-    return sum;
+    Goldilocks2::Element total = Goldilocks2::zero();
+    for (const Goldilocks2::Element& s : sum) {
+        total += s;
+    }
+    return total;
 }
 
 void MultilinearPolynomial::iterate_nonzero(const std::function<void(size_t)> f, size_t offset) const {
