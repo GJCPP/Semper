@@ -9,18 +9,15 @@ import copy
 
 save_cache_to_file = True
 
-class ManualAlexNet:
+class ManualLeNet:
     def __init__(self):
         torch.backends.cudnn.deterministic = True
         self.W = {}
 
         # Conv layers (no bias), Kaiming init
         conv_shapes = [
-            (64, 3, 3, 3),       # conv1
-            (64, 64, 3, 3),     # conv2
-            (128, 64, 3, 3),    # conv3
-            (128, 128, 3, 3),    # conv4
-            (256, 128, 3, 3)     # conv5
+            (6, 1, 3, 3),       # conv1
+            (16, 6, 3, 3)       # conv2
         ]
 
         self.scale=2**14
@@ -30,12 +27,17 @@ class ManualAlexNet:
             self.W[f'conv_q{i+1}']=torch.round(self.W[f'conv{i+1}']*self.scale).to(torch.int64)
 
         # FC layers
-        self.W['fc1'] = torch.randn(256, 256) * (2.0 / 256)**0.5
-        self.W['fc2'] = torch.randn(256, 10) * (2.0 / 32)**0.5
-        self.W['fc1_q']=torch.round(self.W['fc1']*self.scale).to(torch.int64)
-        self.W['fc2_q']=torch.round(self.W['fc2']*self.scale).to(torch.int64)
+        self.W['fc1'] = torch.randn(1024, 120) * (2.0 / 1024)**0.5
+        self.W['fc2'] = torch.randn(120, 84) * (2.0 / 120)**0.5
+        self.W['fc3'] = torch.randn(84, 10) * (2.0 / 84)**0.5
 
-        for k in ['fc1', 'fc2','fc1_q', 'fc2_q']:
+        # quantize
+        self.W['fc1_q'] = torch.round(self.W['fc1'] * self.scale).to(torch.int64)
+        self.W['fc2_q'] = torch.round(self.W['fc2'] * self.scale).to(torch.int64)
+        self.W['fc3_q'] = torch.round(self.W['fc3'] * self.scale).to(torch.int64)
+
+
+        for k in ['fc1', 'fc2', 'fc3', 'fc1_q', 'fc2_q', 'fc3_q']:
             self.W[k].requires_grad = False
 
         self.cache = {}
@@ -58,7 +60,7 @@ class ManualAlexNet:
         one_hot_y = F.one_hot(y, num_classes=10)
         self.save_to_cache('a_q0_label', one_hot_y)
 
-        for block, layers in enumerate([(1,), (2,), (3,), (4,), (5,)], start=1):
+        for block, layers in enumerate([(1,), (2,)], start=1):
             #for lid in layers:
             #    x = F.conv2d(x, self.W[f'conv{lid}'], padding=1)
             #    self.cache[f'z{lid}'] = x
@@ -137,6 +139,8 @@ class ManualAlexNet:
         z1_q = (x_q.to(torch.float64) @ self.W['fc1_q'].to(torch.float64)).to(torch.int64)
         a1_q = (F.relu(z1_q)/self.scale).to(torch.int64)
         z2_q = (a1_q.to(torch.float64) @ self.W['fc2_q'].to(torch.float64)).to(torch.int64)
+        a2_q = (F.relu(z2_q)/self.scale).to(torch.int64)
+        z3_q = (a2_q.to(torch.float64) @ self.W['fc3_q'].to(torch.float64)).to(torch.int64)
 
         self.save_to_cache('flat_q', x_q)
         self.save_to_cache('W_fc1_q', self.W['fc1_q'])
@@ -144,25 +148,48 @@ class ManualAlexNet:
         self.save_to_cache('a1_q', a1_q)
         self.save_to_cache('W_fc2_q', self.W['fc2_q'])
         self.save_to_cache('z2_q', z2_q)
+        self.save_to_cache('a2_q', a2_q)
+        self.save_to_cache('W_fc3_q', self.W['fc3_q'])
+        self.save_to_cache('z3_q', z3_q)
 
-        return z2_q
+        return z3_q
 
-    def backward_propogation(self, grad_z2_q,  lr=0.01):
+    def backward_propogation(self, grad_z3_q,  lr=0.01):
         W = self.W
         c = self.cache
         #print("grad err:",torch.mean(torch.abs(grad_logits-grad_z3_q/self.scale)),grad_logits.max(),grad_logits.min())
+        # FC3
+        #grad_a2 = grad_logits @ W['fc3'].T
+        #dW_fc3 = c['fc2_z'].T @ grad_logits
+        #with torch.no_grad():
+        #    W['fc3'] -= lr * dW_fc3
+        self.save_to_cache('grad_z3_q', grad_z3_q)
+
+        grad_a2_q = (grad_z3_q.to(torch.float64) @ W['fc3_q'].T.to(torch.float64)).to(torch.int64)
+        dW_fc3_q = (c['a2_q'][-1].T.to(torch.float64) @ grad_z3_q.to(torch.float64)).to(torch.int64) # big value
+        #print(dW_fc3_q.shape,dW_fc3.shape,W['fc3_q'].shape)
+        with torch.no_grad():
+            W['fc3_q'] -= torch.round(lr * torch.round(dW_fc3_q  / self.scale)).to(torch.int64)
+
+        self.save_to_cache('dW_fc3_q', dW_fc3_q)
+        self.save_to_cache('grad_a2_q', grad_a2_q)
+
+
         # FC2
-        #grad_a1 = grad_logits @ W['fc2'].T
-        #dW_fc2 = c['fc1_z'].T @ grad_logits
+        #grad_z2 = grad_a2 * (c['fc2_z'] > 0)
+        #grad_a1 = grad_z2 @ W['fc2'].T
+        #dW_fc2 = c['fc1_z'].T @ grad_z2
         #with torch.no_grad():
         #    W['fc2'] -= lr * dW_fc2
-        self.save_to_cache('grad_z2_q', grad_z2_q)
+            
 
-        grad_a1_q = (grad_z2_q.to(torch.float64) @ W['fc2_q'].T.to(torch.float64)).to(torch.int64)
+        grad_z2_q = torch.round(grad_a2_q * (c['a2_q'][-1] > 0) / self.scale).to(torch.int64)
+        grad_a1_q = torch.round(grad_z2_q.to(torch.float64) @ W['fc2_q'].T.to(torch.float64)).to(torch.int64)
         dW_fc2_q = (c['a1_q'][-1].to(torch.float64).T @ grad_z2_q.to(torch.float64)).to(torch.int64) # big value
         with torch.no_grad():
             W['fc2_q'] -= torch.round(lr * torch.round(dW_fc2_q / self.scale)).to(torch.int64)
 
+        self.save_to_cache('grad_z2_q', grad_z2_q)
         self.save_to_cache('dW_fc2_q', dW_fc2_q)
         self.save_to_cache('grad_a1_q', grad_a1_q)
 
@@ -187,14 +214,14 @@ class ManualAlexNet:
 
         # reshape to conv5 output shape
         #grad = grad_flat.view(c['pool5'][0].shape)
-        grad_q = (grad_flat_q.view(c['pool_q5'][-1].shape)).to(torch.int64)
+        grad_q = (grad_flat_q.view(c['pool_q2'][-1].shape)).to(torch.int64)
         grad_q_scaled = False
-        self.save_to_cache('grad_pool_q5', grad_q) # big value
+        self.save_to_cache('grad_pool_q2', grad_q) # big value
 
         # backward through conv blocks
-        for block in reversed(range(1, 6)):
+        for block in reversed(range(1, 3)):
             #pooled_out, indices = c[f'pool{block}']
-            first_lid = [1, 2, 3, 4, 5][block - 1]
+            first_lid = [1, 2][block - 1]
 
             pooled_out_q = c[f'pool_q{block}'][-1]
             indices_q = c[f'pool_idx_q{block}'][-1]
@@ -210,12 +237,6 @@ class ManualAlexNet:
                 conv_ids = [1]
             elif block == 2:
                 conv_ids = [2]
-            elif block == 3:
-                conv_ids = [3]
-            elif block == 4:
-                conv_ids = [4]
-            elif block == 5:
-                conv_ids = [5]
 
 
             for lid in reversed(conv_ids):
@@ -304,20 +325,27 @@ def train_manual(batch_sz, iter_sz):
     transforms.ToTensor(),
     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # or standard CIFAR-10 mean/std
         ])
-    dataset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
+    dataset = datasets.MNIST(
+        root='./data', train=True, download=True,
+        transform=transforms.Compose([
+            transforms.Resize((32, 32)),
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))  # standard MNIST mean/std
+        ])
+    )
     loader = DataLoader(dataset , batch_size=batch_sz, shuffle=True)
     subset = Subset(dataset, indices=range(iter_sz * batch_sz))
     indexed_subset = IndexedDataset(subset)  # Wrap to include indices
     loader = DataLoader(indexed_subset, batch_size=batch_sz, shuffle=True)
-    model = ManualAlexNet()
+    model = ManualLeNet()
     lr=0.01
     S=[]
 
     # Create directory for saving data
-    os.makedirs('training_trace/AlexNet', exist_ok=True)
+    os.makedirs('training_trace/LeNet', exist_ok=True)
     # Save dataset before training
     np.savez(
-        'training_trace/AlexNet/dataset.npz',
+        'training_trace/LeNet/dataset.npz',
         dataset_inputs=np.stack([
             (subset[i][0] * model.scale).to(torch.int64).numpy()
             for i in range(len(subset))
@@ -368,7 +396,7 @@ def train_manual(batch_sz, iter_sz):
             # print(value[0][0, 0])
         
         if save_cache_to_file:
-            np.savez(f'training_trace/AlexNet/epoch_{epoch}.npz', **model.cache)
+            np.savez(f'training_trace/LeNet/epoch_{epoch}.npz', **model.cache)
 
         # print(epoch_data)
 
@@ -380,4 +408,4 @@ if __name__ == "__main__":
     torch.manual_seed(0)
     random.seed(0)
     train_manual(16, 1)
-    pad_conv.pad_AlexNet()
+    pad_conv.pad_LeNet()

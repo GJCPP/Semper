@@ -81,6 +81,7 @@ std::shared_ptr<oracle> lazy_pcs_pool::commit(uint64_t rho_inv) {
     }
     uni_mle = MLE(std::move(all_vals));
     pause_timer("lazy_pcs_pool mle");
+    // std::cout << "PCS Size = " << uni_mle.get_num_vars() << ".\n";
     
     // std::cout << "================Warning: skip lazy_pcs commit" << std::endl;
     // return std::make_shared<MLE>(uni_mle);

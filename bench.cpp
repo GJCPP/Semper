@@ -13,12 +13,16 @@
 #include "test.h"
 #include "VGG16.h"
 #include "VGG11.h"
+#include "AlexNet.h"
+#include "LeNet.h"
 #include "counter.h"
 #include "product2_sumcheck.h"
 
+const std::string DATA_DIR = "/home/gaojc/Desktop/zkCNN/training_trace/";
+
 void bench_VGG16() {
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-    VGG16 VGG16("/home/gaojc/Desktop/zkCNN/training_trace/", 0, 1 << 14, 1 << 24, 2, 32);
+    VGG16 VGG16(DATA_DIR, 0, 1 << 14, 1 << 24, 2, 32);
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
     std::cout << "Loading VGG16 took " << duration.count() / 1000000.0 << " s" << std::endl;
@@ -36,7 +40,7 @@ void bench_VGG16() {
 void bench_VGG11() {
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     // VGG11 VGG11("/home/gaojc/Desktop/zkCNN/training_trace", 0, 1 << 14, 1 << 24, 2, 32);
-    VGG11 VGG11("../training_trace", 0, 1 << 14, 1 << 27, 2, 32);
+    VGG11 VGG11(DATA_DIR, 0, 1 << 14, 1 << 27, 2, 32);
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
     std::cout << "Loading VGG11 took " << duration.count() / 1000000.0 << " s" << std::endl;
@@ -48,6 +52,53 @@ void bench_VGG11() {
     start_proof("VGG11");
     VGG11.prove(32);
     end_proof("VGG11");
+    print_all_timers();
+    clear_all_timers();
+    std::cout << "-----------------------------" << std::endl;
+    print_all_proof_size(Counter::MB);
+    std::cout << "-----------------------------" << std::endl;
+    print_all_open_cnt();
+    clear_proof();
+}
+
+void bench_AlexNet() {
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    // VGG11 VGG11("/home/gaojc/Desktop/zkCNN/training_trace", 0, 1 << 14, 1 << 24, 2, 32);
+    AlexNet AlexNet(DATA_DIR, 0, 1 << 14, 1 << 27, 2, 32);
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
+    std::cout << "Loading AlexNet took " << duration.count() / 1000000.0 << " s" << std::endl;
+
+    // VGG11.check(100);
+    // return;
+    // print_all_proof_size(Counter::MB);
+    clear_proof();
+    start_proof("AlexNet");
+    AlexNet.prove(32);
+    end_proof("AlexNet");
+    print_all_timers();
+    clear_all_timers();
+    std::cout << "-----------------------------" << std::endl;
+    print_all_proof_size(Counter::MB);
+    std::cout << "-----------------------------" << std::endl;
+    print_all_open_cnt();
+    clear_proof();
+}
+
+void bench_LeNet() {
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    LeNet LeNet(DATA_DIR, 0, 1 << 14, 1 << 27, 2, 32);
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
+    std::cout << "Loading LeNet took " << duration.count() / 1000000.0 << " s" << std::endl;
+
+    // VGG11.check(100);
+    // return;
+    // print_all_proof_size(Counter::MB);
+    clear_proof();
+    start_proof("LeNet");
+    LeNet.prove(32);
+    end_proof("LeNet");
     print_all_timers();
     clear_all_timers();
     std::cout << "-----------------------------" << std::endl;
@@ -187,31 +238,37 @@ void bench_lazypcs() {
 }
 
 #define NUM_THREADS 8
-int main() {
+
+int main(int argc, char** argv) {
     // if (!run_test()) return 0;
     // find_parameter();
-    omp_set_num_threads(NUM_THREADS);
-    // omp_set_nested(true);
+    std::string model_name = "LeNet";
+    if (argc >= 2) {
+        omp_set_num_threads(std::atoi(argv[1]));
+        model_name = (argc >= 3) ? std::string(argv[2]) : model_name;
+    } else {
+        omp_set_num_threads(NUM_THREADS);
+    }
+    if (model_name == "VGG16") {
+        bench_VGG16();
+    } else if (model_name == "VGG11") {
+        bench_VGG11();
+    } else if (model_name == "AlexNet") {
+        bench_AlexNet();
+    } else if (model_name == "LeNet") {
+        bench_LeNet();
+    } else {
+        std::cerr << "Unknown model name: " << model_name << std::endl;
+        return 1;
+    }
+    // bench_AlexNet();
     // bench_VGG11();
+    // bench_VGG16();
+
     // bench_p2_sumcheck();
     // bench_lazypcs();
-    bench_commit();
+    // bench_commit();
     // bench_transpose();
-    // bench_VGG16();
-    // std::vector<Goldilocks2::Element> z = random_vec_ext(1 << 24);
-    // MLE mle = z;
-    // auto pcs = ligero_commit_ext(mle, 2);
-    // auto cha = random_vec_ext(24);
-    // set_timer("pcs_open");
-    // pcs.open(cha, 32);
-    // pause_timer("pcs_open");
-    // set_timer("mle_open");
-    // mle.open(cha, 32);
-    // pause_timer("mle_open");
-    // print_all_timers();
-    // for (auto& [key, value] : lazy_pcs_open_cnt) {
-    //     std::cout << "lazy_pcs index " << key << " opened " << value << " times" << std::endl;
-    // }
     return 0;
 }
 

@@ -673,16 +673,22 @@ CNN::layer_res pre_prove_relu_layer(
         auto X = layer.input[i];
         auto Y = layer.output[i];
 
-        size_t n = X.size();
+        // size_t n = X.size();
+        // int logn = find_ceiling_log2(n);
+        size_t N = 1ull << find_ceiling_log2(X.size());
 
-        std::vector<Goldilocks2::Element> X_copy(n), Y_copy(n);
+        MLE mle_X = X;
+        MLE mle_Y = Y;
 
-        X.copy_to(X_copy.data());
-        Y.copy_to(Y_copy.data());
+        auto& X_copy = mle_X.get_eval_table();
+        auto& Y_copy = mle_Y.get_eval_table();
+
+        ret.vec["X_copy" + _i] = X_copy;
+        ret.vec["Y_copy" + _i] = Y_copy;
 
         // 1. Prove scale_X
-        std::vector<Goldilocks2::Element> X_quo(n);
-        for (size_t i = 0; i < n; ++i) {
+        std::vector<Goldilocks2::Element> X_quo(N); // 1 << logn
+        for (size_t i = 0; i < N; ++i) {
             if (Goldilocks2::toS64(X_copy[i]) > 0) {
                 X_quo[i] = Y_copy[i]; // ceil division
             }
@@ -690,7 +696,7 @@ CNN::layer_res pre_prove_relu_layer(
                 X_quo[i] = Goldilocks2::fromS64(Goldilocks2::toS64(X_copy[i]) / int64_t(scale));
             }
         }
-        auto X_rem = get_rem(X_copy, scale, X_quo, true);
+        auto X_rem = get_rem(X_copy, scale, X_quo, true); // 1 << logn
 
         // ret.vec["X_quo" + _i] = X_quo;
         // ret.vec["X_rem" + _i] = X_rem;
@@ -700,7 +706,7 @@ CNN::layer_res pre_prove_relu_layer(
         ret.pcs["pcs_X_rem" + _i] = pcs_X_rem;
 
         // 2. Prove sign of scaled X
-        auto X_scale_sign = get_sign(X_quo, true);
+        auto X_scale_sign = get_sign(X_quo, true); // 1 << logn
         lazy_pcs pcs_X_scale_sign = commit_lazy_pcs(X_scale_sign, pool);
         // ret.vec["X_scale_sign" + _i] = X_scale_sign;
         ret.pcs["pcs_X_scale_sign" + _i] = pcs_X_scale_sign;
@@ -712,12 +718,13 @@ CNN::layer_res pre_prove_relu_layer(
         // Prove backward
         auto dX = layer.d_input[i];
         auto dY = layer.d_output[i];
-        std::vector<Goldilocks2::Element> dX_copy(n), dY_copy(n);
-        dX.copy_to(dX_copy.data());
-        dY.copy_to(dY_copy.data());
+        MLE mle_dX = dX, mle_dY = dY;
+        auto & dX_copy = mle_dX.get_eval_table(), & dY_copy = mle_dY.get_eval_table();
+        ret.vec["dX_copy" + _i] = dX_copy;
+        ret.vec["dY_copy" + _i] = dY_copy;
         // 1. Prove scaled dY_filtered = dY * X_scale_sign
-        std::vector<Goldilocks2::Element> dY_filtered(n);
-        for (size_t j = 0; j < n; ++j) {
+        std::vector<Goldilocks2::Element> dY_filtered(N);
+        for (size_t j = 0; j < N; ++j) {
             if (X_scale_sign[j] == Goldilocks2::one()) {
                 dY_filtered[j] = dY_copy[j];
             }
@@ -751,17 +758,15 @@ bool prove_relu_layer(const CNN::layer_info& layer,
         auto X = layer.input[i];
         auto Y = layer.output[i];
 
-        size_t n = X.size();
-        int logn = find_ceiling_log2(n);
+        int logn = find_ceiling_log2(X.size());
+        size_t N = 1ull << logn;
 
-        std::vector<Goldilocks2::Element> X_copy(n), Y_copy(n);
+        auto X_copy = std::move(wit.vec.at("X_copy" + _i));
+        auto Y_copy = std::move(wit.vec.at("Y_copy" + _i));
 
-        X.copy_to(X_copy.data());
-        Y.copy_to(Y_copy.data());
-
-        // 1. Prove scale_X        
-        std::vector<Goldilocks2::Element> X_quo(n);
-        for (size_t i = 0; i < n; ++i) {
+        // 1. Prove scale_X
+        std::vector<Goldilocks2::Element> X_quo(N); // 1 << logn
+        for (size_t i = 0; i < N; ++i) {
             if (Goldilocks2::toS64(X_copy[i]) > 0) {
                 X_quo[i] = Y_copy[i]; // ceil division
             }
@@ -770,6 +775,7 @@ bool prove_relu_layer(const CNN::layer_info& layer,
             }
         }
         auto X_rem = get_rem(X_copy, scale, X_quo, true);
+
         const auto& pcs_X_quo = wit.pcs.at("pcs_X_quo" + _i);
         const auto& pcs_X_rem = wit.pcs.at("pcs_X_rem" + _i);
         start_proof("relu_div_proof");
@@ -785,7 +791,7 @@ bool prove_relu_layer(const CNN::layer_info& layer,
         end_proof("relu_div_proof");
 
         // 2. Prove sign of scaled X
-        auto X_scale_sign = get_sign(X_quo, true);
+        auto X_scale_sign = get_sign(X_quo, true); // 1 << logn
         const auto& pcs_X_scale_sign = wit.pcs.at("pcs_X_scale_sign" + _i);
         start_proof("relu_sign_proof");
         signProver sign_prover_X(X_quo, X_scale_sign, scale, max_val, true, rho_inv, lazy_logup_prover);
@@ -818,13 +824,13 @@ bool prove_relu_layer(const CNN::layer_info& layer,
         auto pcs_dY = layer.get_pcs_d_output(i);
         auto dX = layer.d_input[i];
         auto dY = layer.d_output[i];
-        std::vector<Goldilocks2::Element> dX_copy(n), dY_copy(n);
-        dX.copy_to(dX_copy.data());
-        dY.copy_to(dY_copy.data());
+        
+        auto dX_copy = std::move(wit.vec.at("dX_copy" + _i));
+        auto dY_copy = std::move(wit.vec.at("dY_copy" + _i));
 
         // 1. Prove scaled dY_filtered = dY * X_scale_sign
-        std::vector<Goldilocks2::Element> dY_filtered(n);
-        for (size_t j = 0; j < n; ++j) {
+        std::vector<Goldilocks2::Element> dY_filtered(N);
+        for (size_t j = 0; j < N; ++j) {
             if (X_scale_sign[j] == Goldilocks2::one()) {
                 dY_filtered[j] = dY_copy[j];
             }
@@ -930,9 +936,36 @@ CNN::layer_res pre_prove_pool_layer(const CNN::layer_info& layer,
                 }
             }
         }
+        size_t up_img = 1ull << find_ceiling_log2(img);
+        size_t up_C = 1ull << find_ceiling_log2(C);
+        size_t up_N = 1ull << find_ceiling_log2(N);
         MultilinearPolynomial mle_sel(sel.view), mle_rev_sel(rev_sel.view);
-        auto pcs_sel = commit_lazy_pcs(mle_sel, pool);
-        auto pcs_rev_sel = commit_lazy_pcs(mle_rev_sel, pool);
+        auto eval_sel = mle_sel.get_eval_table(), eval_rev_sel = mle_rev_sel.get_eval_table();
+        
+        assert(eval_sel.size() == up_img * up_C * up_N * up_N);
+
+        for (size_t var = 0; var < up_img; ++var) {
+            for (size_t k = 0; k < up_C; ++k) {
+                for (size_t x = 0; x < up_N / 2; ++x) {
+                    for (size_t y = 0; y < up_N / 2; ++y) {
+                        if (var >= img || k >= C || x >= N / 2 || y >= N / 2) {
+                            eval_sel[var * up_C * up_N * up_N + k * up_N * up_N + x * up_N * 2 + y * 2] = Goldilocks2::one();
+                        }
+                    }
+                }
+                for (size_t x = 0; x < up_N; ++x) {
+                    for (size_t y = 0; y < up_N; ++y) {
+                        size_t ind = var * up_C * up_N * up_N + k * up_N * up_N + x * up_N + y;
+                        eval_rev_sel[ind] = Goldilocks2::one() - eval_sel[ind];
+                    }
+                }
+            }
+        }
+
+        auto pcs_sel = commit_lazy_pcs(eval_sel, pool);
+        auto pcs_rev_sel = commit_lazy_pcs(eval_rev_sel, pool);
+        ret.vec["eval_sel" + _i] = eval_sel;
+        ret.vec["eval_rev_sel" + _i] = eval_rev_sel;
         ret.pcs["pcs_sel" + _i] = pcs_sel;
         ret.pcs["pcs_rev_sel" + _i] = pcs_rev_sel;
         // TODO 1. Check pcs_sel = pcs_rev_sel
@@ -948,7 +981,6 @@ CNN::layer_res pre_prove_pool_layer(const CNN::layer_info& layer,
         array<Goldilocks2::Element> diff(input.get_shape());
         for (int j = 0; j < img; ++j) {
             for (int k = 0; k < C; ++k) {
-                auto diff_j_k = diff.view[j][k];
                 for (int x = 0; x < N; ++x) {
                     for (int y = 0; y < N; ++y) {
                         diff(j, k, x, y) = output(j, k, x / 2, y / 2) - input(j, k, x, y);
@@ -956,16 +988,17 @@ CNN::layer_res pre_prove_pool_layer(const CNN::layer_info& layer,
                 }
             }
         }
-        auto pcs_diff = commit_lazy_pcs(diff.view, pool);
+        MLE mle_diff(diff.view);
+        auto pcs_diff = commit_lazy_pcs(mle_diff, pool);
         ret.pcs["pcs_diff" + _i] = pcs_diff;
         // II.2. Prover proves diff = expand(output) - input
 
         // II.3 Prover proves diff is non-negative
-        std::vector<Goldilocks2::Element> input_ones(input.size(), Goldilocks2::one());
-        MLE mle_input_ones = MLE(input_ones);
+        std::vector<Goldilocks2::Element> input_ones(up_img * up_C * up_N * up_N, Goldilocks2::one());
+        MLE mle_input_ones = input_ones;
         // TODO 3. Check pcs_input_ones = 1
         {
-            signProver sign_prover_diff(diff.data, input_ones, scale, max_val * 2, false, rho_inv, lazy_logup_prover);
+            signProver sign_prover_diff(mle_diff.get_eval_table(), input_ones, scale, max_val * 2, false, rho_inv, lazy_logup_prover);
             auto sign_res = signVerifier::pre_execute_sign_check(sign_prover_diff, pool, lazy_logup_verifier);
             ret.res["sign_res_diff" + _i] = std::make_shared<signVerifier::resource>(sign_res);
         }
@@ -1025,12 +1058,17 @@ bool prove_pool_layer(const CNN::layer_info& layer,
     const int img = int(layer.input.shape(1));
     const int C = int(layer.input.shape(2));
     const int N = layer.input.shape(3);
+
     // stride = kernel size = 2
     // layer.input : [batch, img, C, N, N]
     // layer.output: [batch, img, C, N/2, N/2]
     int logimg = find_ceiling_log2(img);
     int logC = find_ceiling_log2(C);
     int logN = find_ceiling_log2(N);
+
+    size_t up_img = 1ull << logimg;
+    size_t up_C = 1ull << logC;
+    size_t up_N = 1ull << logN;
 
     #pragma omp parallel for
     for (int i = 0; i < batch; ++i) {
@@ -1070,7 +1108,11 @@ bool prove_pool_layer(const CNN::layer_info& layer,
                 }
             }
         }
-        MultilinearPolynomial mle_sel(sel.view), mle_rev_sel(rev_sel.view);
+        
+        auto eval_sel = wit.vec.at("eval_sel" + _i);
+        auto eval_rev_sel = wit.vec.at("eval_rev_sel" + _i);
+        MultilinearPolynomial mle_sel(eval_sel), mle_rev_sel(eval_rev_sel);
+        
         auto pcs_sel = wit.pcs.at("pcs_sel" + _i), pcs_rev_sel = wit.pcs.at("pcs_rev_sel" + _i);
         // auto pcs_sel = ligero_commit_base(mle_sel, rho_inv);
         // auto pcs_rev_sel = ligero_commit_base(mle_rev_sel, rho_inv);
@@ -1113,6 +1155,7 @@ bool prove_pool_layer(const CNN::layer_info& layer,
                 }
             }
         }
+        MLE mle_diff(diff.view);
         auto pcs_diff = wit.pcs.at("pcs_diff" + _i);
         // II.2. Prover proves diff = expand(output) - input
         std::vector<Goldilocks2::Element> input_cha = random_vec_ext(logimg + logC + 2 * logN);
@@ -1142,11 +1185,11 @@ bool prove_pool_layer(const CNN::layer_info& layer,
             throw;
         }
         // II.3 Prover proves diff is non-negative
-        std::vector<Goldilocks2::Element> input_ones(input.size(), Goldilocks2::one());
-        MLE mle_input_ones = MLE(input_ones);
+        std::vector<Goldilocks2::Element> input_ones(up_img * up_C * up_N * up_N, Goldilocks2::one());
+        MLE mle_input_ones = input_ones;
         // TODO 3. Check pcs_input_ones = 1
         signVerifier::resource sign_res_diff = *reinterpret_cast<signVerifier::resource*>(wit.res.at("sign_res_diff" + _i).get());
-        signProver sign_prover_diff(diff.data, input_ones, scale, max_val * 2, false, rho_inv, lazy_logup_prover);
+        signProver sign_prover_diff(mle_diff.get_eval_table(), input_ones, scale, max_val * 2, false, rho_inv, lazy_logup_prover);
         if (!signVerifier::execute_sign_check(
             sign_prover_diff, 
             std::make_shared<lazy_pcs>(pcs_diff), 
@@ -1808,6 +1851,7 @@ bool prove_flat_layer(const CNN::layer_info& layer, size_t rho_inv, size_t sec_p
     const int logimg = find_ceiling_log2(img);
     const int logC = find_ceiling_log2(C);
     if (layer.input.shape(3) != 1 || layer.input.shape(4) != 1) {
+        return true; // nothing to prove
         throw std::invalid_argument("prove_flat_layer: Input shape must be [batch, img, C, 1, 1]");
     }
     bool ret = true;

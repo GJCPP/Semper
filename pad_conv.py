@@ -301,3 +301,56 @@ def pad_AlexNet():
             W = np.flip(W, axis=(3, 4)).copy() # [B, D, C, k, k]
 
             generate_conv_wit(model_path, f'conv_{layer}_dX.npz', epoch, 1, 'X', 'W', 'Y', dY, W, dX, pad_right_bottom=False)
+            
+def pad_LeNet():
+    # Path to the .npz file
+    model_path = 'training_trace/LeNet'
+    file_path = model_path + '/epoch_0.npz'
+
+    # Load the .npz file
+    data = np.load(file_path)
+
+    # List all arrays stored in the file
+    # print("Arrays in the file:", data.files)
+
+    # Example: Load a specific array (replace 'arr_0' with the actual key if needed)
+    array = data['input']
+
+
+    # Generate witness for forward conv.
+    epoch = 0
+    for block, layers in enumerate([(1, ), (2, )], start=1):
+        print(f'Processing block: {block}/{2}')
+        # prove forward
+        for layer in layers:
+            input_name = f'a_q{layer - 1}' if layer == 1 or layer != layers[0] else f'pool_q{block - 1}'
+            X = data[input_name]      # [B, N, C, in, in]
+            W = data[f'W_conv_q{layer}'] # [B, D, C, k, k]
+            Y = data[f'z_q{layer}']      # [B, N, D, on, on]
+            generate_conv_wit(model_path, f'conv_{layer}_forward.npz', epoch, 1,'X', 'W', 'Y', X, W, Y, pad_right_bottom=True)
+        # prove backward dW
+        for layer in layers:
+            input_name = f'a_q{layer - 1}' if layer == 1 or layer != layers[0] else f'pool_q{block - 1}'
+            X = data[input_name]      # [B, N, C, in, in]
+            dY = data[f'grad_z_q{layer}']      # [B, N, D, on, on]
+            dW = data[f'dW_conv_q{layer}'] # [B, D, C, k, k]
+
+            X = np.swapaxes(X, 1, 2) # [B, C, N, in, in]
+            dY = np.swapaxes(dY, 1, 2) # [B, D, N, on, on]
+            dW = np.swapaxes(dW, 1, 2) # [B, C, D, k, k]
+
+            generate_conv_wit(model_path, f'conv_{layer}_dW.npz', epoch, 1, 'X', 'W', 'Y', X, dY, dW, pad_right_bottom=True)
+        # prove backward dX
+        for layer in layers:
+            input_name = f'grad_a_q{layer - 1}' if layer == 1 or layer != layers[0] else f'grad_pool_q{block - 1}'
+            dY = data[f'grad_z_q{layer}'] # [B, N, D, on, on]
+            W = data[f'W_conv_q{layer}'] # [B, D, C, k, k]
+            dX = data[input_name]      # [B, N, C, in, in]
+
+            W = np.swapaxes(W, 1, 2) # [B, D, C, k, k]
+            W = np.flip(W, axis=(3, 4)).copy() # [B, D, C, k, k]
+
+            generate_conv_wit(model_path, f'conv_{layer}_dX.npz', epoch, 1, 'X', 'W', 'Y', dY, W, dX, pad_right_bottom=False)
+
+if __name__ == "__main__":
+    pad_AlexNet()

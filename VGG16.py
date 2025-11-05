@@ -324,16 +324,16 @@ class IndexedDataset(torch.utils.data.Dataset):
         x, y = self.dataset[idx]
         return x, y, idx
 
-def train_manual():
+def train_manual(batch_sz, iter_sz):
     transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # or standard CIFAR-10 mean/std
         ])
     dataset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
-    loader = DataLoader(dataset , batch_size=32, shuffle=True)
-    subset = Subset(dataset, indices=range(1024))
+    loader = DataLoader(dataset , batch_size=batch_sz, shuffle=True)
+    subset = Subset(dataset, indices=range(iter_sz * batch_sz))
     indexed_subset = IndexedDataset(subset)  # Wrap to include indices
-    loader = DataLoader(indexed_subset, batch_size=32, shuffle=True)
+    loader = DataLoader(indexed_subset, batch_size=batch_sz, shuffle=True)
     model = ManualVGG16()
     lr=0.01
     S=[]
@@ -383,8 +383,8 @@ def train_manual():
 
             correct2 += (z3_q.argmax(1) == y).sum().item()
             total += y.size(0)
-            if cnt%10==0:
-                print(f" Int Accuracy = {100 * correct2 / total:.2f}%")
+            # if cnt%10==0:
+            #     print(f" Int Accuracy = {100 * correct2 / total:.2f}%")
 
         # Convert tensors to numpy arrays before saving
         # cache_np = {}
@@ -399,7 +399,7 @@ def train_manual():
 
         # print(epoch_data)
 
-        print(f"Epoch {epoch+1}: Accuracy = {100 * correct2 / total:.2f}%")
+        # print(f"Epoch {epoch+1}: Accuracy = {100 * correct2 / total:.2f}%")
         model.clear_cache()
 
 import pad_conv
@@ -407,6 +407,6 @@ import pad_conv
 if __name__ == "__main__":
     torch.manual_seed(0)
     random.seed(0)
-    train_manual()
+    train_manual(16, 8)
     pad_conv.pad_VGG16()
 

@@ -25,9 +25,12 @@ divProver::divProver(
     if (num.size() != quo.size() || num.size() != rem.size()) {
         throw std::invalid_argument("divProver: Numerator, quotient and remainder must match in sizes");
     }
-    num_u64.reserve(num.size());
-    quo_u64.reserve(quo.size());
-    rem_u64.reserve(rem.size());
+    
+    num_vars = find_ceiling_log2(num.size());
+
+    num_u64.reserve(1ull << num_vars);
+    quo_u64.reserve(1ull << num_vars);
+    rem_u64.reserve(1ull << num_vars);
     for (const auto& n : num) {
         num_u64.push_back(Goldilocks2::toU64(n)[0]);
     }
@@ -37,14 +40,16 @@ divProver::divProver(
     for (const auto& r : rem) {
         rem_u64.push_back(Goldilocks2::toU64(r)[0]);
     }
+    num_u64.resize(1ull << num_vars);
+    quo_u64.resize(1ull << num_vars);
+    rem_u64.resize(1ull << num_vars);
 
-    num_vars = find_ceiling_log2(num.size());
 
     // Step 2. Init range&valid
     init_range(denominator, allow_neg_rem, rho_inv);
 
     // Step 3. Init zeros
-    init_zeros(num.size());
+    init_zeros(1ull << num_vars);
 }
 
 
@@ -66,11 +71,15 @@ divProver::divProver(
 
     num_vars = find_ceiling_log2(num.size());
 
+    num_u64.resize(1ull << num_vars);
+    quo_u64.resize(1ull << num_vars);
+    rem_u64.resize(1ull << num_vars);
+
     // Step 2. Init range&valid
     init_range(denominator, allow_neg_rem, rho_inv);
 
     // Step 3. Init zeros
-    init_zeros(num.size());
+    init_zeros(1ull << num_vars);
 }
 
 void divProver::init_range(uint64_t denominator, bool allow_neg_rem, uint64_t rho_inv) {
