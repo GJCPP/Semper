@@ -19,4 +19,3 @@ if [ -z "$CAP" ]; then
 fi
 
 echo "CUDA_ARCH = sm_$CAP" > CudaArch.mk
-aa

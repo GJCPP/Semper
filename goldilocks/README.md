@@ -1,6 +1,9 @@
 # Goldilocks
 
 ## Setup
+
+https://github.com/0xPolygonHermez/goldilocks.git
+
 ### Dependencies
 ```
 sudo apt-get install libgtest-dev libomp-dev libgmp-dev libbenchmark-dev
