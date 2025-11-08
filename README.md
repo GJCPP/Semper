@@ -1,6 +1,6 @@
 # Semper
 
-A proof system for proving CNN training and inference.
+A proof system for proving CNN training.
 
 ## Requirement
 
