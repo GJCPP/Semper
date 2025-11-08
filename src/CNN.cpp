@@ -385,6 +385,8 @@ bool CNN::prove(size_t sec_param) {
     }
     pause_timer("check input");
     // #pragma omp parallel for
+
+    set_timer("prove layers");
     for (auto& layer : layers) {
         // print_all_proof_size(Counter::MB);
 #ifdef LAYER_TYPE
@@ -463,6 +465,7 @@ bool CNN::prove(size_t sec_param) {
                 break;
         }
     }
+    pause_timer("prove layers");
 
     // std::cout << "======================Warning: skip final logup." << std::endl;
     std::cout << "Proving final logup..." << std::endl;

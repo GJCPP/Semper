@@ -242,7 +242,7 @@ void bench_lazypcs() {
 int main(int argc, char** argv) {
     // if (!run_test()) return 0;
     // find_parameter();
-    std::string model_name = "LeNet";
+    std::string model_name = "AlexNet";
     if (argc >= 2) {
         omp_set_num_threads(std::atoi(argv[1]));
         model_name = (argc >= 3) ? std::string(argv[2]) : model_name;

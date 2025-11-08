@@ -269,7 +269,7 @@ def pad_AlexNet():
 
     # Generate witness for forward conv.
     epoch = 0
-    for block, layers in enumerate([(1, ), (2, ), (3, ), (4, ), (5, )], start=1):
+    for block, layers in enumerate([(1, ), (2, ), (3, 4, 5)], start=1):
         print(f'Processing block: {block}/{5}')
         # prove forward
         for layer in layers:

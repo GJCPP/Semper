@@ -30,8 +30,8 @@ class ManualAlexNet:
             self.W[f'conv_q{i+1}']=torch.round(self.W[f'conv{i+1}']*self.scale).to(torch.int64)
 
         # FC layers
-        self.W['fc1'] = torch.randn(256, 256) * (2.0 / 256)**0.5
-        self.W['fc2'] = torch.randn(256, 10) * (2.0 / 32)**0.5
+        self.W['fc1'] = torch.randn(4096, 1024) * (2.0 / 4096)**0.5
+        self.W['fc2'] = torch.randn(1024, 10) * (2.0 / 1024)**0.5
         self.W['fc1_q']=torch.round(self.W['fc1']*self.scale).to(torch.int64)
         self.W['fc2_q']=torch.round(self.W['fc2']*self.scale).to(torch.int64)
 
@@ -39,6 +39,12 @@ class ManualAlexNet:
             self.W[k].requires_grad = False
 
         self.cache = {}
+
+    def size(self):
+        total_params = 0
+        for param in self.W.values():
+            total_params += param.numel()
+        return total_params // 2 # remove quantized version
 
     def clear_cache(self):
         self.cache = {}
@@ -58,7 +64,7 @@ class ManualAlexNet:
         one_hot_y = F.one_hot(y, num_classes=10)
         self.save_to_cache('a_q0_label', one_hot_y)
 
-        for block, layers in enumerate([(1,), (2,), (3,), (4,), (5,)], start=1):
+        for block, layers in enumerate([(1,), (2,), (3,4,5)], start=1):
             #for lid in layers:
             #    x = F.conv2d(x, self.W[f'conv{lid}'], padding=1)
             #    self.cache[f'z{lid}'] = x
@@ -187,14 +193,14 @@ class ManualAlexNet:
 
         # reshape to conv5 output shape
         #grad = grad_flat.view(c['pool5'][0].shape)
-        grad_q = (grad_flat_q.view(c['pool_q5'][-1].shape)).to(torch.int64)
+        grad_q = (grad_flat_q.view(c['pool_q3'][-1].shape)).to(torch.int64)
         grad_q_scaled = False
-        self.save_to_cache('grad_pool_q5', grad_q) # big value
+        self.save_to_cache('grad_pool_q3', grad_q) # big value
 
         # backward through conv blocks
-        for block in reversed(range(1, 6)):
+        for block in reversed(range(1, 4)):
             #pooled_out, indices = c[f'pool{block}']
-            first_lid = [1, 2, 3, 4, 5][block - 1]
+            first_lid = [1, 2, 3][block - 1]
 
             pooled_out_q = c[f'pool_q{block}'][-1]
             indices_q = c[f'pool_idx_q{block}'][-1]
@@ -211,11 +217,7 @@ class ManualAlexNet:
             elif block == 2:
                 conv_ids = [2]
             elif block == 3:
-                conv_ids = [3]
-            elif block == 4:
-                conv_ids = [4]
-            elif block == 5:
-                conv_ids = [5]
+                conv_ids = [3, 4, 5]
 
 
             for lid in reversed(conv_ids):
@@ -377,6 +379,7 @@ def train_manual(batch_sz, iter_sz):
 
 import pad_conv
 if __name__ == "__main__":
+    print("AlexNet parameter size:",ManualAlexNet().size())
     torch.manual_seed(0)
     random.seed(0)
     train_manual(16, 1)

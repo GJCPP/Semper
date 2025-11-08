@@ -13,14 +13,15 @@ import shutil
 # ==============================================================
 
 # MODELS = ["LeNet", "AlexNet", "VGG11"]
-MODELS = ["LeNet"]
 
-# THREADS = [1]
-# BATCH_SIZES = [4, 8, 16]
-# ITERATIONS = [1]
-THREADS = [8]
+# MODELS = ["LeNet", "AlexNet", "VGG11"]
+MODELS = ["VGG11"]
+THREADS = [1]
 BATCH_SIZES = [16]
-ITERATIONS = [1, 2, 4, 8]
+ITERATIONS = [1]
+# THREADS = [1]
+# BATCH_SIZES = [16]
+# ITERATIONS = [1, 2, 4, 8]
 BENCH_BIN = "./build/bench"
 OUTDIR = "./logs"
 # ==============================================================
@@ -38,24 +39,42 @@ def run_command(cmd, logfile):
 def parse_output(output: str, model:str):
     """Extract interesting metrics from program output."""
     res = {}
+    succ = True
 
     m = re.search(r'num_vars\s*=\s*(\d+)', output)
     res['num_vars'] = int(m.group(1)) if m else None
+    if not m:
+        succ = True
 
     m = re.findall(r'\[prove .* total\]\s*cost:\s*([\d.]+)\s*s', output)
     res['prover_time_s'] = sum(map(float, m)) if m else None
+
+    m = re.findall(r'\[ligero commit\]\s*cost:\s*([\d.]+)\s*s', output)
+    res['commit_s'] = sum(map(float, m)) if m else None
+
+    m = re.findall(r'\[ligero open\]\s*cost:\s*([\d.]+)\s*s', output)
+    res['open_s'] = sum(map(float, m)) if m else None
+
+    m = re.findall(r'\[prove layers\]\s*cost:\s*([\d.]+)\s*s', output)
+    res['prove_layers_s'] = sum(map(float, m)) if m else None
+
+    m = re.findall(r'\[final logup\]\s*cost:\s*([\d.]+)\s*s', output)
+    res['logup_s'] = sum(map(float, m)) if m else None
+
+    m = re.findall(r'\[final map\]\s*cost:\s*([\d.]+)\s*s', output)
+    res['map_s'] = sum(map(float, m)) if m else None
 
     pat = rf'{re.escape(model)}:\s*([0-9.eE+-]+)MB'
     m = re.search(pat, output)
     res['proof_size_MB'] = float(m.group(1)) if m else None
 
-    m = re.findall(r'\[verifier[^\]]*\]\s*cost:\s*([\d.]+)\s*s', output)
+    m = re.findall(r'\[verifier\]\s*cost:\s*([\d.]+)\s*s', output)
     res['verifier_time_s'] = sum(map(float, m)) if m else None
 
     m = re.search(r'Maximum resident set size \(kbytes\):\s*(\d+)', output)
     res['max_memory_GB'] = float(m.group(1)) / 1e6 if m else None
 
-    return res
+    return res, succ
 
 
 def main():
@@ -63,7 +82,8 @@ def main():
     # We will save results to separate CSV files per model, under OUTDIR.
     fieldnames = [
         "model", "threads", "batch", "iters",
-        "num_vars", "prover_time_s", "proof_size_MB",
+        "num_vars", "prover_time_s", 'commit_s', 'open_s', 'prove_layers_s', 'logup_s', 'map_s',
+        "proof_size_MB",
         "verifier_time_s", "max_memory_GB", "logfile"
     ]
 
@@ -83,7 +103,9 @@ def main():
 
             for threads in THREADS:
                 for batch in BATCH_SIZES:
-                    for iters in ITERATIONS:
+                    iteraions = ITERATIONS
+                    while len(iteraions) > 0:
+                        iters = iteraions[0]
                         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
                         logname = f"{model}_t{threads}_b{batch}_i{iters}_{ts}.log"
                         logfile = os.path.join(OUTDIR, logname)
@@ -115,7 +137,15 @@ def main():
                         output = run_command(cmd, logfile)
 
                         # Step 3: Parse
-                        results = parse_output(output, model)
+                        results, succ = parse_output(output, model)
+
+                        if succ:
+                            iteraions = iteraions[1:]
+                        else:
+                            print(f"[!] Benchmark failed for {model} with threads={threads}, batch={batch}, iters={iters}. Check {logfile} for details.")
+                            # Do not proceed to next iteration count; retry the same one
+                            continue
+
                         results.update({
                             "model": model,
                             "threads": threads,

@@ -41,6 +41,12 @@ class ManualVGG11:
 
         self.cache = {}
 
+    def size(self):
+        total_params = 0
+        for param in self.W.values():
+            total_params += param.numel()
+        return total_params // 2 # remove quantized version
+
     def clear_cache(self):
         self.cache = {}
 
@@ -405,7 +411,8 @@ def train_manual(batch_sz, iter_sz):
 
 import pad_conv
 if __name__ == "__main__":
-    torch.manual_seed(0)
-    random.seed(0)
-    train_manual(16, 8)
-    pad_conv.pad_VGG11()
+    print("VGG11 parameter size:",ManualVGG11().size())
+    # torch.manual_seed(0)
+    # random.seed(0)
+    # train_manual(16, 8)
+    # pad_conv.pad_VGG11()

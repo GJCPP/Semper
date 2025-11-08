@@ -10,7 +10,7 @@
 AlexNet::AlexNet(std::string _data_dir, int epoch, int64_t scale, int64_t max_value, uint64_t rho_inv, uint64_t sec_param)
     : CNN("AlexNet", _data_dir + "/AlexNet", epoch, scale, max_value, rho_inv, sec_param) {
 
-    set_timer("AlexNet load & commit");
+    startTimer _timer("AlexNet load & commit");
 
     dataset = loadDataset(data_dir);
     filedata = loadEpochData(data_dir, epoch);
@@ -71,7 +71,7 @@ AlexNet::AlexNet(std::string _data_dir, int epoch, int64_t scale, int64_t max_va
     pcs_label = commit_lazy_pcs(label, pcs_pool);
     pcs_index = commit_lazy_pcs(input_index, pcs_pool);
 
-    std::vector<std::vector<int>> conv_layers = {{1}, {2}, {3}, {4}, {5}};
+    std::vector<std::vector<int>> conv_layers = {{1}, {2}, {3, 4, 5}};
     int ind_pool = 1;
     for (auto& layer : conv_layers) {
         for (auto& lid : layer) {
@@ -150,5 +150,4 @@ AlexNet::AlexNet(std::string _data_dir, int epoch, int64_t scale, int64_t max_va
         "a_q0_label");
     
 
-    pause_timer("VGG11 load & commit");
 }

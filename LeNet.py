@@ -27,9 +27,9 @@ class ManualLeNet:
             self.W[f'conv_q{i+1}']=torch.round(self.W[f'conv{i+1}']*self.scale).to(torch.int64)
 
         # FC layers
-        self.W['fc1'] = torch.randn(1024, 120) * (2.0 / 1024)**0.5
-        self.W['fc2'] = torch.randn(120, 84) * (2.0 / 120)**0.5
-        self.W['fc3'] = torch.randn(84, 10) * (2.0 / 84)**0.5
+        self.W['fc1'] = torch.randn(1024, 640) * (2.0 / 1024)**0.5
+        self.W['fc2'] = torch.randn(640, 128) * (2.0 / 640)**0.5
+        self.W['fc3'] = torch.randn(128, 10) * (2.0 / 128)**0.5
 
         # quantize
         self.W['fc1_q'] = torch.round(self.W['fc1'] * self.scale).to(torch.int64)
@@ -41,6 +41,13 @@ class ManualLeNet:
             self.W[k].requires_grad = False
 
         self.cache = {}
+
+    def size(self):
+        total_params = 0
+        for param in self.W.values():
+            total_params += param.numel()
+        return total_params // 2 # remove quantized version
+
 
     def clear_cache(self):
         self.cache = {}
@@ -405,7 +412,8 @@ def train_manual(batch_sz, iter_sz):
 
 import pad_conv
 if __name__ == "__main__":
-    torch.manual_seed(0)
-    random.seed(0)
-    train_manual(16, 1)
-    pad_conv.pad_LeNet()
+    print("LeNet parameter size:",ManualLeNet().size())
+    # torch.manual_seed(0)
+    # random.seed(0)
+    # train_manual(16, 1)
+    # pad_conv.pad_LeNet()

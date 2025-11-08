@@ -552,6 +552,7 @@ bool ligeropcs_ext::empty() const {
 }
 
 Goldilocks2::Element ligeropcs_base::open(const std::vector<Goldilocks2::Element>& z, const size_t& sec_param) const {
+    startTimer _timer("ligero open");
     if (ligero_open_cnt.count(z.size()) == 0) {
         ligero_open_cnt[z.size()] = 0;
     }
