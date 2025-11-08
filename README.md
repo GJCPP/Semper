@@ -26,15 +26,15 @@ make -j
 Run `sh ./benchmark.sh` for benchmarking, which executes
 
 ```sh
-sh setup.sh
+sh ./setup.sh
 python3 model/benchmark.py
 ```
 
-The results of benchmarking can be find under `logs` directory.
+The results of benchmarking can be find under `./logs` directory.
 
 ## File Structure
 
-In directory `./model` we implement CNN networks, includeing LeNet, AlexNet, VGG11 and VGG16. These scripts output training trace and witness to directory `training_trace` for generating proof.
+In directory `./model` we implement CNN networks, includeing LeNet, AlexNet, VGG11 and VGG16. These scripts output training trace and witness to directory `./training_trace` for generating proof.
 
 In directory `./src` and `./include` we implement our proof system, Zenith.
 
