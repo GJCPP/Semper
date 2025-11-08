@@ -16,12 +16,12 @@ import shutil
 
 MODELS = ["LeNet", "AlexNet", "VGG11"]
 # MODELS = ["VGG11"]
-# THREADS = [1, 2, 4, 8]
-# BATCH_SIZES = [4, 8, 16]
-# ITERATIONS = [1, 2, 4, 8]
-THREADS = [8]
-BATCH_SIZES = [8]
-ITERATIONS = [1]
+THREADS = [1, 2, 4, 8]
+BATCH_SIZES = [4, 8, 16]
+ITERATIONS = [1, 2, 4, 8]
+# THREADS = [8]
+# BATCH_SIZES = [8]
+# ITERATIONS = [1]
 BENCH_BIN = "./build/bench"
 OUTDIR = "./logs"
 # ==============================================================

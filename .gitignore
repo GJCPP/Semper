@@ -13,3 +13,4 @@ cnpy
 screenlog.0
 logs
 __pycache__
+.vscode

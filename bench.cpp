@@ -18,7 +18,7 @@
 #include "counter.h"
 #include "product2_sumcheck.h"
 
-const std::string DATA_DIR = "/home/gaojc/Desktop/zkCNN/training_trace/";
+const std::string DATA_DIR = "./training_trace/";
 
 void bench_VGG16() {
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
@@ -39,7 +39,6 @@ void bench_VGG16() {
 
 void bench_VGG11() {
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-    // VGG11 VGG11("/home/gaojc/Desktop/zkCNN/training_trace", 0, 1 << 14, 1 << 24, 2, 32);
     VGG11 VGG11(DATA_DIR, 0, 1 << 14, 1 << 27, 2, 32);
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
@@ -63,7 +62,6 @@ void bench_VGG11() {
 
 void bench_AlexNet() {
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-    // VGG11 VGG11("/home/gaojc/Desktop/zkCNN/training_trace", 0, 1 << 14, 1 << 24, 2, 32);
     AlexNet AlexNet(DATA_DIR, 0, 1 << 14, 1 << 27, 2, 32);
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
