@@ -1,4 +1,4 @@
-# Zenith
+# Semper
 
 A proof system for proving CNN training and inference.
 
@@ -36,7 +36,7 @@ The results of benchmarking can be find under `./logs` directory.
 
 In directory `./model` we implement CNN networks, includeing LeNet, AlexNet, VGG11 and VGG16. These scripts output training trace and witness to directory `./training_trace` for generating proof.
 
-In directory `./src` and `./include` we implement our proof system, Zenith.
+In directory `./src` and `./include` we implement our proof system, Semper.
 
 ## Citation
 
