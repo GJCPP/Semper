@@ -412,7 +412,7 @@ def train_manual(batch_sz, iter_sz):
 
 import pad_conv
 if __name__ == "__main__":
-    print("LeNet parameter size:",ManualLeNet().size())
+    print("LeNet parameter size:", ManualLeNet().size())
     # torch.manual_seed(0)
     # random.seed(0)
     # train_manual(16, 1)

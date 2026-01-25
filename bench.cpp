@@ -142,10 +142,10 @@ void bench_transpose() {
 
 void bench_commit() {
     clear_all_timers();
-    for (int i = 27; i <= 27; ++i) {
+    for (int i = 31; i <= 31; ++i) {
         std::cout << "i = " << i << std::endl;
         set_timer("allocation");
-        std::vector<Goldilocks2::Element> vec(1ull << i);
+        std::vector<Goldilocks2::Element> vec = random_vec_ext(1ull << i);
         pause_timer("allocation");
         set_timer("copy");
         MLE mle(vec);
@@ -240,32 +240,32 @@ void bench_lazypcs() {
 int main(int argc, char** argv) {
     // if (!run_test()) return 0;
     // find_parameter();
-    std::string model_name = "AlexNet";
-    if (argc >= 2) {
-        omp_set_num_threads(std::atoi(argv[1]));
-        model_name = (argc >= 3) ? std::string(argv[2]) : model_name;
-    } else {
-        omp_set_num_threads(NUM_THREADS);
-    }
-    if (model_name == "VGG16") {
-        bench_VGG16();
-    } else if (model_name == "VGG11") {
-        bench_VGG11();
-    } else if (model_name == "AlexNet") {
-        bench_AlexNet();
-    } else if (model_name == "LeNet") {
-        bench_LeNet();
-    } else {
-        std::cerr << "Unknown model name: " << model_name << std::endl;
-        return 1;
-    }
+    // std::string model_name = "AlexNet";
+    // if (argc >= 2) {
+    //     omp_set_num_threads(std::atoi(argv[1]));
+    //     model_name = (argc >= 3) ? std::string(argv[2]) : model_name;
+    // } else {
+    //     omp_set_num_threads(NUM_THREADS);
+    // }
+    // if (model_name == "VGG16") {
+    //     bench_VGG16();
+    // } else if (model_name == "VGG11") {
+    //     bench_VGG11();
+    // } else if (model_name == "AlexNet") {
+    //     bench_AlexNet();
+    // } else if (model_name == "LeNet") {
+    //     bench_LeNet();
+    // } else {
+    //     std::cerr << "Unknown model name: " << model_name << std::endl;
+    //     return 1;
+    // }
     // bench_AlexNet();
     // bench_VGG11();
     // bench_VGG16();
 
     // bench_p2_sumcheck();
     // bench_lazypcs();
-    // bench_commit();
+    bench_commit();
     // bench_transpose();
     return 0;
 }
