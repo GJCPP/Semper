@@ -267,7 +267,9 @@ std::vector<MerkleTree_ext::MTPayload> ligeroProver_ext::open_cols(const std::ve
 
 
 ligeropcs_ext ligeroProver_ext::commit() const {
-    return { mt_t.MerkleCommit(), std::make_shared<ligeroProver_ext>(*this), a, b };
+    auto merk = mt_t.MerkleCommit();
+    add_proof_size(sizeof(merk));
+    return { merk, std::make_shared<ligeroProver_ext>(*this), a, b };
 }
 
 
@@ -309,7 +311,8 @@ bool ligeroVerifier::check_lincomb(const ligeropcs_base& pcs, const std::vector<
     set_timer(VERIFIER_TIMER);
     set_timer("verifier ligero open");
 
-    add_proof_size(openings[0].sz_col * openings.size() * sizeof(Goldilocks2::Element));
+    add_proof_size(openings[0].sz_col * openings.size() * sizeof(Goldilocks::Element));
+    add_proof_size(openings[0].path.size() * openings.size() * sizeof(MerkleDef::Digest));
     for (auto opening : openings) {
         // check if this opening is right
         if (!MerkleTree_base::MerkleVerify(pcs.mthash, opening)) return false;
@@ -345,6 +348,7 @@ bool ligeroVerifier::check_lincomb(const ligeropcs_ext& pcs, const std::vector<G
     set_timer("verifier ligero open");
     // std::cout << openings[0].column.size() << ", " << openings.size() << ", " << sizeof(Goldilocks2::Element) << std::endl;
     add_proof_size(openings[0].column.size() * openings.size() * sizeof(Goldilocks2::Element));
+    add_proof_size(openings[0].path.size() * openings.size() * sizeof(MerkleDef::Digest));
 
     for (auto opening : openings) {
         // check if this opening is right

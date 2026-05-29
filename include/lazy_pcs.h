@@ -14,6 +14,14 @@
 class lazy_pcs;
 class lazy_pcs_pool;
 
+enum class pcs_backend {
+    ligero,
+    orion
+};
+
+pcs_backend default_pcs_backend();
+const char* pcs_backend_name(pcs_backend backend);
+
 lazy_pcs commit_lazy_pcs(const MLE& mle, std::shared_ptr<lazy_pcs_pool> pool);
 lazy_pcs commit_lazy_pcs(MLE&& mle, std::shared_ptr<lazy_pcs_pool> pool);
 
@@ -57,18 +65,22 @@ public:
     
     size_t get_open_num() const { return open_eqs.size(); }
     
-    static std::shared_ptr<lazy_pcs_pool> create(size_t sec_param, bool use_ext = false) {
-        return std::shared_ptr<lazy_pcs_pool>(new lazy_pcs_pool(sec_param, use_ext));
+    static std::shared_ptr<lazy_pcs_pool> create(size_t sec_param,
+                                                 bool use_ext = false,
+                                                 pcs_backend backend = default_pcs_backend()) {
+        return std::shared_ptr<lazy_pcs_pool>(new lazy_pcs_pool(sec_param, use_ext, backend));
     }
     
 protected:
 
-    lazy_pcs_pool(size_t sec_param, bool use_ext = false) : sec_param(sec_param), use_ext(use_ext) {}
+    lazy_pcs_pool(size_t sec_param, bool use_ext = false, pcs_backend backend = default_pcs_backend())
+        : sec_param(sec_param), use_ext(use_ext), backend(backend) {}
 
     bool committed = false, finalized = false;
     int num_vars = 0;
     size_t sec_param = 32;
     bool use_ext = false;
+    pcs_backend backend = pcs_backend::orion;
     std::vector<std::pair<std::shared_ptr<MLE>, size_t>> mles; // (mle, add order)
     std::vector<std::vector<Goldilocks2::Element>> prefix;
     std::vector<std::vector<Goldilocks2::Element>> open_eqs;

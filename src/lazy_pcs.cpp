@@ -1,12 +1,57 @@
+#include <algorithm>
+#include <cctype>
+#include <cstdlib>
 #include <map>
+#include <stdexcept>
+#include <string>
 
 #include "lazy_pcs.h"
 #include "timer.h"
 #include "util.h"
 #include "ligero.h"
+#include "orion.h"
 #include "counter.h"
 
 // #define OMIT_PCS
+
+namespace {
+
+std::string normalize_backend_name(const char* raw) {
+    std::string value(raw == nullptr ? "" : raw);
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return value;
+}
+
+} // namespace
+
+pcs_backend default_pcs_backend() {
+    const char* raw = std::getenv("ZKCNN_PCS");
+    if (raw == nullptr) {
+        raw = std::getenv("ZKCNN_PCS_BACKEND");
+    }
+
+    std::string value = normalize_backend_name(raw);
+    if (value.empty() || value == "orion") {
+        return pcs_backend::orion;
+    }
+    if (value == "ligero") {
+        return pcs_backend::ligero;
+    }
+
+    throw std::runtime_error("unknown ZKCNN_PCS backend: " + value + " (expected orion or ligero)");
+}
+
+const char* pcs_backend_name(pcs_backend backend) {
+    switch (backend) {
+        case pcs_backend::ligero:
+            return "ligero";
+        case pcs_backend::orion:
+            return "orion";
+    }
+    return "unknown";
+}
 
 std::shared_ptr<oracle> lazy_pcs_pool::commit(uint64_t rho_inv) {
 
@@ -95,15 +140,31 @@ std::shared_ptr<oracle> lazy_pcs_pool::commit(uint64_t rho_inv) {
 #endif
 
     set_timer("lazy_pcs_pool commit");
-    if (use_ext) {
-        auto r = std::make_shared<ligeropcs_ext>(ligero_commit_ext(uni_mle, rho_inv));
-        pause_timer("lazy_pcs_pool commit");
-        return r;
-    } else {
-        auto r = std::make_shared<ligeropcs_base>(ligero_commit_base(uni_mle, rho_inv));
-        pause_timer("lazy_pcs_pool commit");
-        return r;
+    if (backend == pcs_backend::orion) {
+        if (use_ext) {
+            auto r = std::make_shared<orionpcs_ext>(orion_commit_ext(uni_mle, rho_inv));
+            pause_timer("lazy_pcs_pool commit");
+            return r;
+        } else {
+            auto r = std::make_shared<orionpcs_base>(orion_commit_base(uni_mle, rho_inv));
+            pause_timer("lazy_pcs_pool commit");
+            return r;
+        }
     }
+    if (backend == pcs_backend::ligero) {
+        if (use_ext) {
+            auto r = std::make_shared<ligeropcs_ext>(ligero_commit_ext(uni_mle, rho_inv));
+            pause_timer("lazy_pcs_pool commit");
+            return r;
+        } else {
+            auto r = std::make_shared<ligeropcs_base>(ligero_commit_base(uni_mle, rho_inv));
+            pause_timer("lazy_pcs_pool commit");
+            return r;
+        }
+    }
+
+    pause_timer("lazy_pcs_pool commit");
+    throw std::runtime_error("lazy_pcs_pool::commit: unsupported PCS backend");
 }
 
 void lazy_pcs_pool::record_open(size_t ind, const std::vector<Goldilocks2::Element>& z, Goldilocks2::Element val, size_t sec) {

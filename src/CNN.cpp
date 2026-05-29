@@ -509,7 +509,7 @@ bool CNN::prove(size_t sec_param) {
     pause_timer(std::format("prove {} total", model_name));
     print_all_timers();
     clear_all_timers();
-    return false;
+    return true;
 }
 
 bool CNN::prove_input(size_t sec_param) {
@@ -725,4 +725,3 @@ lazy_pcs CNN::layer_info::get_pcs_aux(int bat) const {
     auto& pcs = pcs_aux[bat];
     return pcs;
 }
-

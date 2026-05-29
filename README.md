@@ -17,10 +17,8 @@ Note that Goldilocks is already included in the repo, and cnpy will be fetched a
 Run `sh ./setup.sh` command, which executes the following script
 
 ```sh
-mkdir build
-cd build
-cmake -DCMAKE_CXX_COMPILER=g++-13 -DCMAKE_BUILD_TYPE=Release ..
-make -j
+cmake -S . -B build -DCMAKE_CXX_COMPILER=g++-13 -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
 ```
 
 Run `sh ./benchmark.sh` for benchmarking, which executes
@@ -30,7 +28,13 @@ sh ./setup.sh
 python3 model/benchmark.py
 ```
 
-The results of benchmarking can be find under `./logs` directory.
+The default PCS backend is Orion. Use `ZKCNN_PCS=ligero sh ./benchmark.sh` to run the Ligero backend instead.
+
+Benchmarks run single-threaded by default. Use `ZKCNN_THREADS=1,2,4,8 sh ./benchmark.sh` only when a multi-thread sweep is needed.
+
+The results of benchmarking can be find under `./logs/<pcs_backend>` directory.
+Generated traces under `./training_trace/<model>` are removed after each benchmark case by default to reduce disk pressure. Use `ZKCNN_KEEP_TRACES=1 sh ./benchmark.sh` when traces need to be kept for debugging.
+Benchmark resume is based on completed rows in `./logs/<pcs_backend>/*_benchmark_results.csv`, not on trace files. Use `ZKCNN_RERUN_COMPLETED=1 sh ./benchmark.sh` to ignore existing CSV rows and rerun everything.
 
 ## File Structure
 
